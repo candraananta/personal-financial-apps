@@ -1,64 +1,84 @@
-<!-- KONTEN: View_ArusKas.html -->
-<section id="modul-aruskas" class="block">
+<!-- KONTEN: View_ArusKas.html - PERBAIKAN MOBILE -->
+<section id="modul-aruskas" class="block w-full">
   
   <!-- Pemilih Mode Pemasukan / Pengeluaran -->
   <div class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4 flex items-center gap-3">
-    <div class="bg-pink-100 p-3 rounded-xl text-pink-600"><i class="fa-solid fa-money-bill-wave text-xl"></i></div>
-    <div class="flex-1">
+    <div class="bg-pink-100 p-3 rounded-xl text-pink-600 flex-shrink-0">
+      <i class="fa-solid fa-money-bill-wave text-xl"></i>
+    </div>
+    <div class="flex-1 min-w-0">
       <label class="block text-[10px] font-bold text-gray-400 mb-1">ARUS KAS</label>
-      <select id="pilihModeArusKas" onchange="gantiModeArusKas()" class="w-full bg-rose-50 border border-pink-200 py-2 px-2 rounded-lg outline-none text-sm font-bold text-rose-900">
+      <select id="pilihModeArusKas" onchange="gantiModeArusKas()" 
+              class="w-full bg-rose-50 border border-pink-200 py-2 px-2 rounded-lg outline-none text-sm font-bold text-rose-900">
         <option value="PENGELUARAN">Catat Pengeluaran</option>
         <option value="PEMASUKAN">Catat Pemasukan (Gaji/Dll)</option>
       </select>
     </div>
   </div>
 
-  <div class="bg-white p-5 rounded-2xl shadow-sm border border-pink-100 mb-20 block">
+  <div class="bg-white p-5 rounded-2xl shadow-sm border border-pink-100 mb-20 block w-full">
     <form id="formArusKas" onsubmit="submitTrxArusKas(event)">
       
       <div class="mb-4 grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-bold text-gray-500 mb-1">TANGGAL <span class="text-red-500">*</span></label>
-          <!-- Tambahan event onchange untuk mendeteksi perubahan tanggal -->
-          <input type="date" id="kas-tgl" onchange="updatePeriodeUI()" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none text-sm font-bold text-rose-900" required>
+          <input type="date" id="kas-tgl" onchange="updatePeriodeUI()" 
+                 class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none font-bold text-rose-900" 
+                 style="font-size: 16px;" required>
         </div>
         <div>
-          <label class="block text-xs font-bold text-gray-500 mb-1">PERIODE PEMBUKUAN</label>
-          <!-- Dropdown manual dihapus, diganti input read-only yang otomatis terisi -->
-          <input type="text" id="kas-periode" class="w-full bg-pink-100 border border-pink-200 py-3 px-3 rounded-xl outline-none text-sm font-bold text-pink-700 cursor-not-allowed" readonly>
+          <label class="block text-xs font-bold text-gray-500 mb-1">PERIODE</label>
+          <input type="text" id="kas-periode" 
+                 class="w-full bg-pink-100 border border-pink-200 py-3 px-3 rounded-xl outline-none font-bold text-pink-700 cursor-not-allowed text-sm" 
+                 readonly>
         </div>
       </div>
 
       <!-- AREA DINAMIS: Custom Searchable Dropdown -->
       <div id="area-template-rutin" class="mb-4 bg-yellow-50 border border-yellow-200 p-3 rounded-xl">
-        <label class="block text-xs font-bold text-yellow-700 mb-1"><i class="fa-solid fa-search mr-1"></i> CARI PENGELUARAN RUTIN</label>
-        
+        <label class="block text-xs font-bold text-yellow-700 mb-1">
+          <i class="fa-solid fa-search mr-1"></i> CARI PENGELUARAN RUTIN
+        </label>
         <div class="relative w-full">
-          <input type="text" id="kas-template-input" autocomplete="off" oninput="filterTemplateRutin()" onclick="tampilkanDropdownTemplate()" class="w-full bg-white border border-yellow-300 py-2 px-3 rounded-lg outline-none text-sm placeholder-gray-400 focus:ring-2 focus:ring-yellow-400" placeholder="Ketik nama tagihan...">
-          
-          <ul id="kas-dropdown-list" class="absolute z-50 w-full bg-white border border-yellow-300 mt-1 max-h-48 overflow-y-auto rounded-lg shadow-xl hidden text-sm divide-y divide-gray-100">
-            <!-- Item diisi otomatis via JavaScript -->
+          <input type="text" id="kas-template-input" autocomplete="off" 
+                 oninput="filterTemplateRutin()" onclick="tampilkanDropdownTemplate()" 
+                 class="w-full bg-white border border-yellow-300 py-2 px-3 rounded-lg outline-none placeholder-gray-400 focus:ring-2 focus:ring-yellow-400" 
+                 style="font-size: 16px;"
+                 placeholder="Ketik nama tagihan...">
+          <ul id="kas-dropdown-list" 
+              class="absolute z-50 w-full bg-white border border-yellow-300 mt-1 max-h-48 overflow-y-auto rounded-lg shadow-xl hidden divide-y divide-gray-100"
+              style="font-size: 14px;">
           </ul>
         </div>
       </div>
 
       <div class="mb-4">
         <label class="block text-xs font-bold text-gray-500 mb-1">NAMA ITEM / SUMBER <span class="text-red-500">*</span></label>
-        <input type="text" id="kas-item" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none text-sm" placeholder="Misal: Tagihan Listrik / Gaji Bulanan" required>
+        <input type="text" id="kas-item" 
+               class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none text-sm" 
+               style="font-size: 16px;"
+               placeholder="Misal: Tagihan Listrik / Gaji Bulanan" required>
       </div>
 
       <div class="mb-4">
         <label class="block text-xs font-bold text-gray-500 mb-1">NOMINAL (RP) <span class="text-red-500">*</span></label>
-        <input type="text" id="kas-nominal-visual" oninput="formatVisualAngka(this, 'kas-nominal-raw')" class="w-full bg-rose-50 border border-pink-200 py-4 px-4 rounded-xl text-xl font-bold text-gray-800 outline-none text-center transition-colors" placeholder="0" required>
+        <input type="text" id="kas-nominal-visual" oninput="formatVisualAngka(this, 'kas-nominal-raw')" 
+               class="w-full bg-rose-50 border border-pink-200 py-4 px-4 rounded-xl font-bold text-gray-800 outline-none text-center transition-colors" 
+               style="font-size: 20px;"
+               placeholder="0" required>
         <input type="hidden" id="kas-nominal-raw" value="0">
       </div>
 
       <div class="mb-6">
         <label class="block text-xs font-bold text-gray-500 mb-1">CATATAN / NO REK / KODE BAYAR</label>
-        <input type="text" id="kas-catatan" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none text-sm" placeholder="Boleh dikosongkan">
+        <input type="text" id="kas-catatan" 
+               class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none text-sm" 
+               style="font-size: 16px;"
+               placeholder="Boleh dikosongkan">
       </div>
 
-      <button type="submit" id="btn-submit-kas" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm transition-colors">
+      <button type="submit" id="btn-submit-kas" 
+              class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm transition-colors">
         Simpan Pengeluaran (Kredit)
       </button>
     </form>
@@ -69,23 +89,20 @@
 <script>
   let dataPengeluaranRutin = [];
 
-  // FUNGSI BARU: Menghitung periode otomatis berdasarkan tanggal
   function updatePeriodeUI() {
     const tglInput = document.getElementById('kas-tgl').value;
     if (!tglInput) return;
     
-    const dateObj = new Date(tglInput);
-    let tgl = dateObj.getDate();
-    let bln = dateObj.getMonth(); 
-    let thn = dateObj.getFullYear();
+    // Parse langsung dari string YYYY-MM-DD untuk menghindari bug timezone
+    const parts = tglInput.split('-');
+    let thn = parseInt(parts[0]);
+    let bln = parseInt(parts[1]) - 1; // 0-indexed
+    let tgl = parseInt(parts[2]);
 
     // Logika Cut-Off: Tgl 28 lompat ke bulan depan
     if (tgl >= 28) {
       bln = bln + 1;
-      if (bln > 11) { 
-        bln = 0;
-        thn = thn + 1;
-      }
+      if (bln > 11) { bln = 0; thn = thn + 1; }
     }
 
     const namaBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
@@ -95,8 +112,6 @@
   function initModulArusKas() {
     const localDate = new Date(new Date().getTime() - (new Date().getTimezoneOffset()*60*1000)).toISOString().split('T')[0];
     document.getElementById('kas-tgl').value = localDate;
-
-    // Memanggil perhitungan periode saat halaman pertama kali dibuka
     updatePeriodeUI();
 
     google.script.run.withSuccessHandler(data => {
@@ -118,7 +133,9 @@
     document.getElementById('kas-dropdown-list').innerHTML = listHtml;
   }
 
-  function tampilkanDropdownTemplate() { document.getElementById('kas-dropdown-list').classList.remove('hidden'); }
+  function tampilkanDropdownTemplate() { 
+    document.getElementById('kas-dropdown-list').classList.remove('hidden'); 
+  }
 
   function filterTemplateRutin() {
     tampilkanDropdownTemplate();
@@ -156,8 +173,6 @@
     document.getElementById('formArusKas').reset();
     document.getElementById('kas-nominal-raw').value = 0;
     document.getElementById('kas-template-input').value = '';
-    
-    // Jangan lupa hitung ulang periode saat form di-reset
     updatePeriodeUI();
     
     const listItems = document.getElementById('kas-dropdown-list').getElementsByTagName('li');
@@ -188,7 +203,6 @@
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...'; 
     btn.disabled = true;
 
-    // Perubahan di Payload: Mengirim 'periode' bukan lagi 'cutoff'
     const payload = {
       tanggal: document.getElementById('kas-tgl').value,
       periode: document.getElementById('kas-periode').value,
@@ -200,7 +214,6 @@
 
     google.script.run.withSuccessHandler(res => {
       Swal.fire({title: 'Berhasil!', text: res, icon:'success'});
-      
       document.getElementById('kas-item').value = '';
       document.getElementById('kas-nominal-visual').value = '';
       document.getElementById('kas-nominal-raw').value = '0';

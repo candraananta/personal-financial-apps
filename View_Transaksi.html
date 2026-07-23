@@ -1,12 +1,15 @@
-<!-- KONTEN: View_Transaksi.html -->
-<section id="modul-transaksi" class="block relative">
+<!-- KONTEN: View_Transaksi.html - PERBAIKAN MOBILE -->
+<section id="modul-transaksi" class="block relative w-full">
   
   <!-- Pemilih Jenis Transaksi -->
   <div class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4 flex items-center gap-3">
-    <div class="bg-pink-100 p-3 rounded-xl text-pink-600"><i class="fa-solid fa-money-bill-transfer text-xl"></i></div>
-    <div class="flex-1">
+    <div class="bg-pink-100 p-3 rounded-xl text-pink-600 flex-shrink-0">
+      <i class="fa-solid fa-money-bill-transfer text-xl"></i>
+    </div>
+    <div class="flex-1 min-w-0">
       <label class="block text-[10px] font-bold text-gray-400 mb-1">MODE PENCATATAN</label>
-      <select id="pilihModeTrx" onchange="gantiModeTrx()" class="w-full bg-rose-50 border border-pink-200 py-2 px-2 rounded-lg outline-none text-sm font-bold text-rose-900">
+      <select id="pilihModeTrx" onchange="gantiModeTrx()" 
+              class="w-full bg-rose-50 border border-pink-200 py-2 px-2 rounded-lg outline-none text-sm font-bold text-rose-900">
         <option value="klinik">Fee Klinik Medis</option>
         <option value="aset">Tabungan Aset (Investasi)</option>
       </select>
@@ -14,68 +17,87 @@
   </div>
 
   <!-- FORM 1: TRANSAKSI KLINIK -->
-  <div id="form-klinik-container" class="bg-white p-5 rounded-2xl shadow-sm border border-pink-100 mb-20 block">
+  <div id="form-klinik-container" class="bg-white p-5 rounded-2xl shadow-sm border border-pink-100 mb-20 block w-full">
     <form id="formKlinik" onsubmit="submitTrxKlinik(event)">
       <div class="mb-4">
         <label class="block text-xs font-bold text-gray-500 mb-1">TANGGAL TRANSAKSI <span class="text-red-500">*</span></label>
-        <input type="date" id="klinik-tgl" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm font-bold text-rose-900" required>
+        <input type="date" id="klinik-tgl" 
+               class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none font-bold text-rose-900" 
+               style="font-size: 16px;" required>
       </div>
       <div class="grid grid-cols-1 gap-4 mb-4">
         <div>
           <label class="block text-xs font-bold text-gray-500 mb-1">LOKASI / KLINIK <span class="text-red-500">*</span></label>
-          <select id="klinik-lokasi" onchange="kalkulasiKlinik()" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" required>
+          <select id="klinik-lokasi" onchange="kalkulasiKlinik()" 
+                  class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" 
+                  required>
             <option value="" disabled selected>Memuat referensi...</option>
           </select>
         </div>
         <div>
           <label class="block text-xs font-bold text-gray-500 mb-1">NAMA PASIEN <span class="text-red-500">*</span></label>
-          <input type="text" id="klinik-pasien" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" placeholder="Nama lengkap" required>
+          <input type="text" id="klinik-pasien" 
+                 class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" 
+                 style="font-size: 16px;"
+                 placeholder="Nama lengkap" required>
         </div>
       </div>
       <div class="mb-4 flex items-center justify-between bg-pink-50 p-3 rounded-xl border border-pink-200">
-        <div>
+        <div class="flex-1 min-w-0 mr-3">
           <p class="text-xs font-bold text-rose-900"><i class="fa-solid fa-id-card text-pink-500 mr-1"></i> Pasien BPJS?</p>
           <p class="text-[10px] text-pink-600">Full Tarif Masuk Ke Komisi Dokter</p>
         </div>
-        <label class="relative inline-flex items-center cursor-pointer">
+        <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
           <input type="checkbox" id="klinik-bpjs" onchange="toggleBPJS()" class="sr-only peer">
           <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
         </label>
       </div>
       <div class="mb-4">
         <label class="block text-xs font-bold text-gray-500 mb-1">TINDAKAN (OPSIONAL)</label>
-        <input type="text" id="klinik-tindakan" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm">
+        <input type="text" id="klinik-tindakan" 
+               class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm"
+               style="font-size: 16px;">
       </div>
       <div class="mb-6">
         <label class="block text-xs font-bold text-gray-500 mb-1">TOTAL OMSET (RP) <span class="text-red-500">*</span></label>
-        <input type="text" id="klinik-omset-visual" oninput="formatVisualAngka(this, 'klinik-omset-raw'); kalkulasiKlinik()" class="w-full bg-rose-50 border border-pink-200 py-4 px-4 rounded-xl text-xl font-bold text-gray-800 focus:ring-2 focus:ring-pink-500 outline-none text-center transition-colors" placeholder="0" required>
+        <input type="text" id="klinik-omset-visual" oninput="formatVisualAngka(this, 'klinik-omset-raw'); kalkulasiKlinik()" 
+               class="w-full bg-rose-50 border border-pink-200 py-4 px-4 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-pink-500 outline-none text-center transition-colors" 
+               style="font-size: 20px;"
+               placeholder="0" required>
         <input type="hidden" id="klinik-omset-raw" value="0">
       </div>
       <div class="bg-pink-50 border border-pink-200 rounded-xl p-4 mb-6 grid grid-cols-2 gap-2 text-center divide-x divide-pink-200">
         <div>
-          <p class="text-[10px] text-pink-600 font-bold mb-1">KOMISI DOKTER (<span id="txt-persen-klinik">0</span>%)</p>
-          <p class="text-sm font-bold text-rose-900" id="txt-nominal-klinik">Rp 0</p>
+          <p class="text-[10px] text-pink-600 font-bold mb-1">KOMISI (<span id="txt-persen-klinik">0</span>%)</p>
+          <p class="text-sm font-bold text-rose-900 truncate" id="txt-nominal-klinik">Rp 0</p>
         </div>
         <div>
           <p class="text-[10px] text-pink-600 font-bold mb-1">LABA KLINIK</p>
-          <p class="text-sm font-bold text-rose-900" id="txt-laba-klinik">Rp 0</p>
+          <p class="text-sm font-bold text-rose-900 truncate" id="txt-laba-klinik">Rp 0</p>
         </div>
       </div>
-      <input type="hidden" id="val-persen-klinik" value="0"><input type="hidden" id="val-nominal-klinik" value="0"><input type="hidden" id="val-laba-klinik" value="0"><input type="hidden" id="val-cutoff-klinik" value="0">
-      <button type="submit" id="btn-submit-klinik" class="w-full bg-pink-600 hover:bg-pink-700 active:bg-pink-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm">Simpan Fee Klinik</button>
+      <input type="hidden" id="val-persen-klinik" value="0">
+      <input type="hidden" id="val-nominal-klinik" value="0">
+      <input type="hidden" id="val-laba-klinik" value="0">
+      <input type="hidden" id="val-cutoff-klinik" value="0">
+      <button type="submit" id="btn-submit-klinik" 
+              class="w-full bg-pink-600 hover:bg-pink-700 active:bg-pink-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm">
+        Simpan Fee Klinik
+      </button>
     </form>
   </div>
 
   <!-- FORM 2: TRANSAKSI TABUNGAN ASET -->
-  <div id="form-aset-container" class="bg-white p-5 rounded-2xl shadow-sm border border-pink-100 mb-20 hidden">
+  <div id="form-aset-container" class="bg-white p-5 rounded-2xl shadow-sm border border-pink-100 mb-20 hidden w-full">
     <form id="formAset" onsubmit="submitTrxAset(event)">
       
-      <!-- Input Tersembunyi Penyimpan Relasi Jual -->
       <input type="hidden" id="val-id-referensi" value="">
 
       <div class="mb-4">
         <label class="block text-xs font-bold text-gray-500 mb-1">TANGGAL TRANSAKSI <span class="text-red-500">*</span></label>
-        <input type="date" id="aset-tgl" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm font-bold text-rose-900" required>
+        <input type="date" id="aset-tgl" 
+               class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none font-bold text-rose-900" 
+               style="font-size: 16px;" required>
       </div>
 
       <div class="mb-4">
@@ -92,17 +114,18 @@
         </div>
       </div>
 
-      <!-- Input COA dari Master Pengeluaran -->
       <div class="mb-4" id="area-coa-aset">
         <label class="block text-xs font-bold text-gray-500 mb-1">AKUN BIAYA (COA) <span class="text-red-500">*</span></label>
-        <select id="aset-coa" class="w-full bg-pink-50 border border-pink-200 py-3 px-3 rounded-xl outline-none text-sm font-bold text-rose-900">
+        <select id="aset-coa" 
+                class="w-full bg-pink-50 border border-pink-200 py-3 px-3 rounded-xl outline-none text-sm font-bold text-rose-900">
           <option value="" disabled selected>Memuat Master COA...</option>
         </select>
       </div>
 
       <div class="mb-4">
         <label class="block text-xs font-bold text-gray-500 mb-1">PLATFORM / TEMPAT SIMPAN <span class="text-red-500">*</span></label>
-        <select id="aset-platform" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" required>
+        <select id="aset-platform" 
+                class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" required>
           <option value="" disabled selected>Memuat referensi...</option>
         </select>
       </div>
@@ -110,26 +133,34 @@
       <div class="mb-4 grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-bold text-gray-500 mb-1">KATEGORI <span class="text-red-500">*</span></label>
-          <select id="aset-kategori" onchange="filterItemBerdasarkanKategori()" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" required>
-            <option value="" disabled selected>Pilih Kategori...</option>
+          <select id="aset-kategori" onchange="filterItemBerdasarkanKategori()" 
+                  class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" required>
+            <option value="" disabled selected>Pilih...</option>
           </select>
         </div>
         <div>
           <label class="block text-xs font-bold text-gray-500 mb-1">NAMA ITEM <span class="text-red-500">*</span></label>
-          <select id="aset-item" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" required>
-            <option value="" disabled selected>Pilih Item...</option>
+          <select id="aset-item" 
+                  class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" required>
+            <option value="" disabled selected>Pilih...</option>
           </select>
         </div>
       </div>
 
       <div class="mb-4 grid grid-cols-2 gap-3">
         <div>
-          <label class="block text-xs font-bold text-gray-500 mb-1">KUANTITAS (UNIT) <span class="text-red-500">*</span></label>
-          <input type="number" step="any" id="aset-kuantitas" oninput="kalkulasiAset()" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm font-bold" placeholder="Misal: 10" required>
+          <label class="block text-xs font-bold text-gray-500 mb-1">KUANTITAS <span class="text-red-500">*</span></label>
+          <input type="number" step="any" id="aset-kuantitas" oninput="kalkulasiAset()" 
+                 class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm font-bold" 
+                 style="font-size: 16px;"
+                 placeholder="Misal: 10" required>
         </div>
         <div>
-          <label class="block text-xs font-bold text-gray-500 mb-1">TOTAL BAYAR/DAPAT (RP) <span class="text-red-500">*</span></label>
-          <input type="text" id="aset-total-visual" oninput="formatVisualAngka(this, 'aset-total-raw'); kalkulasiAset()" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm font-bold text-rose-900" placeholder="0" required>
+          <label class="block text-xs font-bold text-gray-500 mb-1">TOTAL (RP) <span class="text-red-500">*</span></label>
+          <input type="text" id="aset-total-visual" oninput="formatVisualAngka(this, 'aset-total-raw'); kalkulasiAset()" 
+                 class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm font-bold text-rose-900" 
+                 style="font-size: 16px;"
+                 placeholder="0" required>
           <input type="hidden" id="aset-total-raw" value="0">
         </div>
       </div>
@@ -140,36 +171,43 @@
         <input type="hidden" id="val-harga-satuan" value="0">
       </div>
 
-      <button type="submit" id="btn-submit-aset" class="w-full bg-pink-600 hover:bg-pink-700 active:bg-pink-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm">
+      <button type="submit" id="btn-submit-aset" 
+              class="w-full bg-pink-600 hover:bg-pink-700 active:bg-pink-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm">
         Simpan Transaksi Aset
       </button>
     </form>
   </div>
 
-  <!-- MODAL / POP-UP GRID PILIH JUAL -->
-  <div id="modal-grid-jual" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
-    <div class="bg-white rounded-2xl p-5 w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl">
-       <h3 class="text-sm font-bold text-rose-900 mb-3 border-b border-pink-50 pb-2"><i class="fa-solid fa-list-check text-pink-500 mr-2"></i>Pilih Aset Untuk Dijual</h3>
-       
-       <div class="overflow-y-auto flex-1 no-scrollbar mb-4 border border-pink-100 rounded-lg">
-          <table class="w-full text-left text-xs whitespace-nowrap">
-             <thead class="bg-rose-50 text-pink-700 sticky top-0">
+  <!-- MODAL GRID PILIH JUAL -->
+  <!-- PERBAIKAN: Modal dari bawah (sheet style) lebih nyaman di mobile -->
+  <div id="modal-grid-jual" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 z-[60] flex items-end justify-center p-0 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-t-2xl w-full max-w-lg flex flex-col shadow-2xl overflow-hidden"
+         style="max-height: 85dvh; max-height: 85vh;">
+       <div class="p-4 border-b border-pink-50 flex-shrink-0">
+         <h3 class="text-sm font-bold text-rose-900">
+           <i class="fa-solid fa-list-check text-pink-500 mr-2"></i>Pilih Aset Untuk Dijual
+         </h3>
+       </div>
+       <div class="overflow-y-auto flex-1 no-scrollbar">
+          <table class="w-full text-left text-xs">
+             <thead class="bg-rose-50 text-pink-700 sticky top-0 z-10">
                 <tr>
-                  <th class="px-3 py-2">Tgl Beli</th>
-                  <th class="px-3 py-2">Item & Platform</th>
-                  <th class="px-3 py-2">Sisa Qty</th>
-                  <th class="px-3 py-2 text-center">Aksi</th>
+                  <th class="px-3 py-2 whitespace-nowrap">Tgl Beli</th>
+                  <th class="px-3 py-2">Item</th>
+                  <th class="px-3 py-2 whitespace-nowrap">Sisa</th>
+                  <th class="px-3 py-2 text-center whitespace-nowrap">Aksi</th>
                 </tr>
              </thead>
              <tbody id="tbody-grid-jual" class="divide-y divide-pink-50">
-                <!-- Data diinjeksi via JS -->
              </tbody>
           </table>
        </div>
-       
-       <button type="button" onclick="tutupGridJual()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold text-xs transition-colors">
-         Batalkan Penjualan
-       </button>
+       <div class="p-4 border-t border-pink-50 flex-shrink-0">
+         <button type="button" onclick="tutupGridJual()" 
+                 class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold text-sm transition-colors">
+           Batalkan
+         </button>
+       </div>
     </div>
   </div>
 
@@ -184,13 +222,11 @@
     document.getElementById('klinik-tgl').value = localDate;
     document.getElementById('aset-tgl').value = localDate;
     
-    // Memanggil referensi lokasi, kategori, platform, dll.
     google.script.run.withSuccessHandler(data => {
       dataMasterCache = data; 
       populateDropdowns();
     }).getReferensiTransaksi();
 
-    // Memanggil data COA untuk Arus Kas
     google.script.run.withSuccessHandler(data => {
       let opsiCoa = '<option value="" disabled selected>-- Pilih Akun Pengeluaran --</option>';
       data.forEach(d => {
@@ -224,7 +260,6 @@
     const katTerpilih = document.getElementById('aset-kategori').value;
     const cbItem = document.getElementById('aset-item');
     cbItem.innerHTML = '<option value="" disabled selected>-- Pilih Item --</option>';
-
     const itemSesuai = dataMasterCache.item.filter(i => i[1] === katTerpilih);
     if(itemSesuai.length === 0) cbItem.innerHTML = '<option value="" disabled selected>Belum ada item di master</option>';
     else itemSesuai.forEach(i => cbItem.innerHTML += `<option value="${i[2]}">${i[2]}</option>`);
@@ -289,12 +324,10 @@
     let nom = 0, laba = 0;
     
     if (isBPJS) { 
-      nom = omset; 
-      laba = 0; 
+      nom = omset; laba = 0; 
       document.getElementById('txt-persen-klinik').innerText = "Flat"; 
     } else { 
-      nom = omset * (persen / 100); 
-      laba = omset - nom; 
+      nom = omset * (persen / 100); laba = omset - nom; 
       document.getElementById('txt-persen-klinik').innerText = persen; 
     }
 
@@ -341,13 +374,10 @@
   }
 
   // --- LOGIKA TABUNGAN ASET ---
-  
   function bukaGridJual() {
-    // Sembunyikan form COA saat mode Jual dipilih
     document.getElementById('area-coa-aset').classList.add('hidden');
-
     document.getElementById('modal-grid-jual').classList.remove('hidden');
-    document.getElementById('tbody-grid-jual').innerHTML = '<tr><td colspan="4" class="px-3 py-6 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-pink-500 mb-2 text-xl block"></i> Memuat Riwayat...</td></tr>';
+    document.getElementById('tbody-grid-jual').innerHTML = '<tr><td colspan="4" class="px-3 py-6 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-pink-500 mb-2 text-xl block"></i> Memuat...</td></tr>';
     
     google.script.run.withSuccessHandler(data => {
       cacheRiwayatJual = data; 
@@ -365,105 +395,80 @@
 
   function renderGridJual(data) {
     const tbody = document.getElementById('tbody-grid-jual');
-    
     if(data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 font-bold">Tidak ada aset (sisa) yang bisa dijual.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 font-bold">Tidak ada aset yang bisa dijual.</td></tr>';
       return;
     }
-
     let htmlRows = '';
     data.forEach(d => {
       htmlRows += `
          <tr class="hover:bg-rose-50 transition-colors">
-           <td class="px-3 py-3 text-[10px] font-mono text-gray-500">${d.tanggal}</td>
+           <td class="px-3 py-3 text-[10px] font-mono text-gray-500 whitespace-nowrap">${d.tanggal}</td>
            <td class="px-3 py-3">
-             <span class="font-bold text-slate-700 block">${d.item}</span>
+             <span class="font-bold text-slate-700 block text-[11px] max-w-[100px] truncate">${d.item}</span>
              <span class="text-[9px] text-pink-600 bg-pink-50 px-1 py-0.5 rounded border border-pink-100">${d.platform}</span>
            </td>
-           <td class="px-3 py-3 font-bold text-rose-900">${d.sisaQty}</td>
-           <td class="px-3 py-3 text-center">
+           <td class="px-3 py-3 font-bold text-rose-900 whitespace-nowrap">${d.sisaQty}</td>
+           <td class="px-3 py-3 text-center whitespace-nowrap">
              <button type="button" data-id="${d.id}" onclick="pilihLotJual(this)" class="bg-pink-500 hover:bg-pink-600 active:bg-pink-700 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] shadow-sm">Pilih</button>
            </td>
          </tr>
       `;
     });
-    
     tbody.innerHTML = htmlRows;
   }
 
   function pilihLotJual(btnElement) {
     try {
       const idTarget = btnElement.getAttribute('data-id');
-      if (!idTarget) {
-        alert("ID Transaksi gagal dibaca dari tombol!");
-        return;
-      }
-
+      if (!idTarget) { alert("ID Transaksi gagal dibaca!"); return; }
       const d = cacheRiwayatJual.find(item => String(item.id) === String(idTarget));
-      if (!d) {
-        alert("Kesalahan Sistem: ID " + idTarget + " tidak ditemukan di memori cache.");
-        return;
-      }
+      if (!d) { alert("Kesalahan Sistem: ID " + idTarget + " tidak ditemukan."); return; }
       
-      // 1. Paksa isi dropdown dengan data dari riwayat agar form tidak blank
       document.getElementById('aset-platform').innerHTML = `<option value="${d.platform}" selected>${d.platform}</option>`;
       document.getElementById('aset-kategori').innerHTML = `<option value="${d.kategori}" selected>${d.kategori}</option>`;
       document.getElementById('aset-item').innerHTML = `<option value="${d.item}" selected>${d.item}</option>`;
       
-      // 2. Cabut status wajib diisi (required) agar lolos validasi form browser
       document.getElementById('aset-platform').removeAttribute('required');
       document.getElementById('aset-kategori').removeAttribute('required');
       document.getElementById('aset-item').removeAttribute('required');
       
-      // 3. Kunci elemen form dengan kelas CSS
-      const lockClass = "bg-gray-100 text-gray-500 cursor-not-allowed pointer-events-none";
-      document.getElementById('aset-platform').className = `w-full border border-gray-200 py-3 px-3 rounded-xl outline-none text-sm ${lockClass}`;
-      document.getElementById('aset-kategori').className = `w-full border border-gray-200 py-3 px-3 rounded-xl outline-none text-sm ${lockClass}`;
-      document.getElementById('aset-item').className = `w-full border border-gray-200 py-3 px-3 rounded-xl outline-none text-sm ${lockClass}`;
+      const lockClass = "w-full border border-gray-200 py-3 px-3 rounded-xl outline-none text-sm bg-gray-100 text-gray-500 cursor-not-allowed pointer-events-none";
+      document.getElementById('aset-platform').className = lockClass;
+      document.getElementById('aset-kategori').className = lockClass;
+      document.getElementById('aset-item').className = lockClass;
 
-      // 4. Atur batas maksimal kuantitas jual
       document.getElementById('aset-kuantitas').max = d.sisaQty;
-      document.getElementById('aset-kuantitas').placeholder = `Max Jual: ${d.sisaQty}`;
+      document.getElementById('aset-kuantitas').placeholder = `Max: ${d.sisaQty}`;
       document.getElementById('aset-kuantitas').value = ''; 
       document.getElementById('aset-total-visual').value = ''; 
       kalkulasiAset();
       
-      // 5. Simpan ID Referensi dan tutup modal
       document.getElementById('val-id-referensi').value = d.id;
       document.getElementById('modal-grid-jual').classList.add('hidden');
-      
     } catch (error) {
-      alert("Error eksekusi JavaScript: " + error.message);
+      alert("Error: " + error.message);
       console.error(error);
     }
   }
 
   function resetFormBeli() {
-    // Munculkan kembali input COA saat mode Beli
     document.getElementById('area-coa-aset').classList.remove('hidden');
     document.getElementById('aset-coa').value = ""; 
 
     const normalClass = "w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm";
-    
-    // 1. Kembalikan status atribut wajib diisi (required)
     document.getElementById('aset-platform').setAttribute('required', 'true');
     document.getElementById('aset-kategori').setAttribute('required', 'true');
     document.getElementById('aset-item').setAttribute('required', 'true');
-
-    // 2. Kembalikan warna form menjadi tampilan normal (Pink)
     document.getElementById('aset-platform').className = normalClass;
     document.getElementById('aset-kategori').className = normalClass;
     document.getElementById('aset-item').className = normalClass;
     
-    // 3. Panggil ulang master data untuk mengisi dropdown kembali secara normal
     populateDropdowns();
     document.getElementById('aset-item').innerHTML = '<option value="" disabled selected>Pilih Kategori dulu...</option>';
-    
-    // 4. Reset sisa atribut field kuantitas & harga
     document.getElementById('aset-kuantitas').removeAttribute('max');
     document.getElementById('aset-kuantitas').placeholder = "Misal: 10";
     document.getElementById('val-id-referensi').value = ""; 
-    
     document.getElementById('txt-harga-satuan').innerText = 'Rp 0';
     document.getElementById('val-harga-satuan').value = 0;
   }
@@ -471,17 +476,13 @@
   function kalkulasiAset() {
     let qty = parseFloat(document.getElementById('aset-kuantitas').value) || 0;
     let total = parseFloat(document.getElementById('aset-total-raw').value) || 0;
-    
     let max = document.getElementById('aset-kuantitas').getAttribute('max');
     if(max !== null && qty > parseFloat(max)) {
-      Swal.fire('Stok Kurang', `Kuantitas maksimal yang bisa dijual dari lot ini adalah ${max}`, 'warning');
+      Swal.fire('Stok Kurang', `Kuantitas maksimal: ${max}`, 'warning');
       document.getElementById('aset-kuantitas').value = max;
       qty = parseFloat(max);
     }
-    
-    let hargaSatuan = 0;
-    if (qty > 0) hargaSatuan = total / qty;
-    
+    let hargaSatuan = qty > 0 ? total / qty : 0;
     document.getElementById('txt-harga-satuan').innerText = formatRp(hargaSatuan);
     document.getElementById('val-harga-satuan').value = hargaSatuan;
   }
@@ -492,7 +493,6 @@
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...'; 
     btn.disabled = true;
 
-    // Menggabungkan data dari Form ke dalam object Payload
     const payload = {
       tanggal: document.getElementById('aset-tgl').value,
       tipe: document.querySelector('input[name="aset-tipe"]:checked').value,
@@ -503,29 +503,22 @@
       total: document.getElementById('aset-total-raw').value,
       harga: document.getElementById('val-harga-satuan').value,
       idReferensi: document.getElementById('val-id-referensi').value,
-      
-      // Mengambil nilai COA untuk dikirimkan ke backend (Langkah C)
       coaKas: document.getElementById('aset-coa').value 
     };
 
-    // Pemanggilan backend yang sudah dilengkapi dengan penangkap error
     google.script.run
       .withSuccessHandler(res => {
         Swal.fire({title: 'Tersimpan!', text: res, icon: 'success'});
-        
         document.getElementById('formAset').reset();
         document.getElementById('aset-tgl').value = payload.tanggal;
         document.getElementById('txt-harga-satuan').innerText = 'Rp 0';
         document.getElementById('val-harga-satuan').value = 0;
-        
         document.querySelector('input[name="aset-tipe"][value="BELI"]').checked = true;
         resetFormBeli();
-
         btn.innerText = 'Simpan Transaksi Aset'; 
         btn.disabled = false;
       })
       .withFailureHandler(error => {
-        // Ini akan memunculkan pop-up error dan menghentikan efek buffering
         Swal.fire({title: 'Gagal Menyimpan!', text: error.message, icon: 'error'});
         btn.innerText = 'Simpan Transaksi Aset'; 
         btn.disabled = false;

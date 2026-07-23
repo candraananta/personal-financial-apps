@@ -1,48 +1,50 @@
 <!-- ===================================================================
      FILE: View_Report.html
-     FUNGSI: Modul Laporan Akuntansi (Aset, Klinik, dan Buku Besar Kas)
-     PERBAIKAN: Penambahan Data Normalizer agar filter periode kebal error
+     PERBAIKAN MOBILE: Tabel tidak overflow horizontal, layout fit di iPhone
      =================================================================== -->
-<section id="modul-report" class="block pb-24 relative">
+<section id="modul-report" class="block pb-24 relative w-full overflow-x-hidden">
   
-  <!-- BARIS 1: KARTU FILTER PERIODE (Tampilan terpisah di atas agar rapi) -->
-  <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-3 mb-3 flex items-center justify-between">
-    <div class="flex items-center gap-2">
+  <!-- BARIS 1: KARTU FILTER PERIODE -->
+  <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-3 mb-3 flex items-center justify-between gap-2">
+    <div class="flex items-center gap-2 flex-shrink-0">
       <div class="bg-pink-100 p-2 rounded-lg text-pink-600">
         <i class="fa-solid fa-calendar-days text-sm"></i>
       </div>
-      <label class="text-xs font-bold text-gray-500">PERIODE LAPORAN:</label>
+      <label class="text-xs font-bold text-gray-500 whitespace-nowrap">PERIODE:</label>
     </div>
-    <!-- Dropdown pemilih periode -->
-    <select id="filter-periode-report" onchange="terapkanFilterPeriode()" class="bg-rose-50 border border-pink-200 py-1.5 px-3 rounded-xl text-xs font-bold text-rose-900 outline-none cursor-pointer focus:ring-2 focus:ring-pink-500 transition-all">
+    <!-- PERBAIKAN: min-w-0 agar select bisa menyempit di layar kecil -->
+    <select id="filter-periode-report" onchange="terapkanFilterPeriode()" 
+            class="min-w-0 flex-1 bg-rose-50 border border-pink-200 py-1.5 px-2 rounded-xl text-xs font-bold text-rose-900 outline-none cursor-pointer focus:ring-2 focus:ring-pink-500 transition-all">
       <option value="ALL">Semua Periode (All-Time)</option>
-      <!-- Opsi periode akan diisi secara otomatis oleh JavaScript -->
     </select>
   </div>
 
   <!-- BARIS 2: TAB NAVIGASI MODUL -->
-  <div class="flex bg-white rounded-xl shadow-sm border border-pink-100 p-1 mb-4">
-    <button onclick="switchTabReport('aset')" id="tab-report-aset" class="flex-1 py-2.5 px-3 text-xs font-bold rounded-lg bg-pink-600 text-white transition-all text-center">
+  <div class="flex bg-white rounded-xl shadow-sm border border-pink-100 p-1 mb-4 w-full">
+    <button onclick="switchTabReport('aset')" id="tab-report-aset" 
+            class="flex-1 py-2 px-1 text-[11px] font-bold rounded-lg bg-pink-600 text-white transition-all text-center">
       <i class="fa-solid fa-chart-line mr-1"></i> Aset
     </button>
-    <button onclick="switchTabReport('klinik')" id="tab-report-klinik" class="flex-1 py-2.5 px-3 text-xs font-bold rounded-lg text-gray-500 hover:bg-pink-50 transition-all text-center">
+    <button onclick="switchTabReport('klinik')" id="tab-report-klinik" 
+            class="flex-1 py-2 px-1 text-[11px] font-bold rounded-lg text-gray-500 hover:bg-pink-50 transition-all text-center">
       <i class="fa-solid fa-user-doctor mr-1"></i> Klinik
     </button>
-    <button onclick="switchTabReport('kas')" id="tab-report-kas" class="flex-1 py-2.5 px-3 text-xs font-bold rounded-lg text-gray-500 hover:bg-pink-50 transition-all text-center">
+    <button onclick="switchTabReport('kas')" id="tab-report-kas" 
+            class="flex-1 py-2 px-1 text-[11px] font-bold rounded-lg text-gray-500 hover:bg-pink-50 transition-all text-center">
       <i class="fa-solid fa-wallet mr-1"></i> Arus Kas
     </button>
   </div>
 
   <!-- CONTAINER 1: LAPORAN TABUNGAN ASET -->
-  <div id="container-report-aset" class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4 block">
+  <div id="container-report-aset" class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4 block w-full">
     <div class="grid grid-cols-2 gap-3 mb-4">
       <div class="bg-rose-50 border border-pink-100 p-3 rounded-xl text-center">
         <p class="text-[10px] text-gray-500 font-bold mb-1">TOTAL MODAL BELI</p>
-        <p class="text-sm font-bold text-rose-900" id="rep-total-beli">Rp 0</p>
+        <p class="text-sm font-bold text-rose-900 truncate" id="rep-total-beli">Rp 0</p>
       </div>
       <div class="bg-rose-50 border border-pink-100 p-3 rounded-xl text-center">
-        <p class="text-[10px] text-gray-500 font-bold mb-1">TOTAL PENCAIRAN (JUAL)</p>
-        <p class="text-sm font-bold text-rose-900" id="rep-total-jual">Rp 0</p>
+        <p class="text-[10px] text-gray-500 font-bold mb-1">TOTAL JUAL</p>
+        <p class="text-sm font-bold text-rose-900 truncate" id="rep-total-jual">Rp 0</p>
       </div>
     </div>
     <div class="bg-pink-600 text-white p-4 rounded-xl text-center shadow-md mb-6">
@@ -52,10 +54,19 @@
     <div class="relative h-48 w-full mb-6">
       <canvas id="grafikAset"></canvas>
     </div>
-    <div class="overflow-x-auto no-scrollbar border border-pink-100 rounded-lg">
-      <table class="w-full text-left text-[10px] whitespace-nowrap">
+    <!-- PERBAIKAN: Wrapper dengan max-width dan overflow-x auto hanya di dalam box ini -->
+    <div class="overflow-x-auto -mx-1 px-1" style="max-width: calc(100vw - 2rem);">
+      <table class="text-left text-[10px] min-w-full border border-pink-100 rounded-lg">
         <thead class="bg-rose-50 text-pink-700">
-          <tr><th class="px-2 py-2">Item</th><th class="px-2 py-2 text-right">Qty Beli</th><th class="px-2 py-2 text-right">Nilai Beli</th><th class="px-2 py-2 text-right">Qty Jual</th><th class="px-2 py-2 text-right">Nilai Jual</th><th class="px-2 py-2 text-right">Sisa Qty</th></tr>
+          <!-- PERBAIKAN: Kolom lebih sedikit, gabungkan yang bisa digabung -->
+          <tr>
+            <th class="px-2 py-2 sticky left-0 bg-rose-50 z-10 min-w-[80px]">Item</th>
+            <th class="px-2 py-2 text-right whitespace-nowrap">Qty Beli</th>
+            <th class="px-2 py-2 text-right whitespace-nowrap">Nilai Beli</th>
+            <th class="px-2 py-2 text-right whitespace-nowrap">Qty Jual</th>
+            <th class="px-2 py-2 text-right whitespace-nowrap">Nilai Jual</th>
+            <th class="px-2 py-2 text-right whitespace-nowrap">Sisa</th>
+          </tr>
         </thead>
         <tbody id="tbody-report-aset" class="divide-y divide-pink-50"></tbody>
       </table>
@@ -63,15 +74,15 @@
   </div>
 
   <!-- CONTAINER 2: LAPORAN FEE KLINIK MEDIS -->
-  <div id="container-report-klinik" class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4 hidden">
+  <div id="container-report-klinik" class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4 hidden w-full">
     <div class="grid grid-cols-2 gap-3 mb-4">
       <div class="bg-rose-50 border border-pink-100 p-3 rounded-xl text-center">
-        <p class="text-[10px] text-gray-500 font-bold mb-1">TOTAL OMSET KLINIK</p>
-        <p class="text-sm font-bold text-rose-900" id="rep-klinik-omset">Rp 0</p>
+        <p class="text-[10px] text-gray-500 font-bold mb-1">TOTAL OMSET</p>
+        <p class="text-sm font-bold text-rose-900 truncate" id="rep-klinik-omset">Rp 0</p>
       </div>
       <div class="bg-rose-50 border border-pink-100 p-3 rounded-xl text-center">
         <p class="text-[10px] text-gray-500 font-bold mb-1">KOMISI DOKTER</p>
-        <p class="text-sm font-bold text-rose-900" id="rep-klinik-komisi">Rp 0</p>
+        <p class="text-sm font-bold text-rose-900 truncate" id="rep-klinik-komisi">Rp 0</p>
       </div>
     </div>
     <div class="bg-green-600 text-white p-4 rounded-xl text-center shadow-md mb-6">
@@ -81,26 +92,32 @@
     <div class="relative h-48 w-full mb-6 flex justify-center">
       <canvas id="grafikKlinik"></canvas>
     </div>
-    <div class="overflow-x-auto no-scrollbar border border-pink-100 rounded-lg">
-      <table class="w-full text-left text-[10px] whitespace-nowrap">
+    <div class="overflow-x-auto -mx-1 px-1" style="max-width: calc(100vw - 2rem);">
+      <table class="text-left text-[10px] min-w-full border border-pink-100 rounded-lg">
         <thead class="bg-rose-50 text-pink-700">
-          <tr><th class="px-2 py-2">Lokasi</th><th class="px-2 py-2 text-center">Pasien</th><th class="px-2 py-2 text-right">Omset</th><th class="px-2 py-2 text-right">Komisi</th><th class="px-2 py-2 text-right">Laba Bersih</th></tr>
+          <tr>
+            <th class="px-2 py-2 sticky left-0 bg-rose-50 z-10 min-w-[70px]">Lokasi</th>
+            <th class="px-2 py-2 text-center whitespace-nowrap">Pasien</th>
+            <th class="px-2 py-2 text-right whitespace-nowrap">Omset</th>
+            <th class="px-2 py-2 text-right whitespace-nowrap">Komisi</th>
+            <th class="px-2 py-2 text-right whitespace-nowrap">Laba</th>
+          </tr>
         </thead>
         <tbody id="tbody-report-klinik" class="divide-y divide-pink-50"></tbody>
       </table>
     </div>
   </div>
 
-  <!-- CONTAINER 3: LAPORAN ARUS KAS (BUKU BESAR & GRAFIK DONAT) -->
-  <div id="container-report-kas" class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4 hidden">
+  <!-- CONTAINER 3: LAPORAN ARUS KAS -->
+  <div id="container-report-kas" class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4 hidden w-full">
     <div class="grid grid-cols-2 gap-3 mb-4">
       <div class="bg-rose-50 border border-pink-100 p-3 rounded-xl text-center">
-        <p class="text-[10px] text-gray-500 font-bold mb-1">TOTAL PEMASUKAN</p>
-        <p class="text-sm font-bold text-rose-900" id="rep-kas-masuk">Rp 0</p>
+        <p class="text-[10px] text-gray-500 font-bold mb-1">TOTAL MASUK</p>
+        <p class="text-sm font-bold text-rose-900 truncate" id="rep-kas-masuk">Rp 0</p>
       </div>
       <div class="bg-red-50 border border-red-100 p-3 rounded-xl text-center">
-        <p class="text-[10px] text-gray-500 font-bold mb-1">TOTAL PENGELUARAN</p>
-        <p class="text-sm font-bold text-red-900" id="rep-kas-keluar">Rp 0</p>
+        <p class="text-[10px] text-gray-500 font-bold mb-1">TOTAL KELUAR</p>
+        <p class="text-sm font-bold text-red-900 truncate" id="rep-kas-keluar">Rp 0</p>
       </div>
     </div>
     <div class="bg-pink-600 text-white p-4 rounded-xl text-center shadow-md mb-6">
@@ -108,23 +125,28 @@
       <p class="text-2xl font-bold" id="rep-kas-saldo">Rp 0</p>
     </div>
 
-    <!-- GRAFIK DONAT KOMPOSISI PENGELUARAN -->
+    <!-- GRAFIK DONAT -->
     <div class="mb-6 bg-rose-50/50 p-4 rounded-xl border border-pink-100">
-      <p class="text-[11px] font-bold text-rose-900 text-center mb-2"><i class="fa-solid fa-chart-pie text-pink-500 mr-1"></i> Komposisi Pengeluaran per Kategori</p>
+      <p class="text-[11px] font-bold text-rose-900 text-center mb-2">
+        <i class="fa-solid fa-chart-pie text-pink-500 mr-1"></i> Komposisi Pengeluaran
+      </p>
       <div class="relative h-48 w-full flex justify-center">
         <canvas id="grafikKas"></canvas>
       </div>
     </div>
     
-    <h3 class="text-xs font-bold text-rose-900 mb-2 mt-4"><i class="fa-solid fa-book text-pink-500 mr-1"></i> Buku Besar (Agregasi)</h3>
-    <div class="overflow-x-auto no-scrollbar border border-pink-100 rounded-lg">
-      <table class="w-full text-left text-[10px] whitespace-nowrap">
+    <h3 class="text-xs font-bold text-rose-900 mb-2 mt-4">
+      <i class="fa-solid fa-book text-pink-500 mr-1"></i> Buku Besar (Agregasi)
+    </h3>
+    <!-- PERBAIKAN: Kolom Aksi diperkecil, teks dipotong jika panjang -->
+    <div class="overflow-x-auto -mx-1 px-1" style="max-width: calc(100vw - 2rem);">
+      <table class="text-left text-[10px] min-w-full border border-pink-100 rounded-lg">
         <thead class="bg-rose-50 text-pink-700">
           <tr>
-            <th class="px-2 py-2">Nama Item/Kategori</th>
-            <th class="px-2 py-2 text-right">Total Debit</th>
-            <th class="px-2 py-2 text-right">Total Kredit</th>
-            <th class="px-2 py-2 text-center">Aksi</th>
+            <th class="px-2 py-2 min-w-[90px]">Item/Kategori</th>
+            <th class="px-2 py-2 text-right whitespace-nowrap">Debit</th>
+            <th class="px-2 py-2 text-right whitespace-nowrap">Kredit</th>
+            <th class="px-2 py-2 text-center whitespace-nowrap w-12">Aksi</th>
           </tr>
         </thead>
         <tbody id="tbody-report-kas" class="divide-y divide-pink-50">
@@ -135,32 +157,37 @@
   </div>
 
   <!-- MODAL POP-UP DETAIL KAS -->
-  <div id="modal-detail-kas" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
-    <div class="bg-white rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
-       <div class="bg-pink-600 p-4 text-white flex justify-between items-center">
-         <div>
-           <h3 class="text-sm font-bold" id="title-modal-kas">Detail Jurnal</h3>
+  <!-- PERBAIKAN: Modal menggunakan 100dvh agar pas di iPhone dengan safe area -->
+  <div id="modal-detail-kas" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 z-[60] flex items-end justify-center p-0 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-t-2xl w-full max-w-lg flex flex-col shadow-2xl overflow-hidden"
+         style="max-height: 90dvh; max-height: 90vh;">
+       <div class="bg-pink-600 p-4 text-white flex justify-between items-center flex-shrink-0">
+         <div class="min-w-0 flex-1 mr-2">
+           <h3 class="text-sm font-bold truncate" id="title-modal-kas">Detail Jurnal</h3>
            <p class="text-[10px] opacity-80">Periode: <span id="label-modal-periode">Semua</span></p>
          </div>
-         <button onclick="tutupDetailKas()" class="text-white hover:text-pink-200 text-xl"><i class="fa-solid fa-xmark"></i></button>
+         <button onclick="tutupDetailKas()" class="text-white hover:text-pink-200 text-xl flex-shrink-0">
+           <i class="fa-solid fa-xmark"></i>
+         </button>
        </div>
-       <div class="p-4 bg-rose-50 border-b border-pink-100">
+       <div class="p-4 bg-rose-50 border-b border-pink-100 flex-shrink-0">
          <div class="relative">
            <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-           <input type="text" id="input-cari-detail-kas" oninput="cariDetailKas()" class="w-full bg-white border border-pink-200 py-2 pl-9 pr-3 rounded-lg outline-none text-xs focus:ring-2 focus:ring-pink-500" placeholder="Cari tanggal atau catatan...">
+           <input type="text" id="input-cari-detail-kas" oninput="cariDetailKas()" 
+                  class="w-full bg-white border border-pink-200 py-2 pl-9 pr-3 rounded-lg outline-none text-sm focus:ring-2 focus:ring-pink-500" 
+                  placeholder="Cari tanggal atau catatan...">
          </div>
        </div>
        <div class="overflow-y-auto flex-1 no-scrollbar p-4">
-          <table class="w-full text-left text-[10px] whitespace-nowrap">
+          <table class="w-full text-left text-[10px]">
              <thead class="text-gray-500 border-b border-gray-200">
                 <tr>
-                  <th class="pb-2">Tanggal / Periode</th>
+                  <th class="pb-2 whitespace-nowrap">Tanggal</th>
                   <th class="pb-2">Catatan</th>
-                  <th class="pb-2 text-right">Nominal</th>
+                  <th class="pb-2 text-right whitespace-nowrap">Nominal</th>
                 </tr>
              </thead>
              <tbody id="tbody-detail-kas" class="divide-y divide-gray-100">
-                <!-- Data rincian diinjeksi via JS -->
              </tbody>
           </table>
        </div>
@@ -169,59 +196,37 @@
 
 </section>
 
-<!-- ===================================================================
-     LOGIKA JAVASCRIPT: NORMALIZATION, FILTER, AGREGASI, & GRAFIK
-     =================================================================== -->
 <script>
   let chartAset = null;
   let chartKlinik = null;
   let chartKas = null;
-  
-  // Penyimpanan memori utama untuk data mentah
   let masterDataLaporan = { aset: [], klinik: [], kas: [] };
 
-  /**
-   * FUNGSI NORMALISASI (Kunci Perbaikan Bug):
-   * Mengubah input apapun (Teks, Objek Date, atau angka) menjadi string standar "Bulan Tahun".
-   * Contoh: Objek Date(2026-08-01) -> "Agustus 2026"
-   *         "agustus 2026 "      -> "Agustus 2026"
-   */
   function normPeriode(val) {
     if (!val) return "";
-    
-    // 1. Jika Google Sheets mengonversi teks menjadi objek Date secara otomatis
     if (val instanceof Date || (typeof val === 'object' && typeof val.getMonth === 'function')) {
       const namaBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
       return namaBulan[val.getMonth()] + " " + val.getFullYear();
     }
-    
-    // 2. Jika formatnya teks, bersihkan spasi depan/belakang
     let str = String(val).trim();
-    
-    // 3. Standarisasi huruf awal kapital (Title Case: "agustus 2026" -> "Agustus 2026")
     const parts = str.split(" ");
     if (parts.length >= 2) {
       const bul = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
       return bul + " " + parts[1];
     }
-    
     return str;
   }
 
-  /**
-   * Fungsi Inisialisasi: Berjalan saat halaman Laporan dimuat
-   */
   function initModulReport() {
-    document.getElementById('tbody-report-aset').innerHTML = '<tr><td colspan="6" class="px-2 py-4 text-center text-gray-400">Memuat kalkulasi...</td></tr>';
-    document.getElementById('tbody-report-klinik').innerHTML = '<tr><td colspan="5" class="px-2 py-4 text-center text-gray-400">Memuat kalkulasi...</td></tr>';
-    document.getElementById('tbody-report-kas').innerHTML = '<tr><td colspan="4" class="px-2 py-4 text-center text-gray-400">Memuat kalkulasi...</td></tr>';
+    document.getElementById('tbody-report-aset').innerHTML = '<tr><td colspan="6" class="px-2 py-4 text-center text-gray-400">Memuat...</td></tr>';
+    document.getElementById('tbody-report-klinik').innerHTML = '<tr><td colspan="5" class="px-2 py-4 text-center text-gray-400">Memuat...</td></tr>';
+    document.getElementById('tbody-report-kas').innerHTML = '<tr><td colspan="4" class="px-2 py-4 text-center text-gray-400">Memuat...</td></tr>';
     
     google.script.run
       .withSuccessHandler(data => {
         masterDataLaporan.aset = data.aset || [];
         masterDataLaporan.klinik = data.klinik || [];
         masterDataLaporan.kas = data.kas || [];
-        
         buatDropdownPeriode();
         terapkanFilterPeriode();
       })
@@ -229,18 +234,12 @@
       .getDataLaporan();
   }
 
-  /**
-   * Fungsi Ekstraksi & Pembentukan Dropdown Periode
-   */
   function buatDropdownPeriode() {
     const setPeriode = new Set();
-    
-    // Masukkan data periode yang sudah dinormalisasi dari ketiga tabel
     masterDataLaporan.kas.forEach(r => { if(r[2]) setPeriode.add(normPeriode(r[2])); });
     masterDataLaporan.aset.forEach(r => { if(r[2]) setPeriode.add(normPeriode(r[2])); });
     masterDataLaporan.klinik.forEach(r => { if(r[2]) setPeriode.add(normPeriode(r[2])); });
 
-    // Pastikan periode bulan ini dan bulan depan selalu tersedia di dropdown
     const skrg = new Date();
     const namaBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
     
@@ -258,7 +257,6 @@
     setPeriode.add(periodeAktif);
     setPeriode.add(periodeBerikutnya);
 
-    // Pengurutan kronologis dari tahun dan bulan
     const daftarPeriode = Array.from(setPeriode).filter(p => p !== "").sort((a, b) => {
       const partsA = a.split(" "); const partsB = b.split(" ");
       const thnA = parseInt(partsA[1]) || 0; const thnB = parseInt(partsB[1]) || 0;
@@ -267,22 +265,17 @@
     });
 
     const dropdown = document.getElementById('filter-periode-report');
-    dropdown.innerHTML = '<option value="ALL">Semua Periode (All-Time)</option>';
-    
+    dropdown.innerHTML = '<option value="ALL">Semua Periode</option>';
     daftarPeriode.forEach(p => {
       const isSelected = (p === periodeAktif) ? 'selected' : '';
       dropdown.innerHTML += `<option value="${p}" ${isSelected}>${p}</option>`;
     });
   }
 
-  /**
-   * Fungsi Filter Utama: Membandingkan teks periode dengan huruf kecil agar kebal error
-   */
   function terapkanFilterPeriode() {
     const periodeDipilih = document.getElementById('filter-periode-report').value;
-    document.getElementById('label-periode-kas').innerText = periodeDipilih === 'ALL' ? 'Semua Periode' : periodeDipilih;
+    document.getElementById('label-periode-kas').innerText = periodeDipilih === 'ALL' ? 'Semua' : periodeDipilih;
 
-    // Filter dengan pencocokan case-insensitive
     const kasTerfilter = periodeDipilih === 'ALL' ? masterDataLaporan.kas : masterDataLaporan.kas.filter(r => normPeriode(r[2]).toLowerCase() === periodeDipilih.toLowerCase());
     const asetTerfilter = periodeDipilih === 'ALL' ? masterDataLaporan.aset : masterDataLaporan.aset.filter(r => normPeriode(r[2]).toLowerCase() === periodeDipilih.toLowerCase());
     const klinikTerfilter = periodeDipilih === 'ALL' ? masterDataLaporan.klinik : masterDataLaporan.klinik.filter(r => normPeriode(r[2]).toLowerCase() === periodeDipilih.toLowerCase());
@@ -300,24 +293,24 @@
     const boxKlinik = document.getElementById('container-report-klinik');
     const boxKas = document.getElementById('container-report-kas');
 
-    const inaktif = "flex-1 py-2.5 px-3 text-xs font-bold rounded-lg text-gray-500 hover:bg-pink-50 transition-all text-center";
+    const inaktif = "flex-1 py-2 px-1 text-[11px] font-bold rounded-lg text-gray-500 hover:bg-pink-50 transition-all text-center";
     btnAset.className = inaktif; btnKlinik.className = inaktif; btnKas.className = inaktif;
     boxAset.classList.add('hidden'); boxKlinik.classList.add('hidden'); boxKas.classList.add('hidden');
 
     if (tabTarget === 'aset') {
-      btnAset.className = "flex-1 py-2.5 px-3 text-xs font-bold rounded-lg bg-pink-600 text-white transition-all text-center shadow-sm";
+      btnAset.className = "flex-1 py-2 px-1 text-[11px] font-bold rounded-lg bg-pink-600 text-white transition-all text-center shadow-sm";
       boxAset.classList.remove('hidden');
     } else if (tabTarget === 'klinik') {
-      btnKlinik.className = "flex-1 py-2.5 px-3 text-xs font-bold rounded-lg bg-pink-600 text-white transition-all text-center shadow-sm";
+      btnKlinik.className = "flex-1 py-2 px-1 text-[11px] font-bold rounded-lg bg-pink-600 text-white transition-all text-center shadow-sm";
       boxKlinik.classList.remove('hidden');
     } else if (tabTarget === 'kas') {
-      btnKas.className = "flex-1 py-2.5 px-3 text-xs font-bold rounded-lg bg-pink-600 text-white transition-all text-center shadow-sm";
+      btnKas.className = "flex-1 py-2 px-1 text-[11px] font-bold rounded-lg bg-pink-600 text-white transition-all text-center shadow-sm";
       boxKas.classList.remove('hidden');
     }
   }
 
   // ===================================================================
-  // LOGIKA ARUS KAS (BUKU BESAR & GRAFIK DONAT)
+  // LOGIKA ARUS KAS
   // ===================================================================
   function kalkulasiLaporanKas(dataKas) {
     try {
@@ -329,14 +322,11 @@
         let namaItem = row[4] || '-'; 
         let debit = parseFloat(row[6]) || 0; 
         let kredit = parseFloat(row[7]) || 0;
-
         totMasuk += debit; totKeluar += kredit;
-
         if (!bukuBesar[namaItem]) { bukuBesar[namaItem] = { debit: 0, kredit: 0 }; }
         bukuBesar[namaItem].debit += debit; bukuBesar[namaItem].kredit += kredit;
-
         if (kredit > 0) {
-          let kategoriBesar = String(namaItem).includes(':') ? String(namaItem).split(':')[0].trim() : 'Lain-lain / Umum';
+          let kategoriBesar = String(namaItem).includes(':') ? String(namaItem).split(':')[0].trim() : 'Lain-lain';
           if (!rekapKategori[kategoriBesar]) { rekapKategori[kategoriBesar] = 0; }
           rekapKategori[kategoriBesar] += kredit;
         }
@@ -353,24 +343,29 @@
 
       const tbody = document.getElementById('tbody-report-kas'); tbody.innerHTML = '';
       if (Object.keys(bukuBesar).length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="px-2 py-6 text-center text-gray-400 font-medium">Belum ada transaksi pada periode ini.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="px-2 py-6 text-center text-gray-400 font-medium">Belum ada transaksi.</td></tr>';
       } else {
         for (const [nama, nominal] of Object.entries(bukuBesar)) {
           let formatDebit = nominal.debit > 0 ? `<span class="text-green-600 font-bold">${formatRpRep(nominal.debit)}</span>` : '-';
           let formatKredit = nominal.kredit > 0 ? `<span class="text-red-500 font-bold">${formatRpRep(nominal.kredit)}</span>` : '-';
+          // PERBAIKAN: nama item dibatasi panjangnya dengan max-w dan overflow hidden
           tbody.innerHTML += `
             <tr class="hover:bg-rose-50 border-b border-pink-50 last:border-0 transition-colors">
-              <td class="px-2 py-3 font-bold text-slate-700">${nama}</td>
-              <td class="px-2 py-3 text-right">${formatDebit}</td>
-              <td class="px-2 py-3 text-right">${formatKredit}</td>
-              <td class="px-2 py-3 text-center">
-                <button type="button" data-nama="${nama}" onclick="bukaDetailKas(this)" class="bg-pink-100 hover:bg-pink-200 text-pink-700 font-bold px-2 py-1 rounded text-[9px] transition-colors"><i class="fa-solid fa-eye mr-1"></i>Detail</button>
+              <td class="px-2 py-3 font-bold text-slate-700 max-w-[90px] overflow-hidden">
+                <span class="block truncate">${nama}</span>
+              </td>
+              <td class="px-2 py-3 text-right whitespace-nowrap">${formatDebit}</td>
+              <td class="px-2 py-3 text-right whitespace-nowrap">${formatKredit}</td>
+              <td class="px-2 py-3 text-center w-12">
+                <button type="button" data-nama="${nama}" onclick="bukaDetailKas(this)" 
+                        class="bg-pink-100 hover:bg-pink-200 text-pink-700 font-bold px-2 py-1 rounded text-[9px] transition-colors">
+                  <i class="fa-solid fa-eye"></i>
+                </button>
               </td>
             </tr>
           `;
         }
       }
-
       renderGrafikKas(Object.keys(rekapKategori), Object.values(rekapKategori));
     } catch (error) { console.error("Error Kalkulasi Kas:", error); }
   }
@@ -379,28 +374,17 @@
     try {
       const ctx = document.getElementById('grafikKas').getContext('2d');
       if (chartKas != null) chartKas.destroy(); 
-      
       if (labels.length === 0) {
         chartKas = new Chart(ctx, { type: 'doughnut', data: { labels: ['Kosong'], datasets: [{ data: [1], backgroundColor: ['#f3f4f6'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, cutout: '70%' } });
         return;
       }
-
       chartKas = new Chart(ctx, { 
         type: 'doughnut', 
-        data: { 
-          labels: labels, 
-          datasets: [{ 
-            data: dataNominal, 
-            backgroundColor: ['#db2777', '#e11d48', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6366f1'], 
-            borderWidth: 2,
-            borderColor: '#ffffff'
-          }] 
-        }, 
+        data: { labels: labels, datasets: [{ data: dataNominal, backgroundColor: ['#db2777', '#e11d48', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6366f1'], borderWidth: 2, borderColor: '#ffffff' }] }, 
         options: { 
-          responsive: true, 
-          maintainAspectRatio: false, 
+          responsive: true, maintainAspectRatio: false, 
           plugins: { 
-            legend: { position: 'right', labels: { boxWidth: 10, font: {size: 10} } },
+            legend: { position: 'right', labels: { boxWidth: 8, font: {size: 9}, padding: 6 } },
             tooltip: { callbacks: { label: function(context) { return context.label + ': ' + formatRpRep(context.raw); } } }
           }, 
           cutout: '65%' 
@@ -412,16 +396,13 @@
   function bukaDetailKas(btnElement) {
     const targetNama = btnElement.getAttribute('data-nama');
     const periodeDipilih = document.getElementById('filter-periode-report').value;
-    
     document.getElementById('title-modal-kas').innerText = targetNama;
     document.getElementById('label-modal-periode').innerText = periodeDipilih === 'ALL' ? 'Semua Periode' : periodeDipilih;
     document.getElementById('input-cari-detail-kas').value = ''; 
-    
     let detailData = masterDataLaporan.kas.filter(row => row[4] === targetNama);
     if(periodeDipilih !== 'ALL') {
       detailData = detailData.filter(row => normPeriode(row[2]).toLowerCase() === periodeDipilih.toLowerCase());
     }
-    
     renderTabelDetailKas(detailData.reverse());
     document.getElementById('modal-detail-kas').classList.remove('hidden');
   }
@@ -433,11 +414,11 @@
     if (dataArr.length === 0) { tbody.innerHTML = '<tr><td colspan="3" class="px-2 py-4 text-center text-gray-400">Data tidak ditemukan.</td></tr>'; return; }
     dataArr.forEach(row => {
       let tgl = row[1]; let periode = normPeriode(row[2]); let catatan = row[5] || '-'; let tipe = row[3]; let debit = parseFloat(row[6]) || 0; let kredit = parseFloat(row[7]) || 0;
-      let badge = tipe === 'PEMASUKAN' ? `<span class="text-green-600 font-bold bg-green-50 px-1 rounded block mt-1">+${formatRpRep(debit)}</span>` : `<span class="text-red-500 font-bold bg-red-50 px-1 rounded block mt-1">-${formatRpRep(kredit)}</span>`;
+      let badge = tipe === 'PEMASUKAN' ? `<span class="text-green-600 font-bold bg-green-50 px-1 rounded block mt-1 whitespace-nowrap">+${formatRpRep(debit)}</span>` : `<span class="text-red-500 font-bold bg-red-50 px-1 rounded block mt-1 whitespace-nowrap">-${formatRpRep(kredit)}</span>`;
       tbody.innerHTML += `
         <tr class="detail-row hover:bg-rose-50/50">
-          <td class="py-3 px-2"><span class="block font-bold text-slate-700">${tgl}</span><span class="block text-[9px] text-gray-400">${periode}</span></td>
-          <td class="py-3 px-2 text-gray-600 break-words max-w-[120px] whitespace-normal">${catatan}</td>
+          <td class="py-3 px-2 whitespace-nowrap"><span class="block font-bold text-slate-700">${tgl}</span><span class="block text-[9px] text-gray-400">${periode}</span></td>
+          <td class="py-3 px-2 text-gray-600 break-words" style="max-width: 100px; word-break: break-word; white-space: normal;">${catatan}</td>
           <td class="py-3 px-2 text-right">${badge}</td>
         </tr>
       `;
@@ -454,7 +435,7 @@
   }
 
   // ===================================================================
-  // LOGIKA FEE KLINIK MEDIS
+  // LOGIKA FEE KLINIK
   // ===================================================================
   function kalkulasiLaporanKlinik(dataKlinik) {
     try {
@@ -472,11 +453,12 @@
 
       const tbody = document.getElementById('tbody-report-klinik'); tbody.innerHTML = '';
       const labelsChart = [], dataLabaChart = [];
-      if (Object.keys(rekapLokasi).length === 0) tbody.innerHTML = '<tr><td colspan="5" class="px-2 py-6 text-center text-gray-400 font-medium">Belum ada transaksi pada periode ini.</td></tr>';
-      else {
+      if (Object.keys(rekapLokasi).length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="px-2 py-6 text-center text-gray-400 font-medium">Belum ada transaksi.</td></tr>';
+      } else {
         for (const [namaKlinik, data] of Object.entries(rekapLokasi)) {
           labelsChart.push(namaKlinik); dataLabaChart.push(data.laba);
-          tbody.innerHTML += `<tr class="hover:bg-rose-50"><td class="px-2 py-2 font-bold text-slate-700">${namaKlinik}</td><td class="px-2 py-2 text-center text-gray-500">${data.pasien}</td><td class="px-2 py-2 text-right font-bold text-gray-700">${formatRpRep(data.omset)}</td><td class="px-2 py-2 text-right text-gray-500">${formatRpRep(data.komisi)}</td><td class="px-2 py-2 text-right font-bold text-green-600">${formatRpRep(data.laba)}</td></tr>`;
+          tbody.innerHTML += `<tr class="hover:bg-rose-50"><td class="px-2 py-2 font-bold text-slate-700 max-w-[70px]"><span class="block truncate">${namaKlinik}</span></td><td class="px-2 py-2 text-center text-gray-500 whitespace-nowrap">${data.pasien}</td><td class="px-2 py-2 text-right font-bold text-gray-700 whitespace-nowrap">${formatRpRep(data.omset)}</td><td class="px-2 py-2 text-right text-gray-500 whitespace-nowrap">${formatRpRep(data.komisi)}</td><td class="px-2 py-2 text-right font-bold text-green-600 whitespace-nowrap">${formatRpRep(data.laba)}</td></tr>`;
         }
       }
       renderGrafikKlinik(labelsChart, dataLabaChart);
@@ -487,7 +469,7 @@
     try {
       const ctx = document.getElementById('grafikKlinik').getContext('2d');
       if (chartKlinik != null) chartKlinik.destroy(); 
-      chartKlinik = new Chart(ctx, { type: 'doughnut', data: { labels: labels, datasets: [{ data: dataLaba, backgroundColor: ['#16a34a', '#db2777', '#2563eb', '#eab308', '#9333ea'], borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: {size: 10} } } }, cutout: '65%' } });
+      chartKlinik = new Chart(ctx, { type: 'doughnut', data: { labels: labels, datasets: [{ data: dataLaba, backgroundColor: ['#16a34a', '#db2777', '#2563eb', '#eab308', '#9333ea'], borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 8, font: {size: 9} } } }, cutout: '65%' } });
     } catch (e) { console.error("Error Grafik Klinik:", e); }
   }
 
@@ -505,18 +487,20 @@
         if (tipe === "BELI") { totalBeli += total; rekapItem[item].qtyBeli += qty; rekapItem[item].nilaiBeli += total; } 
         else if (tipe === "JUAL") { totalJual += total; rekapItem[item].qtyJual += qty; rekapItem[item].nilaiJual += total; realizedPNL += (total - (qty * (mapHargaBeli[idRef] || 0))); }
       });
-      document.getElementById('rep-total-beli').innerText = formatRpRep(totalBeli); document.getElementById('rep-total-jual').innerText = formatRpRep(totalJual);
+      document.getElementById('rep-total-beli').innerText = formatRpRep(totalBeli);
+      document.getElementById('rep-total-jual').innerText = formatRpRep(totalJual);
       const pnlEl = document.getElementById('rep-pnl'); pnlEl.innerText = formatRpRep(realizedPNL);
       if (realizedPNL < 0) { pnlEl.parentElement.classList.replace('bg-pink-600', 'bg-red-500'); } else { pnlEl.parentElement.classList.replace('bg-red-500', 'bg-pink-600'); }
 
       const tbody = document.getElementById('tbody-report-aset'); tbody.innerHTML = '';
       const labelsChart = [], dataModalChart = [], dataJualChart = [];
-      if (Object.keys(rekapItem).length === 0) tbody.innerHTML = '<tr><td colspan="6" class="px-2 py-6 text-center text-gray-400 font-medium">Belum ada transaksi pada periode ini.</td></tr>';
-      else {
+      if (Object.keys(rekapItem).length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="px-2 py-6 text-center text-gray-400 font-medium">Belum ada transaksi.</td></tr>';
+      } else {
         for (const [namaItem, data] of Object.entries(rekapItem)) {
           let sisaQty = data.qtyBeli - data.qtyJual;
           labelsChart.push(namaItem); dataModalChart.push(data.nilaiBeli); dataJualChart.push(data.nilaiJual);
-          tbody.innerHTML += `<tr class="hover:bg-rose-50"><td class="px-2 py-2 font-bold text-slate-700">${namaItem}</td><td class="px-2 py-2 text-right text-gray-500">${data.qtyBeli}</td><td class="px-2 py-2 text-right font-bold text-pink-600">${formatRpRep(data.nilaiBeli)}</td><td class="px-2 py-2 text-right text-gray-500">${data.qtyJual}</td><td class="px-2 py-2 text-right font-bold text-green-600">${formatRpRep(data.nilaiJual)}</td><td class="px-2 py-2 text-right font-bold text-rose-900 bg-rose-50">${sisaQty}</td></tr>`;
+          tbody.innerHTML += `<tr class="hover:bg-rose-50"><td class="px-2 py-2 font-bold text-slate-700 max-w-[80px]"><span class="block truncate">${namaItem}</span></td><td class="px-2 py-2 text-right text-gray-500 whitespace-nowrap">${data.qtyBeli}</td><td class="px-2 py-2 text-right font-bold text-pink-600 whitespace-nowrap">${formatRpRep(data.nilaiBeli)}</td><td class="px-2 py-2 text-right text-gray-500 whitespace-nowrap">${data.qtyJual}</td><td class="px-2 py-2 text-right font-bold text-green-600 whitespace-nowrap">${formatRpRep(data.nilaiJual)}</td><td class="px-2 py-2 text-right font-bold text-rose-900 bg-rose-50 whitespace-nowrap">${sisaQty}</td></tr>`;
         }
       }
       renderGrafikAset(labelsChart, dataModalChart, dataJualChart);
@@ -527,13 +511,10 @@
     try {
       const ctx = document.getElementById('grafikAset').getContext('2d');
       if (chartAset != null) chartAset.destroy(); 
-      chartAset = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [ { label: 'Modal', data: dataBeli, backgroundColor: '#fbcfe8', borderRadius: 4 }, { label: 'Jual', data: dataJual, backgroundColor: '#db2777', borderRadius: 4 } ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 10} } } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: {size: 9} } } } } });
+      chartAset = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [ { label: 'Modal', data: dataBeli, backgroundColor: '#fbcfe8', borderRadius: 4 }, { label: 'Jual', data: dataJual, backgroundColor: '#db2777', borderRadius: 4 } ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 10} } } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: {size: 9}, maxRotation: 30 } } } } });
     } catch (e) { console.error("Error Grafik Aset:", e); }
   }
 
-  /**
-   * Fungsi Helper Pembantu: Memformat angka ke dalam mata uang Rupiah
-   */
   function formatRpRep(angka) { 
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka); 
   }

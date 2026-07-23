@@ -2,7 +2,8 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- PERBAIKAN 1: Hapus maximum-scale dan user-scalable yang bermasalah di iOS -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Aplikasi Keuangan</title>
 
   <!-- Tailwind CSS -->
@@ -18,34 +19,95 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
+    /* PERBAIKAN 2: Cegah scroll horizontal di level root */
+    html, body {
+      overflow-x: hidden;
+      width: 100%;
+      max-width: 100%;
+    }
+
     /* Sembunyikan scrollbar tapi tetap bisa scroll */
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
     /* Tinggi layar penuh, konten bisa scroll */
-    body { overscroll-behavior: none; }
+    body { 
+      overscroll-behavior: none;
+      /* PERBAIKAN 3: Safe area untuk notch iPhone */
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+
+    /* PERBAIKAN 4: Pastikan semua tabel tidak melebihi container-nya */
+    table {
+      table-layout: auto;
+      word-break: break-word;
+    }
+
+    /* PERBAIKAN 5: Input & select tidak overflow di iOS */
+    input, select, textarea {
+      max-width: 100%;
+      box-sizing: border-box;
+      /* Cegah iOS zoom saat focus (font-size min 16px) */
+      font-size: 16px;
+    }
+
+    /* Override untuk label kecil yang memang butuh font kecil */
+    input.text-sm, select.text-sm { font-size: 16px; }
+    input.text-xs, select.text-xs { font-size: 14px; }
+
+    /* PERBAIKAN 6: Bottom nav dengan safe area iPhone X+ */
+    .bottom-nav-safe {
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
+    /* PERBAIKAN 7: Konten utama tidak bisa overflow ke kanan */
+    main {
+      overflow-x: hidden;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* PERBAIKAN 8: Wrapper tabel scroll hanya horizontal di dalam box */
+    .table-scroll-wrapper {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      max-width: 100%;
+    }
+
+    /* SweetAlert2 fix untuk iOS */
+    .swal2-popup {
+      width: 90% !important;
+      max-width: 400px !important;
+    }
+    .swal2-input {
+      font-size: 16px !important; /* Cegah zoom di iOS */
+    }
   </style>
 </head>
 
 <body class="bg-rose-50 min-h-screen">
 
   <!-- ===== HEADER ===== -->
-  <header class="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-pink-100">
+  <header class="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-pink-100" 
+          style="padding-top: env(safe-area-inset-top, 0px);">
     <div class="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
       <div class="flex items-center gap-2">
-        <div class="bg-pink-600 p-2 rounded-xl">
+        <div class="bg-pink-600 p-2 rounded-xl flex-shrink-0">
           <i class="fa-solid fa-heart-pulse text-white text-sm"></i>
         </div>
-        <div>
-          <h1 id="headerTitle" class="text-sm font-bold text-rose-900 leading-tight">Arus Kas (Cash Flow)</h1>
+        <div class="min-w-0">
+          <h1 id="headerTitle" class="text-sm font-bold text-rose-900 leading-tight truncate">Arus Kas (Cash Flow)</h1>
           <p class="text-[10px] text-pink-400">Manajemen Keuangan Pribadi</p>
         </div>
       </div>
     </div>
   </header>
 
-  <!-- ===== KONTEN UTAMA (scrollable, dengan padding atas & bawah) ===== -->
-  <main class="pt-16 pb-24 max-w-lg mx-auto px-3">
+  <!-- ===== KONTEN UTAMA ===== -->
+  <!-- PERBAIKAN 9: pt harus memperhitungkan safe area top + tinggi header -->
+  <main class="pt-16 pb-24 max-w-lg mx-auto px-3" 
+        style="padding-top: calc(env(safe-area-inset-top, 0px) + 4rem);">
 
     <!-- Container: Arus Kas -->
     <div id="container-aruskas" class="hidden">
@@ -70,7 +132,8 @@
   </main>
 
   <!-- ===== NAVIGASI BAWAH (Bottom Nav) ===== -->
-  <nav class="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-pink-100 shadow-lg">
+  <!-- PERBAIKAN 10: Safe area bottom untuk iPhone X+ (home indicator) -->
+  <nav class="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-pink-100 shadow-lg bottom-nav-safe">
     <div class="flex items-center justify-around max-w-lg mx-auto px-2 py-1">
 
       <!-- Nav: Arus Kas -->
@@ -106,26 +169,22 @@
 
   <!-- ===== SCRIPT NAVIGASI ===== -->
   <script>
-    // Jalankan setelah seluruh DOM siap
     window.onload = function () {
       pindahMenu('aruskas');
     };
 
     function pindahMenu(targetMenu) {
-      // Sembunyikan semua container
       document.getElementById('container-master').classList.add('hidden');
       document.getElementById('container-transaksi').classList.add('hidden');
       document.getElementById('container-report').classList.add('hidden');
       document.getElementById('container-aruskas').classList.add('hidden');
 
-      // Reset semua tombol nav ke non-aktif
       const clsNonAktif = "flex-1 flex flex-col items-center p-2 text-gray-400 hover:text-pink-400 transition-colors";
       document.getElementById('btn-nav-master').className    = clsNonAktif;
       document.getElementById('btn-nav-transaksi').className = clsNonAktif;
       document.getElementById('btn-nav-report').className    = clsNonAktif;
       document.getElementById('btn-nav-aruskas').className   = clsNonAktif;
 
-      // Kelas aktif (pink)
       const clsAktif = "flex-1 flex flex-col items-center p-2 text-pink-600 transition-colors transform scale-105";
 
       if (targetMenu === 'aruskas') {
