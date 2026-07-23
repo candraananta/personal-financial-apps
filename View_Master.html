@@ -1,0 +1,213 @@
+<!-- KONTEN: View_Master.html -->
+<section id="modul-master" class="block pb-24">
+  <div class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4">
+    <h3 class="text-xs font-bold text-rose-900 mb-3"><i class="fa-solid fa-database text-pink-500 mr-2"></i> Pengaturan Master</h3>
+    
+    <div class="flex gap-2 mb-6">
+      <select id="pilihMaster" onchange="loadMasterAktif()" class="flex-1 bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm font-bold text-rose-900">
+        <option value="Lokasi">Master Lokasi Klinik</option>
+        <option value="Kategori">Master Kategori Aset</option>
+        <option value="Platform">Master Platform Aset</option>
+        <option value="Item">Master Item Spesifik</option>
+        <option value="Pengeluaran">Master Pengeluaran Rutin</option>
+      </select>
+      <button onclick="bukaFormTambahMaster()" class="bg-pink-600 hover:bg-pink-700 active:bg-pink-800 text-white font-bold py-3 px-4 rounded-xl shadow-md text-sm whitespace-nowrap transition-colors">
+        <i class="fa-solid fa-plus mr-1"></i> Tambah
+      </button>
+    </div>
+
+    <div class="overflow-x-auto no-scrollbar border border-pink-100 rounded-lg">
+      <table class="w-full text-left text-xs whitespace-nowrap">
+        <thead class="bg-rose-50 text-pink-700" id="theadMaster">
+          <!-- Header akan dirender melalui JavaScript -->
+        </thead>
+        <tbody id="tbodyMaster" class="divide-y divide-pink-50">
+          <!-- Data baris akan dirender melalui JavaScript -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Fungsi inisialisasi awal saat menu Master diklik
+  function initModulMaster() {
+    loadMasterAktif();
+  }
+
+  // Fungsi utama untuk mengatur tabel mana yang dimuat
+  function loadMasterAktif() {
+    const pilihan = document.getElementById('pilihMaster').value;
+    document.getElementById('tbodyMaster').innerHTML = '<tr><td colspan="5" class="px-2 py-4 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-pink-500 mb-2 text-xl block"></i> Memuat data...</td></tr>';
+
+    try {
+      if (pilihan === 'Lokasi') {
+        renderHeaderTabel(['Nama Lokasi', 'Komisi (%)', 'Cut-Off', 'Tarif BPJS', 'Aksi']);
+        google.script.run.withFailureHandler(handleError).withSuccessHandler(data => renderTabelMaster(data, 'Lokasi')).bacaDataMaster("Master Lokasi", 5);
+      } 
+      else if (pilihan === 'Kategori') {
+        renderHeaderTabel(['Nama Kategori', 'Aksi']);
+        google.script.run.withFailureHandler(handleError).withSuccessHandler(data => renderTabelMaster(data, 'Kategori')).bacaDataMaster("Master Kategori", 2);
+      } 
+      else if (pilihan === 'Platform') {
+        renderHeaderTabel(['Nama Platform', 'Aksi']);
+        google.script.run.withFailureHandler(handleError).withSuccessHandler(data => renderTabelMaster(data, 'Platform')).bacaDataMaster("Master Platform", 2);
+      } 
+      else if (pilihan === 'Item') {
+        renderHeaderTabel(['Kategori', 'Nama Item', 'Aksi']);
+        google.script.run.withFailureHandler(handleError).withSuccessHandler(data => renderTabelMaster(data, 'Item')).bacaDataMaster("Master Item", 3);
+      } 
+      else if (pilihan === 'Pengeluaran') {
+        renderHeaderTabel(['Nama Pengeluaran', 'Nominal', 'Catatan/Rek', 'Aksi']);
+        google.script.run.withFailureHandler(handleError).withSuccessHandler(data => renderTabelPengeluaran(data)).bacaDataMaster("Master Pengeluaran Rutin", 4);
+      }
+    } catch (error) {
+      console.error("Syntax Error: ", error);
+      Swal.fire('Error Sistem', 'Terjadi kesalahan logika: ' + error.message, 'error');
+    }
+  }
+
+  // Penangkap error koneksi ke backend
+  function handleError(error) {
+    Swal.fire('Gagal Menarik Data', error.message, 'error');
+    document.getElementById('tbodyMaster').innerHTML = '<tr><td colspan="5" class="px-2 py-4 text-center text-red-500 font-bold">Gagal memuat data dari database.</td></tr>';
+  }
+
+  // Merender header tabel dinamis
+  function renderHeaderTabel(arrHeader) {
+    let html = '<tr>';
+    arrHeader.forEach(h => {
+      let align = h === 'Aksi' ? 'text-right' : 'text-left';
+      html += `<th class="px-2 py-2 ${align}">${h}</th>`;
+    });
+    html += '</tr>';
+    document.getElementById('theadMaster').innerHTML = html;
+  }
+
+  // Merender isi tabel untuk master umum
+  function renderTabelMaster(data, jenis) {
+    const tbody = document.getElementById('tbodyMaster');
+    tbody.innerHTML = '';
+    if(data.length === 0) return tbody.innerHTML = '<tr><td colspan="5" class="px-2 py-4 text-center text-gray-400">Data kosong</td></tr>';
+    
+    data.forEach(item => {
+      let rowHtml = '<tr class="hover:bg-rose-50 transition-colors">';
+      if (jenis === 'Lokasi') {
+        rowHtml += `<td class="px-2 py-3 font-bold text-slate-700">${item[1]}</td><td class="px-2 py-3">${item[2]}%</td><td class="px-2 py-3">Tgl ${item[3]}</td><td class="px-2 py-3">Rp${parseInt(item[4]||0).toLocaleString('id-ID')}</td>`;
+      } else if (jenis === 'Kategori' || jenis === 'Platform') {
+        rowHtml += `<td class="px-2 py-3 font-bold text-slate-700">${item[1]}</td>`;
+      } else if (jenis === 'Item') {
+        rowHtml += `<td class="px-2 py-3 text-[10px] bg-pink-50 text-pink-600 rounded">${item[1]}</td><td class="px-2 py-3 font-bold text-slate-700">${item[2]}</td>`;
+      }
+      
+      let targetSheet = jenis === 'Lokasi' ? "Master Lokasi" : (jenis === 'Kategori' ? "Master Kategori" : (jenis === 'Platform' ? "Master Platform" : "Master Item"));
+      rowHtml += `<td class="px-2 py-3 text-right"><button onclick="prosesHapusMaster('${targetSheet}', '${item[0]}')" class="text-rose-400 hover:text-rose-600 p-1"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+      tbody.innerHTML += rowHtml;
+    });
+  }
+
+  // Merender isi tabel khusus untuk Master Pengeluaran
+  function renderTabelPengeluaran(data) {
+    const tbody = document.getElementById('tbodyMaster');
+    tbody.innerHTML = '';
+    if(data.length === 0) return tbody.innerHTML = '<tr><td colspan="4" class="px-2 py-4 text-center text-gray-400">Data kosong</td></tr>';
+    
+    data.forEach(item => {
+      let nominalFormat = item[2] ? parseInt(item[2]).toLocaleString('id-ID') : "0";
+      tbody.innerHTML += `
+        <tr class="hover:bg-rose-50 transition-colors">
+          <td class="px-2 py-3 font-bold text-slate-700">${item[1]}</td>
+          <td class="px-2 py-3 text-[10px] font-bold text-slate-600">Rp${nominalFormat}</td>
+          <td class="px-2 py-3 text-[10px] text-gray-500">${item[3] || '-'}</td>
+          <td class="px-2 py-3 text-right">
+            <button onclick="prosesHapusMaster('Master Pengeluaran Rutin', '${item[0]}')" class="text-rose-400 hover:text-rose-600 p-1"><i class="fa-solid fa-trash"></i></button>
+          </td>
+        </tr>
+      `;
+    });
+  }
+
+  // Logika membuka form input (SweetAlert)
+  function bukaFormTambahMaster() {
+    const pilihan = document.getElementById('pilihMaster').value;
+    
+    if (pilihan === 'Lokasi') {
+      Swal.fire({
+        title: 'Tambah Master Lokasi',
+        html: '<input id="swal-nama" class="swal2-input text-sm" placeholder="Nama Lokasi">' +
+              '<input id="swal-komisi" type="number" class="swal2-input text-sm" placeholder="Komisi Dokter (%)">' +
+              '<input id="swal-cutoff" type="number" class="swal2-input text-sm" placeholder="Tgl Cut-Off (misal: 25)">' +
+              '<input id="swal-bpjs" type="number" class="swal2-input text-sm" placeholder="Tarif BPJS (misal: 150000)">',
+        showCancelButton: true, confirmButtonColor: '#db2777', confirmButtonText: 'Simpan',
+        preConfirm: () => {
+          const v = [document.getElementById('swal-nama').value, document.getElementById('swal-komisi').value, document.getElementById('swal-cutoff').value, document.getElementById('swal-bpjs').value];
+          if (!v[0] || !v[1] || !v[2]) Swal.showValidationMessage('Nama, Komisi, dan Cut-off wajib diisi!');
+          return v;
+        }
+      }).then((res) => { if (res.isConfirmed) google.script.run.withSuccessHandler(() => loadMasterAktif()).simpanMasterLokasi(res.value[0], res.value[1], res.value[2], res.value[3]); });
+    } 
+    else if (pilihan === 'Kategori') {
+      Swal.fire({
+        title: 'Tambah Kategori Aset',
+        input: 'text', inputPlaceholder: 'Misal: Emas / Reksadana Saham',
+        showCancelButton: true, confirmButtonColor: '#db2777', confirmButtonText: 'Simpan',
+        preConfirm: (val) => { if (!val) Swal.showValidationMessage('Nama kategori wajib diisi!'); return val; }
+      }).then((res) => { if (res.isConfirmed) google.script.run.withSuccessHandler(() => loadMasterAktif()).simpanMasterKategori(res.value); });
+    } 
+    else if (pilihan === 'Platform') {
+      Swal.fire({
+        title: 'Tambah Platform Aset',
+        input: 'text', inputPlaceholder: 'Misal: Bibit / Brankas Antam',
+        showCancelButton: true, confirmButtonColor: '#db2777', confirmButtonText: 'Simpan',
+        preConfirm: (val) => { if (!val) Swal.showValidationMessage('Nama platform wajib diisi!'); return val; }
+      }).then((res) => { if (res.isConfirmed) google.script.run.withSuccessHandler(() => loadMasterAktif()).simpanMasterPlatform(res.value); });
+    } 
+    else if (pilihan === 'Item') {
+      google.script.run.withSuccessHandler(katData => {
+        let opt = '<select id="swal-kat" class="swal2-input text-sm"><option value="" disabled selected>Pilih Kategori...</option>';
+        katData.forEach(k => opt += `<option value="${k[1]}">${k[1]}</option>`);
+        opt += '</select><input id="swal-item" class="swal2-input text-sm" placeholder="Nama Item (Misal: Emas Antam 10gr)">';
+        
+        Swal.fire({
+          title: 'Tambah Item Spesifik', html: opt, showCancelButton: true, confirmButtonColor: '#db2777', confirmButtonText: 'Simpan',
+          preConfirm: () => {
+            const k = document.getElementById('swal-kat').value; const i = document.getElementById('swal-item').value;
+            if (!k || !i) Swal.showValidationMessage('Semua kolom wajib diisi!'); return [k, i];
+          }
+        }).then((res) => { if (res.isConfirmed) google.script.run.withSuccessHandler(() => loadMasterAktif()).simpanMasterItem(res.value[0], res.value[1]); });
+      }).bacaDataMaster("Master Kategori", 2);
+    }
+    else if (pilihan === 'Pengeluaran') {
+      Swal.fire({
+        title: 'Master Pengeluaran Baru',
+        html:
+          '<input id="swal-nama" class="swal2-input text-sm" placeholder="Nama Tagihan (Misal: Listrik)">' +
+          '<input id="swal-nominal" type="number" class="swal2-input text-sm" placeholder="Estimasi Nominal (Misal: 500000)">' +
+          '<input id="swal-catatan" class="swal2-input text-sm" placeholder="Catatan (Misal: VA BCA 12345)">',
+        showCancelButton: true, confirmButtonColor: '#db2777', confirmButtonText: 'Simpan',
+        preConfirm: () => {
+          const v = [document.getElementById('swal-nama').value, document.getElementById('swal-nominal').value, document.getElementById('swal-catatan').value];
+          if (!v[0] || !v[1]) Swal.showValidationMessage('Nama dan Nominal wajib diisi!');
+          return v;
+        }
+      }).then((res) => {
+        if (res.isConfirmed) google.script.run.withSuccessHandler(() => loadMasterAktif()).simpanMasterPengeluaran(res.value[0], res.value[1], res.value[2]);
+      });
+    }
+  }
+
+  // Fungsi penghapusan baris data
+  function prosesHapusMaster(sheetName, idRow) {
+    Swal.fire({
+      title: 'Hapus Data?', text: "Data master ini akan dihapus permanen.", icon: 'warning',
+      showCancelButton: true, confirmButtonColor: '#db2777', cancelButtonColor: '#d1d5db', confirmButtonText: 'Ya, Hapus!'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        Swal.fire({title: 'Menghapus...', allowOutsideClick: false, didOpen: () => {Swal.showLoading();}});
+        google.script.run.withSuccessHandler(res => {
+          Swal.fire('Terhapus!', res, 'success'); loadMasterAktif();
+        }).hapusDataMaster(sheetName, idRow);
+      }
+    });
+  }
+</script>

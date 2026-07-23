@@ -1,0 +1,535 @@
+<!-- KONTEN: View_Transaksi.html -->
+<section id="modul-transaksi" class="block relative">
+  
+  <!-- Pemilih Jenis Transaksi -->
+  <div class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4 flex items-center gap-3">
+    <div class="bg-pink-100 p-3 rounded-xl text-pink-600"><i class="fa-solid fa-money-bill-transfer text-xl"></i></div>
+    <div class="flex-1">
+      <label class="block text-[10px] font-bold text-gray-400 mb-1">MODE PENCATATAN</label>
+      <select id="pilihModeTrx" onchange="gantiModeTrx()" class="w-full bg-rose-50 border border-pink-200 py-2 px-2 rounded-lg outline-none text-sm font-bold text-rose-900">
+        <option value="klinik">Fee Klinik Medis</option>
+        <option value="aset">Tabungan Aset (Investasi)</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- FORM 1: TRANSAKSI KLINIK -->
+  <div id="form-klinik-container" class="bg-white p-5 rounded-2xl shadow-sm border border-pink-100 mb-20 block">
+    <form id="formKlinik" onsubmit="submitTrxKlinik(event)">
+      <div class="mb-4">
+        <label class="block text-xs font-bold text-gray-500 mb-1">TANGGAL TRANSAKSI <span class="text-red-500">*</span></label>
+        <input type="date" id="klinik-tgl" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm font-bold text-rose-900" required>
+      </div>
+      <div class="grid grid-cols-1 gap-4 mb-4">
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1">LOKASI / KLINIK <span class="text-red-500">*</span></label>
+          <select id="klinik-lokasi" onchange="kalkulasiKlinik()" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" required>
+            <option value="" disabled selected>Memuat referensi...</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1">NAMA PASIEN <span class="text-red-500">*</span></label>
+          <input type="text" id="klinik-pasien" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" placeholder="Nama lengkap" required>
+        </div>
+      </div>
+      <div class="mb-4 flex items-center justify-between bg-pink-50 p-3 rounded-xl border border-pink-200">
+        <div>
+          <p class="text-xs font-bold text-rose-900"><i class="fa-solid fa-id-card text-pink-500 mr-1"></i> Pasien BPJS?</p>
+          <p class="text-[10px] text-pink-600">Full Tarif Masuk Ke Komisi Dokter</p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="klinik-bpjs" onchange="toggleBPJS()" class="sr-only peer">
+          <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-pink-600"></div>
+        </label>
+      </div>
+      <div class="mb-4">
+        <label class="block text-xs font-bold text-gray-500 mb-1">TINDAKAN (OPSIONAL)</label>
+        <input type="text" id="klinik-tindakan" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm">
+      </div>
+      <div class="mb-6">
+        <label class="block text-xs font-bold text-gray-500 mb-1">TOTAL OMSET (RP) <span class="text-red-500">*</span></label>
+        <input type="text" id="klinik-omset-visual" oninput="formatVisualAngka(this, 'klinik-omset-raw'); kalkulasiKlinik()" class="w-full bg-rose-50 border border-pink-200 py-4 px-4 rounded-xl text-xl font-bold text-gray-800 focus:ring-2 focus:ring-pink-500 outline-none text-center transition-colors" placeholder="0" required>
+        <input type="hidden" id="klinik-omset-raw" value="0">
+      </div>
+      <div class="bg-pink-50 border border-pink-200 rounded-xl p-4 mb-6 grid grid-cols-2 gap-2 text-center divide-x divide-pink-200">
+        <div>
+          <p class="text-[10px] text-pink-600 font-bold mb-1">KOMISI DOKTER (<span id="txt-persen-klinik">0</span>%)</p>
+          <p class="text-sm font-bold text-rose-900" id="txt-nominal-klinik">Rp 0</p>
+        </div>
+        <div>
+          <p class="text-[10px] text-pink-600 font-bold mb-1">LABA KLINIK</p>
+          <p class="text-sm font-bold text-rose-900" id="txt-laba-klinik">Rp 0</p>
+        </div>
+      </div>
+      <input type="hidden" id="val-persen-klinik" value="0"><input type="hidden" id="val-nominal-klinik" value="0"><input type="hidden" id="val-laba-klinik" value="0"><input type="hidden" id="val-cutoff-klinik" value="0">
+      <button type="submit" id="btn-submit-klinik" class="w-full bg-pink-600 hover:bg-pink-700 active:bg-pink-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm">Simpan Fee Klinik</button>
+    </form>
+  </div>
+
+  <!-- FORM 2: TRANSAKSI TABUNGAN ASET -->
+  <div id="form-aset-container" class="bg-white p-5 rounded-2xl shadow-sm border border-pink-100 mb-20 hidden">
+    <form id="formAset" onsubmit="submitTrxAset(event)">
+      
+      <!-- Input Tersembunyi Penyimpan Relasi Jual -->
+      <input type="hidden" id="val-id-referensi" value="">
+
+      <div class="mb-4">
+        <label class="block text-xs font-bold text-gray-500 mb-1">TANGGAL TRANSAKSI <span class="text-red-500">*</span></label>
+        <input type="date" id="aset-tgl" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm font-bold text-rose-900" required>
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-xs font-bold text-gray-500 mb-1">TIPE TRANSAKSI <span class="text-red-500">*</span></label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="flex items-center justify-center p-3 bg-rose-50 border border-pink-200 rounded-xl cursor-pointer hover:bg-pink-100 has-[:checked]:bg-pink-600 has-[:checked]:text-white transition-colors">
+            <input type="radio" name="aset-tipe" value="BELI" class="sr-only" onchange="resetFormBeli()" checked>
+            <span class="text-sm font-bold">Beli (Masuk)</span>
+          </label>
+          <label class="flex items-center justify-center p-3 bg-rose-50 border border-pink-200 rounded-xl cursor-pointer hover:bg-pink-100 has-[:checked]:bg-pink-600 has-[:checked]:text-white transition-colors">
+            <input type="radio" name="aset-tipe" value="JUAL" class="sr-only" onchange="bukaGridJual()">
+            <span class="text-sm font-bold">Jual (Keluar)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Input COA dari Master Pengeluaran -->
+      <div class="mb-4" id="area-coa-aset">
+        <label class="block text-xs font-bold text-gray-500 mb-1">AKUN BIAYA (COA) <span class="text-red-500">*</span></label>
+        <select id="aset-coa" class="w-full bg-pink-50 border border-pink-200 py-3 px-3 rounded-xl outline-none text-sm font-bold text-rose-900">
+          <option value="" disabled selected>Memuat Master COA...</option>
+        </select>
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-xs font-bold text-gray-500 mb-1">PLATFORM / TEMPAT SIMPAN <span class="text-red-500">*</span></label>
+        <select id="aset-platform" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" required>
+          <option value="" disabled selected>Memuat referensi...</option>
+        </select>
+      </div>
+
+      <div class="mb-4 grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1">KATEGORI <span class="text-red-500">*</span></label>
+          <select id="aset-kategori" onchange="filterItemBerdasarkanKategori()" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" required>
+            <option value="" disabled selected>Pilih Kategori...</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1">NAMA ITEM <span class="text-red-500">*</span></label>
+          <select id="aset-item" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" required>
+            <option value="" disabled selected>Pilih Item...</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mb-4 grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1">KUANTITAS (UNIT) <span class="text-red-500">*</span></label>
+          <input type="number" step="any" id="aset-kuantitas" oninput="kalkulasiAset()" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm font-bold" placeholder="Misal: 10" required>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1">TOTAL BAYAR/DAPAT (RP) <span class="text-red-500">*</span></label>
+          <input type="text" id="aset-total-visual" oninput="formatVisualAngka(this, 'aset-total-raw'); kalkulasiAset()" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm font-bold text-rose-900" placeholder="0" required>
+          <input type="hidden" id="aset-total-raw" value="0">
+        </div>
+      </div>
+
+      <div class="bg-pink-50 border border-pink-200 rounded-xl p-4 mb-6 text-center">
+        <p class="text-[10px] text-pink-600 font-bold mb-1">HARGA EFEKTIF PER UNIT</p>
+        <p class="text-2xl font-bold text-gray-700" id="txt-harga-satuan">Rp 0</p>
+        <input type="hidden" id="val-harga-satuan" value="0">
+      </div>
+
+      <button type="submit" id="btn-submit-aset" class="w-full bg-pink-600 hover:bg-pink-700 active:bg-pink-800 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm">
+        Simpan Transaksi Aset
+      </button>
+    </form>
+  </div>
+
+  <!-- MODAL / POP-UP GRID PILIH JUAL -->
+  <div id="modal-grid-jual" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+    <div class="bg-white rounded-2xl p-5 w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl">
+       <h3 class="text-sm font-bold text-rose-900 mb-3 border-b border-pink-50 pb-2"><i class="fa-solid fa-list-check text-pink-500 mr-2"></i>Pilih Aset Untuk Dijual</h3>
+       
+       <div class="overflow-y-auto flex-1 no-scrollbar mb-4 border border-pink-100 rounded-lg">
+          <table class="w-full text-left text-xs whitespace-nowrap">
+             <thead class="bg-rose-50 text-pink-700 sticky top-0">
+                <tr>
+                  <th class="px-3 py-2">Tgl Beli</th>
+                  <th class="px-3 py-2">Item & Platform</th>
+                  <th class="px-3 py-2">Sisa Qty</th>
+                  <th class="px-3 py-2 text-center">Aksi</th>
+                </tr>
+             </thead>
+             <tbody id="tbody-grid-jual" class="divide-y divide-pink-50">
+                <!-- Data diinjeksi via JS -->
+             </tbody>
+          </table>
+       </div>
+       
+       <button type="button" onclick="tutupGridJual()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-bold text-xs transition-colors">
+         Batalkan Penjualan
+       </button>
+    </div>
+  </div>
+
+</section>
+
+<script>
+  let dataMasterCache = { lokasi: [], kategori: [], platform: [], item: [] };
+  let cacheRiwayatJual = []; 
+
+  function initModulTransaksi() {
+    const localDate = new Date(new Date().getTime() - (new Date().getTimezoneOffset()*60*1000)).toISOString().split('T')[0];
+    document.getElementById('klinik-tgl').value = localDate;
+    document.getElementById('aset-tgl').value = localDate;
+    
+    // Memanggil referensi lokasi, kategori, platform, dll.
+    google.script.run.withSuccessHandler(data => {
+      dataMasterCache = data; 
+      populateDropdowns();
+    }).getReferensiTransaksi();
+
+    // Memanggil data COA untuk Arus Kas
+    google.script.run.withSuccessHandler(data => {
+      let opsiCoa = '<option value="" disabled selected>-- Pilih Akun Pengeluaran --</option>';
+      data.forEach(d => {
+        opsiCoa += `<option value="${d[1]}">${d[1]}</option>`;
+      });
+      document.getElementById('aset-coa').innerHTML = opsiCoa;
+    }).getReferensiArusKas(); 
+  }
+
+  function gantiModeTrx() {
+    const mode = document.getElementById('pilihModeTrx').value;
+    document.getElementById('form-klinik-container').classList.toggle('hidden', mode !== 'klinik');
+    document.getElementById('form-aset-container').classList.toggle('hidden', mode !== 'aset');
+  }
+
+  function populateDropdowns() {
+    let cbKlinik = '<option value="" disabled selected>-- Pilih Lokasi --</option>';
+    dataMasterCache.lokasi.forEach(k => cbKlinik += `<option value='{"nama":"${k[1]}", "komisi":${k[2]}, "cutoff":${k[3]}, "tarifBpjs":${k[4]}}'>${k[1]}</option>`);
+    document.getElementById('klinik-lokasi').innerHTML = cbKlinik;
+
+    let cbPlatform = '<option value="" disabled selected>-- Pilih Platform --</option>';
+    dataMasterCache.platform.forEach(p => cbPlatform += `<option value="${p[1]}">${p[1]}</option>`);
+    document.getElementById('aset-platform').innerHTML = cbPlatform;
+
+    let cbKat = '<option value="" disabled selected>-- Pilih Kategori --</option>';
+    dataMasterCache.kategori.forEach(k => cbKat += `<option value="${k[1]}">${k[1]}</option>`);
+    document.getElementById('aset-kategori').innerHTML = cbKat;
+  }
+
+  function filterItemBerdasarkanKategori() {
+    const katTerpilih = document.getElementById('aset-kategori').value;
+    const cbItem = document.getElementById('aset-item');
+    cbItem.innerHTML = '<option value="" disabled selected>-- Pilih Item --</option>';
+
+    const itemSesuai = dataMasterCache.item.filter(i => i[1] === katTerpilih);
+    if(itemSesuai.length === 0) cbItem.innerHTML = '<option value="" disabled selected>Belum ada item di master</option>';
+    else itemSesuai.forEach(i => cbItem.innerHTML += `<option value="${i[2]}">${i[2]}</option>`);
+  }
+
+  function formatVisualAngka(elVisual, idRaw) {
+    let raw = elVisual.value.replace(/[^0-9]/g, ''); 
+    if (raw === '') raw = '0';
+    document.getElementById(idRaw).value = raw;
+    elVisual.value = raw !== '0' ? parseInt(raw).toLocaleString('id-ID') : '';
+  }
+
+  function formatRp(angka) { 
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka); 
+  }
+
+  // --- LOGIKA KLINIK ---
+  function toggleBPJS() {
+    const klinikVal = document.getElementById('klinik-lokasi').value;
+    const isBPJS = document.getElementById('klinik-bpjs').checked;
+    const inputVisual = document.getElementById('klinik-omset-visual'); 
+    const inputRaw = document.getElementById('klinik-omset-raw');
+
+    if (isBPJS && !klinikVal) { 
+      Swal.fire('Oops', 'Pilih lokasi terlebih dahulu!', 'warning'); 
+      document.getElementById('klinik-bpjs').checked = false; 
+      return; 
+    }
+
+    if (isBPJS) {
+      const tarif = JSON.parse(klinikVal).tarifBpjs || 0;
+      inputRaw.value = tarif; 
+      inputVisual.value = parseInt(tarif).toLocaleString('id-ID');
+      inputVisual.readOnly = true; 
+      inputVisual.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+    } else {
+      inputRaw.value = "0"; 
+      inputVisual.value = ""; 
+      inputVisual.readOnly = false;
+      inputVisual.classList.remove('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+    }
+    kalkulasiKlinik();
+  }
+
+  function kalkulasiKlinik() {
+    const klinikVal = document.getElementById('klinik-lokasi').value;
+    const isBPJS = document.getElementById('klinik-bpjs').checked;
+    
+    let persen = 0, cutoff = 0, tarifBpjs = 0;
+    if (klinikVal) { 
+      const obj = JSON.parse(klinikVal); 
+      persen = parseFloat(obj.komisi); 
+      cutoff = parseInt(obj.cutoff); 
+      tarifBpjs = parseFloat(obj.tarifBpjs) || 0; 
+    }
+    if (isBPJS && klinikVal) { 
+      document.getElementById('klinik-omset-raw').value = tarifBpjs; 
+      document.getElementById('klinik-omset-visual').value = tarifBpjs.toLocaleString('id-ID'); 
+    }
+
+    let omset = parseFloat(document.getElementById('klinik-omset-raw').value) || 0; 
+    let nom = 0, laba = 0;
+    
+    if (isBPJS) { 
+      nom = omset; 
+      laba = 0; 
+      document.getElementById('txt-persen-klinik').innerText = "Flat"; 
+    } else { 
+      nom = omset * (persen / 100); 
+      laba = omset - nom; 
+      document.getElementById('txt-persen-klinik').innerText = persen; 
+    }
+
+    document.getElementById('txt-nominal-klinik').innerText = formatRp(nom); 
+    document.getElementById('txt-laba-klinik').innerText = formatRp(laba);
+    document.getElementById('val-persen-klinik').value = isBPJS ? 0 : persen; 
+    document.getElementById('val-nominal-klinik').value = nom;
+    document.getElementById('val-laba-klinik').value = laba; 
+    document.getElementById('val-cutoff-klinik').value = cutoff;
+  }
+
+  function submitTrxKlinik(e) {
+    e.preventDefault();
+    if(!document.getElementById('klinik-lokasi').value) return Swal.fire('Oops', 'Pilih lokasi', 'error');
+    
+    let btn = document.getElementById('btn-submit-klinik'); 
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...'; 
+    btn.disabled = true;
+    
+    let pasienNama = document.getElementById('klinik-pasien').value; 
+    if (document.getElementById('klinik-bpjs').checked) pasienNama += " (BPJS)";
+
+    const payload = {
+      tanggal: document.getElementById('klinik-tgl').value, 
+      klinik: JSON.parse(document.getElementById('klinik-lokasi').value).nama,
+      pasien: pasienNama, 
+      tindakan: document.getElementById('klinik-tindakan').value || '-', 
+      omset: document.getElementById('klinik-omset-raw').value,
+      persenKomisi: document.getElementById('val-persen-klinik').value, 
+      nominalKomisi: document.getElementById('val-nominal-klinik').value,
+      labaBersih: document.getElementById('val-laba-klinik').value, 
+      cutoff: document.getElementById('val-cutoff-klinik').value
+    };
+
+    google.script.run.withSuccessHandler(res => {
+      Swal.fire({title: 'Tersimpan!', text: res, icon:'success'});
+      document.getElementById('klinik-pasien').value = ''; 
+      document.getElementById('klinik-tindakan').value = '';
+      document.getElementById('klinik-bpjs').checked = false; 
+      toggleBPJS();
+      btn.innerText = 'Simpan Fee Klinik'; 
+      btn.disabled = false;
+    }).simpanTrxKlinik(payload);
+  }
+
+  // --- LOGIKA TABUNGAN ASET ---
+  
+  function bukaGridJual() {
+    // Sembunyikan form COA saat mode Jual dipilih
+    document.getElementById('area-coa-aset').classList.add('hidden');
+
+    document.getElementById('modal-grid-jual').classList.remove('hidden');
+    document.getElementById('tbody-grid-jual').innerHTML = '<tr><td colspan="4" class="px-3 py-6 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-pink-500 mb-2 text-xl block"></i> Memuat Riwayat...</td></tr>';
+    
+    google.script.run.withSuccessHandler(data => {
+      cacheRiwayatJual = data; 
+      renderGridJual(data);
+    }).getRiwayatBeliAktif();
+  }
+
+  function tutupGridJual() {
+    document.getElementById('modal-grid-jual').classList.add('hidden');
+    if(document.getElementById('val-id-referensi').value === "") {
+      document.querySelector('input[name="aset-tipe"][value="BELI"]').checked = true;
+      resetFormBeli();
+    }
+  }
+
+  function renderGridJual(data) {
+    const tbody = document.getElementById('tbody-grid-jual');
+    
+    if(data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="px-3 py-4 text-center text-gray-400 font-bold">Tidak ada aset (sisa) yang bisa dijual.</td></tr>';
+      return;
+    }
+
+    let htmlRows = '';
+    data.forEach(d => {
+      htmlRows += `
+         <tr class="hover:bg-rose-50 transition-colors">
+           <td class="px-3 py-3 text-[10px] font-mono text-gray-500">${d.tanggal}</td>
+           <td class="px-3 py-3">
+             <span class="font-bold text-slate-700 block">${d.item}</span>
+             <span class="text-[9px] text-pink-600 bg-pink-50 px-1 py-0.5 rounded border border-pink-100">${d.platform}</span>
+           </td>
+           <td class="px-3 py-3 font-bold text-rose-900">${d.sisaQty}</td>
+           <td class="px-3 py-3 text-center">
+             <button type="button" data-id="${d.id}" onclick="pilihLotJual(this)" class="bg-pink-500 hover:bg-pink-600 active:bg-pink-700 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] shadow-sm">Pilih</button>
+           </td>
+         </tr>
+      `;
+    });
+    
+    tbody.innerHTML = htmlRows;
+  }
+
+  function pilihLotJual(btnElement) {
+    try {
+      const idTarget = btnElement.getAttribute('data-id');
+      if (!idTarget) {
+        alert("ID Transaksi gagal dibaca dari tombol!");
+        return;
+      }
+
+      const d = cacheRiwayatJual.find(item => String(item.id) === String(idTarget));
+      if (!d) {
+        alert("Kesalahan Sistem: ID " + idTarget + " tidak ditemukan di memori cache.");
+        return;
+      }
+      
+      // 1. Paksa isi dropdown dengan data dari riwayat agar form tidak blank
+      document.getElementById('aset-platform').innerHTML = `<option value="${d.platform}" selected>${d.platform}</option>`;
+      document.getElementById('aset-kategori').innerHTML = `<option value="${d.kategori}" selected>${d.kategori}</option>`;
+      document.getElementById('aset-item').innerHTML = `<option value="${d.item}" selected>${d.item}</option>`;
+      
+      // 2. Cabut status wajib diisi (required) agar lolos validasi form browser
+      document.getElementById('aset-platform').removeAttribute('required');
+      document.getElementById('aset-kategori').removeAttribute('required');
+      document.getElementById('aset-item').removeAttribute('required');
+      
+      // 3. Kunci elemen form dengan kelas CSS
+      const lockClass = "bg-gray-100 text-gray-500 cursor-not-allowed pointer-events-none";
+      document.getElementById('aset-platform').className = `w-full border border-gray-200 py-3 px-3 rounded-xl outline-none text-sm ${lockClass}`;
+      document.getElementById('aset-kategori').className = `w-full border border-gray-200 py-3 px-3 rounded-xl outline-none text-sm ${lockClass}`;
+      document.getElementById('aset-item').className = `w-full border border-gray-200 py-3 px-3 rounded-xl outline-none text-sm ${lockClass}`;
+
+      // 4. Atur batas maksimal kuantitas jual
+      document.getElementById('aset-kuantitas').max = d.sisaQty;
+      document.getElementById('aset-kuantitas').placeholder = `Max Jual: ${d.sisaQty}`;
+      document.getElementById('aset-kuantitas').value = ''; 
+      document.getElementById('aset-total-visual').value = ''; 
+      kalkulasiAset();
+      
+      // 5. Simpan ID Referensi dan tutup modal
+      document.getElementById('val-id-referensi').value = d.id;
+      document.getElementById('modal-grid-jual').classList.add('hidden');
+      
+    } catch (error) {
+      alert("Error eksekusi JavaScript: " + error.message);
+      console.error(error);
+    }
+  }
+
+  function resetFormBeli() {
+    // Munculkan kembali input COA saat mode Beli
+    document.getElementById('area-coa-aset').classList.remove('hidden');
+    document.getElementById('aset-coa').value = ""; 
+
+    const normalClass = "w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm";
+    
+    // 1. Kembalikan status atribut wajib diisi (required)
+    document.getElementById('aset-platform').setAttribute('required', 'true');
+    document.getElementById('aset-kategori').setAttribute('required', 'true');
+    document.getElementById('aset-item').setAttribute('required', 'true');
+
+    // 2. Kembalikan warna form menjadi tampilan normal (Pink)
+    document.getElementById('aset-platform').className = normalClass;
+    document.getElementById('aset-kategori').className = normalClass;
+    document.getElementById('aset-item').className = normalClass;
+    
+    // 3. Panggil ulang master data untuk mengisi dropdown kembali secara normal
+    populateDropdowns();
+    document.getElementById('aset-item').innerHTML = '<option value="" disabled selected>Pilih Kategori dulu...</option>';
+    
+    // 4. Reset sisa atribut field kuantitas & harga
+    document.getElementById('aset-kuantitas').removeAttribute('max');
+    document.getElementById('aset-kuantitas').placeholder = "Misal: 10";
+    document.getElementById('val-id-referensi').value = ""; 
+    
+    document.getElementById('txt-harga-satuan').innerText = 'Rp 0';
+    document.getElementById('val-harga-satuan').value = 0;
+  }
+
+  function kalkulasiAset() {
+    let qty = parseFloat(document.getElementById('aset-kuantitas').value) || 0;
+    let total = parseFloat(document.getElementById('aset-total-raw').value) || 0;
+    
+    let max = document.getElementById('aset-kuantitas').getAttribute('max');
+    if(max !== null && qty > parseFloat(max)) {
+      Swal.fire('Stok Kurang', `Kuantitas maksimal yang bisa dijual dari lot ini adalah ${max}`, 'warning');
+      document.getElementById('aset-kuantitas').value = max;
+      qty = parseFloat(max);
+    }
+    
+    let hargaSatuan = 0;
+    if (qty > 0) hargaSatuan = total / qty;
+    
+    document.getElementById('txt-harga-satuan').innerText = formatRp(hargaSatuan);
+    document.getElementById('val-harga-satuan').value = hargaSatuan;
+  }
+
+  function submitTrxAset(e) {
+    e.preventDefault();
+    let btn = document.getElementById('btn-submit-aset'); 
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...'; 
+    btn.disabled = true;
+
+    // Menggabungkan data dari Form ke dalam object Payload
+    const payload = {
+      tanggal: document.getElementById('aset-tgl').value,
+      tipe: document.querySelector('input[name="aset-tipe"]:checked').value,
+      platform: document.getElementById('aset-platform').value,
+      kategori: document.getElementById('aset-kategori').value,
+      item: document.getElementById('aset-item').value,
+      kuantitas: document.getElementById('aset-kuantitas').value,
+      total: document.getElementById('aset-total-raw').value,
+      harga: document.getElementById('val-harga-satuan').value,
+      idReferensi: document.getElementById('val-id-referensi').value,
+      
+      // Mengambil nilai COA untuk dikirimkan ke backend (Langkah C)
+      coaKas: document.getElementById('aset-coa').value 
+    };
+
+    // Pemanggilan backend yang sudah dilengkapi dengan penangkap error
+    google.script.run
+      .withSuccessHandler(res => {
+        Swal.fire({title: 'Tersimpan!', text: res, icon: 'success'});
+        
+        document.getElementById('formAset').reset();
+        document.getElementById('aset-tgl').value = payload.tanggal;
+        document.getElementById('txt-harga-satuan').innerText = 'Rp 0';
+        document.getElementById('val-harga-satuan').value = 0;
+        
+        document.querySelector('input[name="aset-tipe"][value="BELI"]').checked = true;
+        resetFormBeli();
+
+        btn.innerText = 'Simpan Transaksi Aset'; 
+        btn.disabled = false;
+      })
+      .withFailureHandler(error => {
+        // Ini akan memunculkan pop-up error dan menghentikan efek buffering
+        Swal.fire({title: 'Gagal Menyimpan!', text: error.message, icon: 'error'});
+        btn.innerText = 'Simpan Transaksi Aset'; 
+        btn.disabled = false;
+      })
+      .simpanTrxAset(payload);
+  }
+</script>

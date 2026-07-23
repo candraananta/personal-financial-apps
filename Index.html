@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Aplikasi Keuangan</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* Sembunyikan scrollbar tapi tetap bisa scroll */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* Tinggi layar penuh, konten bisa scroll */
+    body { overscroll-behavior: none; }
+  </style>
+</head>
+
+<body class="bg-rose-50 min-h-screen">
+
+  <!-- ===== HEADER ===== -->
+  <header class="fixed top-0 left-0 right-0 z-50 bg-white shadow-sm border-b border-pink-100">
+    <div class="flex items-center justify-between px-4 py-3 max-w-lg mx-auto">
+      <div class="flex items-center gap-2">
+        <div class="bg-pink-600 p-2 rounded-xl">
+          <i class="fa-solid fa-heart-pulse text-white text-sm"></i>
+        </div>
+        <div>
+          <h1 id="headerTitle" class="text-sm font-bold text-rose-900 leading-tight">Arus Kas (Cash Flow)</h1>
+          <p class="text-[10px] text-pink-400">Manajemen Keuangan Pribadi</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===== KONTEN UTAMA (scrollable, dengan padding atas & bawah) ===== -->
+  <main class="pt-16 pb-24 max-w-lg mx-auto px-3">
+
+    <!-- Container: Arus Kas -->
+    <div id="container-aruskas" class="hidden">
+      <?!= include('View_ArusKas'); ?>
+    </div>
+
+    <!-- Container: Transaksi -->
+    <div id="container-transaksi" class="hidden">
+      <?!= include('View_Transaksi'); ?>
+    </div>
+
+    <!-- Container: Report -->
+    <div id="container-report" class="hidden">
+      <?!= include('View_Report'); ?>
+    </div>
+
+    <!-- Container: Master -->
+    <div id="container-master" class="hidden">
+      <?!= include('View_Master'); ?>
+    </div>
+
+  </main>
+
+  <!-- ===== NAVIGASI BAWAH (Bottom Nav) ===== -->
+  <nav class="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-pink-100 shadow-lg">
+    <div class="flex items-center justify-around max-w-lg mx-auto px-2 py-1">
+
+      <!-- Nav: Arus Kas -->
+      <button id="btn-nav-aruskas" onclick="pindahMenu('aruskas')"
+        class="flex-1 flex flex-col items-center p-2 text-pink-600 transition-colors transform scale-105">
+        <i class="fa-solid fa-money-bill-wave text-lg mb-0.5"></i>
+        <span class="text-[10px] font-bold">Arus Kas</span>
+      </button>
+
+      <!-- Nav: Transaksi -->
+      <button id="btn-nav-transaksi" onclick="pindahMenu('transaksi')"
+        class="flex-1 flex flex-col items-center p-2 text-gray-400 hover:text-pink-400 transition-colors">
+        <i class="fa-solid fa-money-bill-transfer text-lg mb-0.5"></i>
+        <span class="text-[10px] font-bold">Transaksi</span>
+      </button>
+
+      <!-- Nav: Report -->
+      <button id="btn-nav-report" onclick="pindahMenu('report')"
+        class="flex-1 flex flex-col items-center p-2 text-gray-400 hover:text-pink-400 transition-colors">
+        <i class="fa-solid fa-chart-line text-lg mb-0.5"></i>
+        <span class="text-[10px] font-bold">Laporan</span>
+      </button>
+
+      <!-- Nav: Master -->
+      <button id="btn-nav-master" onclick="pindahMenu('master')"
+        class="flex-1 flex flex-col items-center p-2 text-gray-400 hover:text-pink-400 transition-colors">
+        <i class="fa-solid fa-database text-lg mb-0.5"></i>
+        <span class="text-[10px] font-bold">Master</span>
+      </button>
+
+    </div>
+  </nav>
+
+  <!-- ===== SCRIPT NAVIGASI ===== -->
+  <script>
+    // Jalankan setelah seluruh DOM siap
+    window.onload = function () {
+      pindahMenu('aruskas');
+    };
+
+    function pindahMenu(targetMenu) {
+      // Sembunyikan semua container
+      document.getElementById('container-master').classList.add('hidden');
+      document.getElementById('container-transaksi').classList.add('hidden');
+      document.getElementById('container-report').classList.add('hidden');
+      document.getElementById('container-aruskas').classList.add('hidden');
+
+      // Reset semua tombol nav ke non-aktif
+      const clsNonAktif = "flex-1 flex flex-col items-center p-2 text-gray-400 hover:text-pink-400 transition-colors";
+      document.getElementById('btn-nav-master').className    = clsNonAktif;
+      document.getElementById('btn-nav-transaksi').className = clsNonAktif;
+      document.getElementById('btn-nav-report').className    = clsNonAktif;
+      document.getElementById('btn-nav-aruskas').className   = clsNonAktif;
+
+      // Kelas aktif (pink)
+      const clsAktif = "flex-1 flex flex-col items-center p-2 text-pink-600 transition-colors transform scale-105";
+
+      if (targetMenu === 'aruskas') {
+        document.getElementById('container-aruskas').classList.remove('hidden');
+        document.getElementById('btn-nav-aruskas').className = clsAktif;
+        document.getElementById('headerTitle').innerText = "Arus Kas (Cash Flow)";
+        if (typeof initModulArusKas === "function") initModulArusKas();
+      }
+      else if (targetMenu === 'transaksi') {
+        document.getElementById('container-transaksi').classList.remove('hidden');
+        document.getElementById('btn-nav-transaksi').className = clsAktif;
+        document.getElementById('headerTitle').innerText = "Pencatatan Transaksi";
+        if (typeof initModulTransaksi === "function") initModulTransaksi();
+      }
+      else if (targetMenu === 'report') {
+        document.getElementById('container-report').classList.remove('hidden');
+        document.getElementById('btn-nav-report').className = clsAktif;
+        document.getElementById('headerTitle').innerText = "Laporan & PNL";
+        if (typeof initModulReport === "function") initModulReport();
+      }
+      else if (targetMenu === 'master') {
+        document.getElementById('container-master').classList.remove('hidden');
+        document.getElementById('btn-nav-master').className = clsAktif;
+        document.getElementById('headerTitle').innerText = "Master Database";
+        if (typeof initModulMaster === "function") initModulMaster();
+      }
+    }
+  </script>
+
+</body>
+</html>

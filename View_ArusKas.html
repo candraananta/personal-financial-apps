@@ -1,0 +1,214 @@
+<!-- KONTEN: View_ArusKas.html -->
+<section id="modul-aruskas" class="block">
+  
+  <!-- Pemilih Mode Pemasukan / Pengeluaran -->
+  <div class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4 flex items-center gap-3">
+    <div class="bg-pink-100 p-3 rounded-xl text-pink-600"><i class="fa-solid fa-money-bill-wave text-xl"></i></div>
+    <div class="flex-1">
+      <label class="block text-[10px] font-bold text-gray-400 mb-1">ARUS KAS</label>
+      <select id="pilihModeArusKas" onchange="gantiModeArusKas()" class="w-full bg-rose-50 border border-pink-200 py-2 px-2 rounded-lg outline-none text-sm font-bold text-rose-900">
+        <option value="PENGELUARAN">Catat Pengeluaran</option>
+        <option value="PEMASUKAN">Catat Pemasukan (Gaji/Dll)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="bg-white p-5 rounded-2xl shadow-sm border border-pink-100 mb-20 block">
+    <form id="formArusKas" onsubmit="submitTrxArusKas(event)">
+      
+      <div class="mb-4 grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1">TANGGAL <span class="text-red-500">*</span></label>
+          <!-- Tambahan event onchange untuk mendeteksi perubahan tanggal -->
+          <input type="date" id="kas-tgl" onchange="updatePeriodeUI()" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none text-sm font-bold text-rose-900" required>
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-500 mb-1">PERIODE PEMBUKUAN</label>
+          <!-- Dropdown manual dihapus, diganti input read-only yang otomatis terisi -->
+          <input type="text" id="kas-periode" class="w-full bg-pink-100 border border-pink-200 py-3 px-3 rounded-xl outline-none text-sm font-bold text-pink-700 cursor-not-allowed" readonly>
+        </div>
+      </div>
+
+      <!-- AREA DINAMIS: Custom Searchable Dropdown -->
+      <div id="area-template-rutin" class="mb-4 bg-yellow-50 border border-yellow-200 p-3 rounded-xl">
+        <label class="block text-xs font-bold text-yellow-700 mb-1"><i class="fa-solid fa-search mr-1"></i> CARI PENGELUARAN RUTIN</label>
+        
+        <div class="relative w-full">
+          <input type="text" id="kas-template-input" autocomplete="off" oninput="filterTemplateRutin()" onclick="tampilkanDropdownTemplate()" class="w-full bg-white border border-yellow-300 py-2 px-3 rounded-lg outline-none text-sm placeholder-gray-400 focus:ring-2 focus:ring-yellow-400" placeholder="Ketik nama tagihan...">
+          
+          <ul id="kas-dropdown-list" class="absolute z-50 w-full bg-white border border-yellow-300 mt-1 max-h-48 overflow-y-auto rounded-lg shadow-xl hidden text-sm divide-y divide-gray-100">
+            <!-- Item diisi otomatis via JavaScript -->
+          </ul>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-xs font-bold text-gray-500 mb-1">NAMA ITEM / SUMBER <span class="text-red-500">*</span></label>
+        <input type="text" id="kas-item" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none text-sm" placeholder="Misal: Tagihan Listrik / Gaji Bulanan" required>
+      </div>
+
+      <div class="mb-4">
+        <label class="block text-xs font-bold text-gray-500 mb-1">NOMINAL (RP) <span class="text-red-500">*</span></label>
+        <input type="text" id="kas-nominal-visual" oninput="formatVisualAngka(this, 'kas-nominal-raw')" class="w-full bg-rose-50 border border-pink-200 py-4 px-4 rounded-xl text-xl font-bold text-gray-800 outline-none text-center transition-colors" placeholder="0" required>
+        <input type="hidden" id="kas-nominal-raw" value="0">
+      </div>
+
+      <div class="mb-6">
+        <label class="block text-xs font-bold text-gray-500 mb-1">CATATAN / NO REK / KODE BAYAR</label>
+        <input type="text" id="kas-catatan" class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none text-sm" placeholder="Boleh dikosongkan">
+      </div>
+
+      <button type="submit" id="btn-submit-kas" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm transition-colors">
+        Simpan Pengeluaran (Kredit)
+      </button>
+    </form>
+  </div>
+
+</section>
+
+<script>
+  let dataPengeluaranRutin = [];
+
+  // FUNGSI BARU: Menghitung periode otomatis berdasarkan tanggal
+  function updatePeriodeUI() {
+    const tglInput = document.getElementById('kas-tgl').value;
+    if (!tglInput) return;
+    
+    const dateObj = new Date(tglInput);
+    let tgl = dateObj.getDate();
+    let bln = dateObj.getMonth(); 
+    let thn = dateObj.getFullYear();
+
+    // Logika Cut-Off: Tgl 28 lompat ke bulan depan
+    if (tgl >= 28) {
+      bln = bln + 1;
+      if (bln > 11) { 
+        bln = 0;
+        thn = thn + 1;
+      }
+    }
+
+    const namaBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    document.getElementById('kas-periode').value = namaBulan[bln] + " " + thn;
+  }
+
+  function initModulArusKas() {
+    const localDate = new Date(new Date().getTime() - (new Date().getTimezoneOffset()*60*1000)).toISOString().split('T')[0];
+    document.getElementById('kas-tgl').value = localDate;
+
+    // Memanggil perhitungan periode saat halaman pertama kali dibuka
+    updatePeriodeUI();
+
+    google.script.run.withSuccessHandler(data => {
+      dataPengeluaranRutin = data;
+      renderDaftarTemplateRutin(data);
+    }).getReferensiArusKas();
+  }
+
+  function renderDaftarTemplateRutin(data) {
+    let listHtml = '';
+    if (data.length === 0) {
+      listHtml = '<li class="px-3 py-3 text-gray-400 italic text-center">Belum ada template master</li>';
+    } else {
+      data.forEach(d => {
+        const strData = encodeURIComponent(JSON.stringify({nama: d[1], nominal: d[2], catatan: d[3]}));
+        listHtml += `<li onclick="pilihTemplateRutin('${strData}')" class="px-3 py-3 hover:bg-yellow-100 active:bg-yellow-200 cursor-pointer text-gray-700 font-medium transition-colors">${d[1]}</li>`;
+      });
+    }
+    document.getElementById('kas-dropdown-list').innerHTML = listHtml;
+  }
+
+  function tampilkanDropdownTemplate() { document.getElementById('kas-dropdown-list').classList.remove('hidden'); }
+
+  function filterTemplateRutin() {
+    tampilkanDropdownTemplate();
+    const inputVal = document.getElementById('kas-template-input').value.toLowerCase();
+    const listItems = document.getElementById('kas-dropdown-list').getElementsByTagName('li');
+    for (let i = 0; i < listItems.length; i++) {
+      let text = listItems[i].textContent || listItems[i].innerText;
+      if (text.toLowerCase().indexOf(inputVal) > -1) listItems[i].style.display = "";
+      else listItems[i].style.display = "none";
+    }
+  }
+
+  function pilihTemplateRutin(encodedData) {
+    const d = JSON.parse(decodeURIComponent(encodedData));
+    document.getElementById('kas-template-input').value = d.nama;
+    document.getElementById('kas-item').value = d.nama;
+    document.getElementById('kas-catatan').value = d.catatan || '';
+    document.getElementById('kas-nominal-raw').value = d.nominal;
+    document.getElementById('kas-nominal-visual').value = parseInt(d.nominal || 0).toLocaleString('id-ID');
+    document.getElementById('kas-dropdown-list').classList.add('hidden');
+  }
+
+  document.addEventListener('click', function(event) {
+    const area = document.getElementById('area-template-rutin');
+    const dropdownList = document.getElementById('kas-dropdown-list');
+    if (area && !area.contains(event.target) && dropdownList) {
+      dropdownList.classList.add('hidden');
+    }
+  });
+
+  function gantiModeArusKas() {
+    const mode = document.getElementById('pilihModeArusKas').value;
+    const areaTemplate = document.getElementById('area-template-rutin');
+
+    document.getElementById('formArusKas').reset();
+    document.getElementById('kas-nominal-raw').value = 0;
+    document.getElementById('kas-template-input').value = '';
+    
+    // Jangan lupa hitung ulang periode saat form di-reset
+    updatePeriodeUI();
+    
+    const listItems = document.getElementById('kas-dropdown-list').getElementsByTagName('li');
+    for (let i = 0; i < listItems.length; i++) listItems[i].style.display = "";
+
+    if (mode === 'PEMASUKAN') {
+      areaTemplate.classList.add('hidden');
+      document.getElementById('btn-submit-kas').innerText = "Simpan Pemasukan (Debit)";
+      document.getElementById('btn-submit-kas').className = "w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm transition-colors";
+    } else {
+      areaTemplate.classList.remove('hidden');
+      document.getElementById('btn-submit-kas').innerText = "Simpan Pengeluaran (Kredit)";
+      document.getElementById('btn-submit-kas').className = "w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm transition-colors";
+    }
+  }
+
+  function formatVisualAngka(elVisual, idRaw) {
+    let raw = elVisual.value.replace(/[^0-9]/g, ''); 
+    if (raw === '') raw = '0';
+    document.getElementById(idRaw).value = raw;
+    elVisual.value = raw !== '0' ? parseInt(raw).toLocaleString('id-ID') : '';
+  }
+
+  function submitTrxArusKas(e) {
+    e.preventDefault();
+    let btn = document.getElementById('btn-submit-kas'); 
+    let btnTeksLama = btn.innerText;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...'; 
+    btn.disabled = true;
+
+    // Perubahan di Payload: Mengirim 'periode' bukan lagi 'cutoff'
+    const payload = {
+      tanggal: document.getElementById('kas-tgl').value,
+      periode: document.getElementById('kas-periode').value,
+      tipe: document.getElementById('pilihModeArusKas').value,
+      item: document.getElementById('kas-item').value,
+      nominal: document.getElementById('kas-nominal-raw').value,
+      catatan: document.getElementById('kas-catatan').value || '-'
+    };
+
+    google.script.run.withSuccessHandler(res => {
+      Swal.fire({title: 'Berhasil!', text: res, icon:'success'});
+      
+      document.getElementById('kas-item').value = '';
+      document.getElementById('kas-nominal-visual').value = '';
+      document.getElementById('kas-nominal-raw').value = '0';
+      document.getElementById('kas-catatan').value = '';
+      document.getElementById('kas-template-input').value = ''; 
+      document.getElementById('kas-dropdown-list').classList.add('hidden');
+      btn.innerText = btnTeksLama; 
+      btn.disabled = false;
+    }).simpanTrxArusKas(payload);
+  }
+</script>
