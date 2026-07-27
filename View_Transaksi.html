@@ -201,7 +201,9 @@
   <!-- ============================================================ -->
   <!-- MODAL: PILIH LOT ASET UNTUK DIJUAL                           -->
   <!-- ============================================================ -->
-  <div id="modal-grid-jual" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 z-[60] flex items-end justify-center p-0 backdrop-blur-sm">
+  <!-- onclick di backdrop hanya tutup, TIDAK reset form jika sudah pilih lot -->
+  <div id="modal-grid-jual" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 z-[60] flex items-end justify-center p-0 backdrop-blur-sm"
+       onclick="if(event.target===this) tutupGridJual()">
     <div class="bg-white rounded-t-2xl w-full max-w-lg flex flex-col shadow-2xl overflow-hidden"
          style="max-height: 85dvh; max-height: 85vh;">
       <div class="p-4 border-b border-pink-50 flex-shrink-0 flex items-center justify-between">
@@ -592,10 +594,14 @@
 
   function tutupGridJual() {
     document.getElementById('modal-grid-jual').classList.add('hidden');
-    if (document.getElementById('val-id-referensi').value === '') {
+    // Hanya reset ke BELI jika user benar-benar batal (belum pilih lot)
+    var idRef = document.getElementById('val-id-referensi').value;
+    if (!idRef || idRef.trim() === '') {
+      // User batal tanpa memilih lot — kembalikan ke mode BELI
       document.querySelector('input[name="aset-tipe"][value="BELI"]').checked = true;
       resetFormBeli();
     }
+    // Jika sudah ada id-referensi, JANGAN reset apapun — form sudah terisi dengan benar
   }
 
   function renderGridJual(data) {
@@ -648,11 +654,19 @@
       return;
     }
 
+    // KRITIS: Set val-id-referensi PERTAMA sebelum apapun,
+    // agar tutupGridJual() tidak salah mengira form belum dipilih
+    document.getElementById('val-id-referensi').value = d.id;
+
+    // Tutup modal TANPA animasi/callback apapun
+    document.getElementById('modal-grid-jual').classList.add('hidden');
+
+    // Setelah modal tertutup, baru isi form (tidak ada race condition)
     var lockClass = 'w-full border border-gray-200 py-3 px-3 rounded-xl outline-none text-sm bg-gray-100 text-gray-500 cursor-not-allowed pointer-events-none';
 
-    document.getElementById('aset-platform').innerHTML = '<option value="' + d.platform + '" selected>' + d.platform + '</option>';
-    document.getElementById('aset-kategori').innerHTML = '<option value="' + d.kategori + '" selected>' + d.kategori + '</option>';
-    document.getElementById('aset-item').innerHTML     = '<option value="' + d.item     + '" selected>' + d.item     + '</option>';
+    document.getElementById('aset-platform').innerHTML = '<option value="' + escAttr(d.platform) + '" selected>' + d.platform + '</option>';
+    document.getElementById('aset-kategori').innerHTML = '<option value="' + escAttr(d.kategori) + '" selected>' + d.kategori + '</option>';
+    document.getElementById('aset-item').innerHTML     = '<option value="' + escAttr(d.item)     + '" selected>' + d.item     + '</option>';
 
     ['aset-platform', 'aset-kategori', 'aset-item'].forEach(function(f) {
       document.getElementById(f).removeAttribute('required');
@@ -666,24 +680,58 @@
     document.getElementById('aset-total-raw').value       = '0';
     document.getElementById('txt-harga-satuan').innerText = 'Rp 0';
     document.getElementById('val-harga-satuan').value     = '0';
-    kalkulasiAset();
 
-    document.getElementById('val-id-referensi').value = d.id;
-    document.getElementById('modal-grid-jual').classList.add('hidden');
+    // Tampilkan banner info lot di dalam form (tidak pakai Swal agar tidak ada overlay)
+    tampilkanBannerLotDipilih(d);
+  }
 
-    // Tampilkan info lot yang dipilih
-    Swal.fire({
-      title: '✅ Lot Dipilih',
-      html: '<div class="text-left text-sm">' +
-            '<p><b>Item:</b> ' + d.item + '</p>' +
-            '<p><b>Platform:</b> ' + d.platform + '</p>' +
-            '<p><b>Sisa Qty:</b> ' + d.sisaQty + '</p>' +
-            '<p><b>Harga Beli:</b> Rp' + parseInt(d.hargaBeli).toLocaleString('id-ID') + '</p>' +
-            '</div>',
-      icon: 'info',
-      timer: 2500,
-      showConfirmButton: false
-    });
+  // Helper escape HTML attribute
+  function escAttr(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Banner info lot yang dipilih — inline di dalam form, bukan popup
+  function tampilkanBannerLotDipilih(d) {
+    // Hapus banner lama jika ada
+    var existing = document.getElementById('banner-lot-dipilih');
+    if (existing) existing.remove();
+
+    var hargaStr = d.hargaBeli > 0
+      ? 'Rp' + parseInt(d.hargaBeli).toLocaleString('id-ID') + ' / unit'
+      : 'N/A';
+
+    var banner = document.createElement('div');
+    banner.id = 'banner-lot-dipilih';
+    banner.className = 'mb-4 bg-green-50 border border-green-200 rounded-xl p-3 flex items-start gap-2';
+    banner.innerHTML =
+      '<div class="w-6 h-6 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">' +
+        '<i class="fa-solid fa-check text-white" style="font-size:10px;"></i>' +
+      '</div>' +
+      '<div class="flex-1 min-w-0">' +
+        '<p class="text-[11px] font-bold text-green-800">Lot Terpilih</p>' +
+        '<p class="text-[10px] text-green-700 truncate"><b>' + d.item + '</b> · ' + d.platform + '</p>' +
+        '<p class="text-[10px] text-green-600">Sisa: <b>' + d.sisaQty + ' unit</b> · Harga beli: <b>' + hargaStr + '</b></p>' +
+      '</div>' +
+      '<button type="button" onclick="gantiLotJual()" ' +
+        'class="text-[9px] font-bold text-green-700 bg-green-100 hover:bg-green-200 px-2 py-1 rounded-lg flex-shrink-0 transition-colors">' +
+        'Ganti' +
+      '</button>';
+
+    // Sisipkan banner sebelum field kuantitas
+    var refEl = document.getElementById('aset-kuantitas').closest('div').parentElement;
+    refEl.parentElement.insertBefore(banner, refEl);
+  }
+
+  // Fungsi untuk ganti lot — buka ulang modal tanpa reset radio
+  function gantiLotJual() {
+    // Hapus banner
+    var banner = document.getElementById('banner-lot-dipilih');
+    if (banner) banner.remove();
+    // Kosongkan referensi agar tutupGridJual tahu belum ada pilihan
+    document.getElementById('val-id-referensi').value = '';
+    // Buka modal kembali tanpa re-fetch (pakai cache)
+    document.getElementById('modal-grid-jual').classList.remove('hidden');
+    renderGridJual(cacheRiwayatJual);
   }
 
   function resetFormBeli() {
@@ -695,10 +743,17 @@
       document.getElementById(f).className = normalClass;
     });
 
+    // Bersihkan banner lot yang mungkin masih tampil
+    var banner = document.getElementById('banner-lot-dipilih');
+    if (banner) banner.remove();
+
     populateDropdowns();
     document.getElementById('aset-kuantitas').removeAttribute('max');
     document.getElementById('aset-kuantitas').placeholder = 'Misal: 10';
-    document.getElementById('val-id-referensi').value    = '';
+    document.getElementById('aset-kuantitas').value       = '';
+    document.getElementById('aset-total-visual').value    = '';
+    document.getElementById('aset-total-raw').value       = '0';
+    document.getElementById('val-id-referensi').value     = '';
     document.getElementById('txt-harga-satuan').innerText = 'Rp 0';
     document.getElementById('val-harga-satuan').value     = '0';
   }
@@ -755,6 +810,9 @@
     google.script.run
       .withSuccessHandler(function(res) {
         Swal.fire({ title: '✅ Tersimpan!', text: res, icon: 'success' });
+        // Bersihkan banner lot
+        var banner = document.getElementById('banner-lot-dipilih');
+        if (banner) banner.remove();
         document.getElementById('formAset').reset();
         document.getElementById('aset-tgl').value             = payload.tanggal;
         document.getElementById('aset-total-raw').value       = '0';
