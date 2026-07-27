@@ -2,29 +2,29 @@
  * ==================================================================
  * FILE: Code_Transaksi.gs
  * FUNGSI: Mesin Backend untuk Menyimpan Transaksi & Menghitung Periode
- * PERBAIKAN:
- *   - Tambah simpanTrxKlinik()       [BUG #3 FIX]
- *   - Tambah getRiwayatBeliAktif()   [BUG #2 FIX]
- *   - Perbaiki simpanTrxAset() agar konsisten dengan GL
+ * PERBAIKAN v2:
+ *   - FIX KRITIS getRiwayatBeliAktif(): mapping kolom disesuaikan
+ *     dengan urutan appendRow() di simpanTrxAset():
+ *     Col A(0)=ID, B(1)=Tanggal, C(2)=Platform, D(3)=Kategori,
+ *     E(4)=NamaItem, F(5)=Tipe, G(6)=Qty, H(7)=Harga, I(8)=Total,
+ *     J(9)=IdReferensi
+ *   - FIX: Sorting riwayat beli berdasarkan tanggal (kolom 1, bukan 0)
+ *   - FIX: Harga beli per lot disimpan di beliMap untuk kalkulasi PNL
  * ==================================================================
  */
 
 /**
- * FUNGSI PEMBANTU (SMART CUT-OFF ANTI-TIMEZONE BUG):
- * Memecah string tanggal secara langsung tanpa new Date() agar kebal error zona waktu.
- * Aturan: Jika tanggal >= 28, otomatis masuk ke bulan berikutnya.
+ * FUNGSI PEMBANTU (SMART CUT-OFF ANTI-TIMEZONE BUG)
  */
 function hitungPeriodeSmart(tanggalInput) {
   if (!tanggalInput) return "-";
-
   var parts = String(tanggalInput).split('-');
   if (parts.length < 3) return tanggalInput;
 
   var tahun = parseInt(parts[0], 10);
-  var bulan = parseInt(parts[1], 10) - 1; // 0-indexed: 0=Jan, 11=Des
+  var bulan = parseInt(parts[1], 10) - 1;
   var hari  = parseInt(parts[2], 10);
 
-  // LOGIKA CUT-OFF: Tgl 28 ke atas masuk pembukuan bulan depan
   if (hari >= 28) {
     bulan = bulan + 1;
     if (bulan > 11) { bulan = 0; tahun = tahun + 1; }
@@ -47,8 +47,8 @@ function catatKeJurnalKas(ss, tanggal, periode, tipe, item, catatan, debit, kred
     Utilities.getUuid(),
     tanggal,
     periode,
-    tipe,       // "PEMASUKAN" atau "PENGELUARAN"
-    item,       // Nama akun / COA
+    tipe,
+    item,
     catatan || "-",
     debit  || 0,
     kredit || 0
@@ -56,8 +56,7 @@ function catatKeJurnalKas(ss, tanggal, periode, tipe, item, catatan, debit, kred
 }
 
 // ============================================================
-// [BUG #3 FIX] simpanTrxKlinik() — FUNGSI INI SEBELUMNYA TIDAK ADA!
-// Dipanggil oleh submitTrxKlinik() di View_Transaksi.html
+// simpanTrxKlinik()
 // ============================================================
 function simpanTrxKlinik(data) {
   try {
@@ -65,39 +64,30 @@ function simpanTrxKlinik(data) {
     var sheetKlinik = ss.getSheetByName("Trx Fee Klinik");
     if (!sheetKlinik) throw new Error("Sheet 'Trx Fee Klinik' tidak ditemukan!");
 
-    // Hitung periode pembukuan otomatis
     var periodePembukuan = hitungPeriodeSmart(data.tanggal);
-
     var omset         = parseFloat(data.omset)        || 0;
     var persenKomisi  = parseFloat(data.persenKomisi) || 0;
     var nominalKomisi = parseFloat(data.nominalKomisi)|| 0;
     var labaBersih    = parseFloat(data.labaBersih)   || 0;
 
-    // --- 1. Catat ke sheet Trx Fee Klinik ---
     sheetKlinik.appendRow([
-      Utilities.getUuid(),      // A: ID
-      data.tanggal,             // B: Tanggal Input
-      periodePembukuan,         // C: Periode Komisi
-      data.klinik,              // D: Nama Klinik
-      data.pasien,              // E: Nama Pasien
-      data.tindakan || "-",     // F: Tindakan
-      omset,                    // G: Omset
-      persenKomisi,             // H: Komisi %
-      nominalKomisi,            // I: Nominal Komisi (PEMASUKAN dokter)
-      labaBersih                // J: Laba Bersih Klinik
-    ]);
-
-    // --- 2. Catat ke Jurnal Arus Kas (GL) ---
-    // Entry PEMASUKAN: Komisi dokter yang diterima
-    catatKeJurnalKas(
-      ss,
+      Utilities.getUuid(),
       data.tanggal,
       periodePembukuan,
-      "PEMASUKAN",
+      data.klinik,
+      data.pasien,
+      data.tindakan || "-",
+      omset,
+      persenKomisi,
+      nominalKomisi,
+      labaBersih
+    ]);
+
+    catatKeJurnalKas(
+      ss, data.tanggal, periodePembukuan, "PEMASUKAN",
       "Fee Klinik: " + data.klinik,
       "Pasien: " + data.pasien + " | " + (data.tindakan || "-"),
-      nominalKomisi,  // debit = uang masuk
-      0
+      nominalKomisi, 0
     );
 
     return "Fee klinik berhasil disimpan ke periode: " + periodePembukuan;
@@ -107,9 +97,19 @@ function simpanTrxKlinik(data) {
 }
 
 // ============================================================
-// [BUG #2 FIX] getRiwayatBeliAktif() — FUNGSI INI SEBELUMNYA TIDAK ADA!
-// Mengembalikan daftar aset BELI yang masih ada sisa kuantitas,
-// untuk ditampilkan di modal "Pilih Aset Untuk Dijual".
+// [BUG FIX v2] getRiwayatBeliAktif()
+//
+// Urutan kolom di sheet "Trx Tabungan Aset" (sesuai simpanTrxAset):
+//   A(idx 0) = ID_Trx_Aset
+//   B(idx 1) = Tanggal_Perolehan
+//   C(idx 2) = Platform
+//   D(idx 3) = Kategori
+//   E(idx 4) = Nama_Item
+//   F(idx 5) = Tipe_Transaksi  (BELI / JUAL)
+//   G(idx 6) = Kuantitas
+//   H(idx 7) = Harga_Satuan
+//   I(idx 8) = Total_Nilai
+//   J(idx 9) = ID_Referensi
 // ============================================================
 function getRiwayatBeliAktif() {
   try {
@@ -117,56 +117,67 @@ function getRiwayatBeliAktif() {
     var sheet = ss.getSheetByName("Trx Tabungan Aset");
     if (!sheet || sheet.getLastRow() <= 1) return [];
 
-    // Kolom: 0=ID, 1=Tanggal, 2=Periode, 3=Platform, 4=Kategori,
-    //        5=NamaItem, 6=Tipe, 7=Qty, 8=Harga, 9=Total, 9=IdRef
-    // Note: sheet punya 10 kolom (A-J), index 0-9
     var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues();
 
-    // Hitung saldo qty per ID transaksi BELI
-    // - Setiap BELI punya ID sendiri
-    // - Setiap JUAL punya kolom idReferensi yang menunjuk ke ID BELI asalnya
     var beliMap = {};
 
     data.forEach(function(row) {
-      var id    = row[0];
-      var tgl   = row[1];
-      var platform = row[2]; // Kolom C = Platform (sesuai simpanTrxAset)
-      var kategori = row[3]; // Kolom D = Kategori
-      var item  = row[4];    // Kolom E = NamaItem
-      var tipe  = row[5];    // Kolom F = Tipe (BELI/JUAL)
-      var qty   = parseFloat(row[6]) || 0;
-      var harga = parseFloat(row[7]) || 0;
-      var idRef = row[9];    // Kolom J = ID Referensi (untuk transaksi JUAL)
+      var id       = String(row[0]).trim();   // A: ID unik transaksi
+      var tgl      = row[1];                  // B: Tanggal
+      var platform = String(row[2]).trim();   // C: Platform
+      var kategori = String(row[3]).trim();   // D: Kategori
+      var item     = String(row[4]).trim();   // E: Nama Item
+      var tipe     = String(row[5]).trim();   // F: Tipe (BELI/JUAL)
+      var qty      = parseFloat(row[6]) || 0; // G: Kuantitas
+      var harga    = parseFloat(row[7]) || 0; // H: Harga Satuan
+      var total    = parseFloat(row[8]) || 0; // I: Total Nilai
+      var idRef    = String(row[9]).trim();   // J: ID Referensi
+
+      if (!id || id === "") return;
 
       if (tipe === "BELI") {
         beliMap[id] = {
-          id: id,
-          tanggal: tgl,
-          platform: platform,
-          kategori: kategori,
-          item: item,
-          qtyBeli: qty,
+          id:        id,
+          tanggal:   tgl,
+          platform:  platform,
+          kategori:  kategori,
+          item:      item,
+          qtyBeli:   qty,
           hargaBeli: harga,
-          sisaQty: qty
+          totalBeli: total,
+          sisaQty:   qty
         };
-      } else if (tipe === "JUAL" && idRef && beliMap[idRef]) {
-        // Kurangi sisa dari transaksi BELI yang dirujuk
+      } else if (tipe === "JUAL" && idRef && idRef !== "-" && beliMap[idRef]) {
         beliMap[idRef].sisaQty -= qty;
       }
     });
 
-    // Filter hanya yang masih ada sisa, ubah ke array
+    // Filter yang masih punya sisa qty > 0
     var hasil = [];
     Object.keys(beliMap).forEach(function(id) {
       var entry = beliMap[id];
-      if (entry.sisaQty > 0) {
+      if (entry.sisaQty > 0.000001) { // Pakai epsilon untuk float precision
         hasil.push(entry);
       }
     });
 
-    // Urutkan dari terbaru ke terlama
+    // Urutkan: terbaru di atas
     hasil.sort(function(a, b) {
-      return String(b.tanggal).localeCompare(String(a.tanggal));
+      var da = a.tanggal instanceof Date ? a.tanggal.getTime() : new Date(String(a.tanggal)).getTime();
+      var db = b.tanggal instanceof Date ? b.tanggal.getTime() : new Date(String(b.tanggal)).getTime();
+      return db - da;
+    });
+
+    // Format tanggal untuk tampilan
+    hasil = hasil.map(function(e) {
+      if (e.tanggal instanceof Date) {
+        var d = e.tanggal;
+        var dd = String(d.getDate()).padStart(2,'0');
+        var mm = String(d.getMonth()+1).padStart(2,'0');
+        var yy = d.getFullYear();
+        e.tanggal = dd + '/' + mm + '/' + yy;
+      }
+      return e;
     });
 
     return hasil;
@@ -176,25 +187,18 @@ function getRiwayatBeliAktif() {
 }
 
 // ============================================================
-// simpanTrxArusKas() — Perbaikan dari duplikat di Code_ArusKas.gs
+// simpanTrxArusKas()
 // ============================================================
 function simpanTrxArusKas(data) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var periodePembukuan = hitungPeriodeSmart(data.tanggal);
-
     var debit  = data.tipe === "PEMASUKAN"   ? (parseFloat(data.nominal) || 0) : 0;
     var kredit = data.tipe === "PENGELUARAN" ? (parseFloat(data.nominal) || 0) : 0;
 
     catatKeJurnalKas(
-      ss,
-      data.tanggal,
-      periodePembukuan,
-      data.tipe,
-      data.item,
-      data.catatan || "-",
-      debit,
-      kredit
+      ss, data.tanggal, periodePembukuan, data.tipe,
+      data.item, data.catatan || "-", debit, kredit
     );
 
     return "Transaksi berhasil disimpan ke periode: " + periodePembukuan;
@@ -204,7 +208,9 @@ function simpanTrxArusKas(data) {
 }
 
 // ============================================================
-// simpanTrxAset() — Terintegrasi dengan GL (Jurnal Arus Kas)
+// simpanTrxAset()
+// Kolom tersimpan: ID, Tanggal, Platform, Kategori, NamaItem,
+//                 Tipe, Qty, Harga, Total, IdReferensi
 // ============================================================
 function simpanTrxAset(data) {
   try {
@@ -219,45 +225,39 @@ function simpanTrxAset(data) {
     var harga = parseFloat(data.harga)     || 0;
     var total = parseFloat(data.total)     || 0;
 
-    // --- 1. Catat ke Trx Tabungan Aset ---
-    // Kolom: ID, Tanggal, Platform, Kategori, NamaItem, Tipe, Qty, Harga, Total, IdReferensi
+    // Urutan kolom HARUS konsisten dengan getRiwayatBeliAktif()
     sheetAset.appendRow([
-      idTransaksi,
-      data.tanggal,
-      data.platform,
-      data.kategori,
-      data.item,
-      data.tipe,
-      qty,
-      harga,
-      total,
-      data.idReferensi || "-"
+      idTransaksi,       // A(0): ID
+      data.tanggal,      // B(1): Tanggal
+      data.platform,     // C(2): Platform
+      data.kategori,     // D(3): Kategori
+      data.item,         // E(4): Nama Item
+      data.tipe,         // F(5): Tipe
+      qty,               // G(6): Qty
+      harga,             // H(7): Harga Satuan
+      total,             // I(8): Total
+      data.idReferensi || "-"  // J(9): ID Referensi
     ]);
 
-    // --- 2. Jembatan otomatis ke Jurnal Kas (GL) ---
+    // Catat ke GL / Jurnal Arus Kas
     if (data.tipe === "BELI" && data.coaKas) {
-      // Pengeluaran: uang keluar untuk beli aset
       catatKeJurnalKas(
-        ss,
-        data.tanggal,
-        periodePembukuan,
-        "PENGELUARAN",
+        ss, data.tanggal, periodePembukuan, "PENGELUARAN",
         data.coaKas,
-        "Pembelian Aset: " + data.item + " | Qty: " + qty,
-        0,
-        total
+        "Pembelian Aset: " + data.item + " | " + data.platform + " | Qty: " + qty,
+        0, total
       );
     } else if (data.tipe === "JUAL") {
-      // Pemasukan: uang masuk dari penjualan aset
+      // Hitung harga pokok dari lot referensi untuk GL PNL
+      var keteranganJual = "Penjualan Aset: " + data.item + " | " + data.platform + " | Qty: " + qty;
+      if (data.idReferensi && data.idReferensi !== "-") {
+        keteranganJual += " | Ref: " + data.idReferensi.substring(0,8) + "...";
+      }
       catatKeJurnalKas(
-        ss,
-        data.tanggal,
-        periodePembukuan,
-        "PEMASUKAN",
-        "Pencairan Investasi",
-        "Penjualan Aset: " + data.item + " | Qty: " + qty,
-        total,
-        0
+        ss, data.tanggal, periodePembukuan, "PEMASUKAN",
+        "Pencairan Investasi: " + data.item,
+        keteranganJual,
+        total, 0
       );
     }
 

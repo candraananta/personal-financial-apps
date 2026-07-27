@@ -1024,48 +1024,85 @@ function cariRiwayatPasien() {
 /* ═══════════════════════════════════════════════════════════
    ███ KALKULASI ASET ███
 ═══════════════════════════════════════════════════════════ */
+
+ 
 function kalkulasiAset(data) {
   let totalBeli = 0, totalJual = 0, realizedPNL = 0;
-  let rekapItem = {}, mapHargaBeli = {};
-
-  data.forEach(row => { if (row[5] === "BELI") mapHargaBeli[row[0]] = parseFloat(row[7]) || 0; });
-
+  let rekapItem = {};
+ 
+  // Pass 1: Buat map lot BELI (ID → harga, qty, dll)
+  let beliMap = {};
   data.forEach(row => {
-    const item  = row[4], tipe = row[5];
-    const qty   = parseFloat(row[6]) || 0;
-    const total = parseFloat(row[8]) || 0;
-    const idRef = row[9];
-    if (!item) return;
-
-    if (!rekapItem[item]) rekapItem[item] = { qtyBeli:0, nilaiBeli:0, qtyJual:0, nilaiJual:0, kategori: row[3] };
-
-    if (tipe === "BELI") {
-      totalBeli += total;
-      rekapItem[item].qtyBeli  += qty;
-      rekapItem[item].nilaiBeli += total;
-    } else if (tipe === "JUAL") {
-      totalJual += total;
-      rekapItem[item].qtyJual  += qty;
-      rekapItem[item].nilaiJual += total;
-      realizedPNL += (total - (qty * (mapHargaBeli[idRef] || 0)));
+    const id   = String(row[0]).trim();
+    const tipe = String(row[5]).trim();
+    if (tipe === 'BELI' && id) {
+      beliMap[id] = {
+        harga: parseFloat(String(row[7]).replace(/[^0-9.-]/g,'')) || 0,
+        qty:   parseFloat(String(row[6]).replace(/[^0-9.-]/g,'')) || 0,
+        total: parseFloat(String(row[8]).replace(/[^0-9.-]/g,'')) || 0
+      };
     }
   });
-
+ 
+  // Pass 2: Hitung per item
+  data.forEach(row => {
+    const item     = String(row[4]).trim(); if (!item) return;
+    const tipe     = String(row[5]).trim();
+    const kategori = String(row[3]).trim();
+    const platform = String(row[2]).trim();
+    const qty      = parseFloat(String(row[6]).replace(/[^0-9.-]/g,'')) || 0;
+    const harga    = parseFloat(String(row[7]).replace(/[^0-9.-]/g,'')) || 0;
+    const total    = parseFloat(String(row[8]).replace(/[^0-9.-]/g,'')) || 0;
+    const idRef    = String(row[9]).trim();
+ 
+    if (!rekapItem[item]) {
+      rekapItem[item] = {
+        qtyBeli: 0, nilaiBeli: 0,
+        qtyJual: 0, nilaiJual: 0,
+        hargaPokokJual: 0,
+        kategori: kategori, platform: platform
+      };
+    }
+ 
+    if (tipe === 'BELI') {
+      totalBeli += total;
+      rekapItem[item].qtyBeli   += qty;
+      rekapItem[item].nilaiBeli += total;
+ 
+    } else if (tipe === 'JUAL') {
+      totalJual += total;
+      rekapItem[item].qtyJual   += qty;
+      rekapItem[item].nilaiJual += total;
+ 
+      // Hitung harga pokok dari lot referensi (exact match)
+      let hargaBeli = 0;
+      if (idRef && idRef !== '-' && beliMap[idRef]) {
+        hargaBeli = beliMap[idRef].harga;
+      }
+      const hargaPokok = hargaBeli * qty;
+      rekapItem[item].hargaPokokJual += hargaPokok;
+      realizedPNL += (total - hargaPokok);
+    }
+  });
+ 
   document.getElementById('rep-total-beli').innerText = fRp(totalBeli);
   document.getElementById('rep-total-jual').innerText = fRp(totalJual);
   document.getElementById('rep-pnl').innerText        = fRpFull(realizedPNL);
-
+ 
   // PNL banner warna
   const banner  = document.getElementById('pnl-banner');
   const pnlIcon = document.getElementById('pnl-icon');
   if (realizedPNL < 0) {
-    banner.className  = banner.className.replace(/from-pink-\d+ to-rose-\d+/, 'from-red-500 to-red-700');
+    banner.style.background = 'linear-gradient(to right, #ef4444, #b91c1c)';
     pnlIcon.innerHTML = '<i class="fa-solid fa-arrow-trend-down text-white text-xl"></i>';
-  } else {
-    banner.className  = banner.className.replace(/from-red-\d+ to-red-\d+/, 'from-pink-600 to-rose-700');
+  } else if (realizedPNL > 0) {
+    banner.style.background = 'linear-gradient(to right, #db2777, #be185d)';
     pnlIcon.innerHTML = '<i class="fa-solid fa-arrow-trend-up text-white text-xl"></i>';
+  } else {
+    banner.style.background = 'linear-gradient(to right, #9333ea, #7c3aed)';
+    pnlIcon.innerHTML = '<i class="fa-solid fa-minus text-white text-xl"></i>';
   }
-
+ 
   renderGrafikAset(rekapItem);
   renderCardAset(rekapItem);
 }
@@ -1104,68 +1141,96 @@ function renderGrafikAset(rekapItem) {
   });
 }
 
-function renderCardAset(rekapItem) {
-  const container = document.getElementById('list-aset');
-  const entries   = Object.entries(rekapItem);
-
-  if (entries.length === 0) {
-    container.innerHTML = renderEmptyState('Belum ada portofolio', 'Catat transaksi beli aset pertama kamu.');
-    return;
-  }
-
-  let html = '';
-  entries.forEach(([nama, d]) => {
-    const sisaQty  = d.qtyBeli - d.qtyJual;
-    const pnlItem  = d.nilaiJual - (d.qtyJual / d.qtyBeli * d.nilaiBeli);
-    const hasPNL   = d.qtyJual > 0;
-    const pnlClass = pnlItem >= 0 ? 'text-green-600' : 'text-red-600';
-    const pctBeli  = d.qtyBeli > 0 ? (d.qtyJual / d.qtyBeli * 100) : 0;
-
-    html += `
-      <div class="item-card border border-pink-100 rounded-xl overflow-hidden">
-        <!-- Header -->
-        <div class="bg-rose-50 px-3 py-2 flex items-center gap-2">
-          <div class="w-7 h-7 bg-pink-200 rounded-lg flex items-center justify-center flex-shrink-0">
-            <i class="fa-solid fa-gem text-pink-700" style="font-size:10px;"></i>
-          </div>
-          <div class="flex-1 min-w-0">
-            <p class="text-[11px] font-bold text-slate-700 truncate">${nama}</p>
-            <p class="text-[9px] text-gray-400">${d.kategori || '—'}</p>
-          </div>
-          ${hasPNL ? `<span class="text-[10px] font-bold ${pnlClass}">${pnlItem>=0?'+':''}${fRp(pnlItem)}</span>` : ''}
-        </div>
-        <!-- Body -->
-        <div class="px-3 py-2 grid grid-cols-3 gap-1 text-center">
-          <div>
-            <p class="text-[8px] text-gray-400">BELI</p>
-            <p class="text-[10px] font-bold text-slate-700">${d.qtyBeli} unit</p>
-            <p class="text-[9px] text-pink-600">${fRp(d.nilaiBeli)}</p>
-          </div>
-          <div>
-            <p class="text-[8px] text-gray-400">JUAL</p>
-            <p class="text-[10px] font-bold text-slate-700">${d.qtyJual} unit</p>
-            <p class="text-[9px] text-green-600">${fRp(d.nilaiJual)}</p>
-          </div>
-          <div>
-            <p class="text-[8px] text-gray-400">SISA</p>
-            <p class="text-[10px] font-bold text-rose-900">${sisaQty} unit</p>
-            <p class="text-[9px] text-gray-400">—</p>
-          </div>
-        </div>
-        <!-- Progress kepemilikan yang sudah dijual -->
-        <div class="px-3 pb-2">
-          <div class="flex justify-between text-[8px] text-gray-400 mb-0.5">
-            <span>Terjual</span>
-            <span>${pctBeli.toFixed(0)}%</span>
-          </div>
-          <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-            <div class="h-full bg-pink-500 rounded-full progress-bar-inner"
-                 style="width:${pctBeli.toFixed(1)}%"></div>
-          </div>
-        </div>
-      </div>`;
+// PATCH untuk View_Report.html
+// Ganti fungsi kalkulasiAset() dan renderCardAset() dengan versi baru
+// yang menggunakan mapping kolom yang benar dan PNL per lot
+ 
+// ============================================================
+// MAPPING KOLOM Trx Tabungan Aset (getDisplayValues):
+//   row[0]=ID, row[1]=Tanggal, row[2]=Platform, row[3]=Kategori,
+//   row[4]=NamaItem, row[5]=Tipe, row[6]=Qty, row[7]=Harga,
+//   row[8]=Total, row[9]=IdReferensi
+// ============================================================
+ 
+function kalkulasiAset(data) {
+  let totalBeli = 0, totalJual = 0, realizedPNL = 0;
+  let rekapItem = {};
+ 
+  // Pass 1: Buat map lot BELI (ID → harga, qty, dll)
+  let beliMap = {};
+  data.forEach(row => {
+    const id   = String(row[0]).trim();
+    const tipe = String(row[5]).trim();
+    if (tipe === 'BELI' && id) {
+      beliMap[id] = {
+        harga: parseFloat(String(row[7]).replace(/[^0-9.-]/g,'')) || 0,
+        qty:   parseFloat(String(row[6]).replace(/[^0-9.-]/g,'')) || 0,
+        total: parseFloat(String(row[8]).replace(/[^0-9.-]/g,'')) || 0
+      };
+    }
   });
-  container.innerHTML = html;
+ 
+  // Pass 2: Hitung per item
+  data.forEach(row => {
+    const item     = String(row[4]).trim(); if (!item) return;
+    const tipe     = String(row[5]).trim();
+    const kategori = String(row[3]).trim();
+    const platform = String(row[2]).trim();
+    const qty      = parseFloat(String(row[6]).replace(/[^0-9.-]/g,'')) || 0;
+    const harga    = parseFloat(String(row[7]).replace(/[^0-9.-]/g,'')) || 0;
+    const total    = parseFloat(String(row[8]).replace(/[^0-9.-]/g,'')) || 0;
+    const idRef    = String(row[9]).trim();
+ 
+    if (!rekapItem[item]) {
+      rekapItem[item] = {
+        qtyBeli: 0, nilaiBeli: 0,
+        qtyJual: 0, nilaiJual: 0,
+        hargaPokokJual: 0,
+        kategori: kategori, platform: platform
+      };
+    }
+ 
+    if (tipe === 'BELI') {
+      totalBeli += total;
+      rekapItem[item].qtyBeli   += qty;
+      rekapItem[item].nilaiBeli += total;
+ 
+    } else if (tipe === 'JUAL') {
+      totalJual += total;
+      rekapItem[item].qtyJual   += qty;
+      rekapItem[item].nilaiJual += total;
+ 
+      // Hitung harga pokok dari lot referensi (exact match)
+      let hargaBeli = 0;
+      if (idRef && idRef !== '-' && beliMap[idRef]) {
+        hargaBeli = beliMap[idRef].harga;
+      }
+      const hargaPokok = hargaBeli * qty;
+      rekapItem[item].hargaPokokJual += hargaPokok;
+      realizedPNL += (total - hargaPokok);
+    }
+  });
+ 
+  document.getElementById('rep-total-beli').innerText = fRp(totalBeli);
+  document.getElementById('rep-total-jual').innerText = fRp(totalJual);
+  document.getElementById('rep-pnl').innerText        = fRpFull(realizedPNL);
+ 
+  // PNL banner warna
+  const banner  = document.getElementById('pnl-banner');
+  const pnlIcon = document.getElementById('pnl-icon');
+  if (realizedPNL < 0) {
+    banner.style.background = 'linear-gradient(to right, #ef4444, #b91c1c)';
+    pnlIcon.innerHTML = '<i class="fa-solid fa-arrow-trend-down text-white text-xl"></i>';
+  } else if (realizedPNL > 0) {
+    banner.style.background = 'linear-gradient(to right, #db2777, #be185d)';
+    pnlIcon.innerHTML = '<i class="fa-solid fa-arrow-trend-up text-white text-xl"></i>';
+  } else {
+    banner.style.background = 'linear-gradient(to right, #9333ea, #7c3aed)';
+    pnlIcon.innerHTML = '<i class="fa-solid fa-minus text-white text-xl"></i>';
+  }
+ 
+  renderGrafikAset(rekapItem);
+  renderCardAset(rekapItem);
 }
 
 /* ═══════════════════════════════════════════════════════════
