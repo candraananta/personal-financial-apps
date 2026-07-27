@@ -1,4 +1,4 @@
-<!-- KONTEN: View_ArusKas.html - PERBAIKAN MOBILE -->
+<!-- KONTEN: View_ArusKas.html - FIX iOS ZOOM -->
 <section id="modul-aruskas" class="block w-full">
   
   <!-- Pemilih Mode Pemasukan / Pengeluaran -->
@@ -9,7 +9,7 @@
     <div class="flex-1 min-w-0">
       <label class="block text-[10px] font-bold text-gray-400 mb-1">ARUS KAS</label>
       <select id="pilihModeArusKas" onchange="gantiModeArusKas()" 
-              class="w-full bg-rose-50 border border-pink-200 py-2 px-2 rounded-lg outline-none text-sm font-bold text-rose-900">
+              class="w-full bg-rose-50 border border-pink-200 py-2 px-2 rounded-lg outline-none font-bold text-rose-900">
         <option value="PENGELUARAN">Catat Pengeluaran</option>
         <option value="PEMASUKAN">Catat Pemasukan (Gaji/Dll)</option>
       </select>
@@ -22,9 +22,13 @@
       <div class="mb-4 grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-bold text-gray-500 mb-1">TANGGAL <span class="text-red-500">*</span></label>
+          <!-- 
+            FIX: input[type=date] di iOS tidak boleh ada inline font-size override.
+            Biarkan CSS global yang handle (16px). 
+          -->
           <input type="date" id="kas-tgl" onchange="updatePeriodeUI()" 
                  class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none font-bold text-rose-900" 
-                 style="font-size: 16px;" required>
+                 required>
         </div>
         <div>
           <label class="block text-xs font-bold text-gray-500 mb-1">PERIODE</label>
@@ -40,14 +44,16 @@
           <i class="fa-solid fa-search mr-1"></i> CARI PENGELUARAN RUTIN
         </label>
         <div class="relative w-full">
+          <!-- 
+            FIX: Hapus inline style font-size, biarkan CSS global handle.
+            font-size minimum 16px sudah diset di Index.html → tidak akan zoom.
+          -->
           <input type="text" id="kas-template-input" autocomplete="off" 
                  oninput="filterTemplateRutin()" onclick="tampilkanDropdownTemplate()" 
                  class="w-full bg-white border border-yellow-300 py-2 px-3 rounded-lg outline-none placeholder-gray-400 focus:ring-2 focus:ring-yellow-400" 
-                 style="font-size: 16px;"
                  placeholder="Ketik nama tagihan...">
           <ul id="kas-dropdown-list" 
-              class="absolute z-50 w-full bg-white border border-yellow-300 mt-1 max-h-48 overflow-y-auto rounded-lg shadow-xl hidden divide-y divide-gray-100"
-              style="font-size: 14px;">
+              class="absolute z-50 w-full bg-white border border-yellow-300 mt-1 max-h-48 overflow-y-auto rounded-lg shadow-xl hidden divide-y divide-gray-100">
           </ul>
         </div>
       </div>
@@ -55,25 +61,33 @@
       <div class="mb-4">
         <label class="block text-xs font-bold text-gray-500 mb-1">NAMA ITEM / SUMBER <span class="text-red-500">*</span></label>
         <input type="text" id="kas-item" 
-               class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none text-sm" 
-               style="font-size: 16px;"
+               class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none" 
                placeholder="Misal: Tagihan Listrik / Gaji Bulanan" required>
       </div>
 
       <div class="mb-4">
         <label class="block text-xs font-bold text-gray-500 mb-1">NOMINAL (RP) <span class="text-red-500">*</span></label>
-        <input type="text" id="kas-nominal-visual" oninput="formatVisualAngka(this, 'kas-nominal-raw')" 
+        <!-- 
+          FIX KRITIS iOS ZOOM:
+          1. Hapus placeholder="0" → ganti jadi placeholder kosong ""
+             Alasan: iOS zoom saat value/placeholder berubah dari "" ke "0"
+          2. Hapus inline style font-size → pakai CSS exception rule di Index.html
+             yang set #kas-nominal-visual { font-size: 20px !important }
+          3. inputmode="numeric" → iOS munculkan numpad langsung, 
+             lebih smooth daripada type="text" biasa
+        -->
+        <input type="text" id="kas-nominal-visual" 
+               inputmode="numeric"
+               oninput="formatVisualAngka(this, 'kas-nominal-raw')" 
                class="w-full bg-rose-50 border border-pink-200 py-4 px-4 rounded-xl font-bold text-gray-800 outline-none text-center transition-colors" 
-               style="font-size: 20px;"
-               placeholder="0" required>
+               placeholder="">
         <input type="hidden" id="kas-nominal-raw" value="0">
       </div>
 
       <div class="mb-6">
         <label class="block text-xs font-bold text-gray-500 mb-1">CATATAN / NO REK / KODE BAYAR</label>
         <input type="text" id="kas-catatan" 
-               class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none text-sm" 
-               style="font-size: 16px;"
+               class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none" 
                placeholder="Boleh dikosongkan">
       </div>
 
@@ -110,9 +124,19 @@
   }
 
   function initModulArusKas() {
-    const localDate = new Date(new Date().getTime() - (new Date().getTimezoneOffset()*60*1000)).toISOString().split('T')[0];
+    // FIX: Gunakan cara yang tidak memicu re-layout iOS
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const localDate = `${yyyy}-${mm}-${dd}`;
+    
     document.getElementById('kas-tgl').value = localDate;
     updatePeriodeUI();
+
+    // FIX: Pastikan nominal field BERSIH saat init (tidak isi "0")
+    document.getElementById('kas-nominal-visual').value = '';
+    document.getElementById('kas-nominal-raw').value = '0';
 
     google.script.run.withSuccessHandler(data => {
       dataPengeluaranRutin = data;
@@ -154,7 +178,9 @@
     document.getElementById('kas-item').value = d.nama;
     document.getElementById('kas-catatan').value = d.catatan || '';
     document.getElementById('kas-nominal-raw').value = d.nominal;
-    document.getElementById('kas-nominal-visual').value = parseInt(d.nominal || 0).toLocaleString('id-ID');
+    // FIX: Jika nominal 0 atau kosong, set visual ke '' bukan '0'
+    const nominalAngka = parseInt(d.nominal || 0);
+    document.getElementById('kas-nominal-visual').value = nominalAngka > 0 ? nominalAngka.toLocaleString('id-ID') : '';
     document.getElementById('kas-dropdown-list').classList.add('hidden');
   }
 
@@ -171,7 +197,9 @@
     const areaTemplate = document.getElementById('area-template-rutin');
 
     document.getElementById('formArusKas').reset();
-    document.getElementById('kas-nominal-raw').value = 0;
+    // FIX: Setelah reset, pastikan nominal visual KOSONG (bukan "0")
+    document.getElementById('kas-nominal-raw').value = '0';
+    document.getElementById('kas-nominal-visual').value = '';
     document.getElementById('kas-template-input').value = '';
     updatePeriodeUI();
     
@@ -191,13 +219,26 @@
 
   function formatVisualAngka(elVisual, idRaw) {
     let raw = elVisual.value.replace(/[^0-9]/g, ''); 
-    if (raw === '') raw = '0';
+    if (raw === '' || raw === '0') {
+      // FIX: Jangan set visual ke '0' — biarkan kosong agar iOS tidak zoom
+      document.getElementById(idRaw).value = '0';
+      elVisual.value = '';
+      return;
+    }
     document.getElementById(idRaw).value = raw;
-    elVisual.value = raw !== '0' ? parseInt(raw).toLocaleString('id-ID') : '';
+    elVisual.value = parseInt(raw).toLocaleString('id-ID');
   }
 
   function submitTrxArusKas(e) {
     e.preventDefault();
+
+    // Validasi nominal tidak boleh 0
+    const nominalRaw = parseInt(document.getElementById('kas-nominal-raw').value) || 0;
+    if (nominalRaw <= 0) {
+      Swal.fire('Nominal Kosong', 'Masukkan nominal yang valid!', 'warning');
+      return;
+    }
+
     let btn = document.getElementById('btn-submit-kas'); 
     let btnTeksLama = btn.innerText;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...'; 
@@ -215,12 +256,17 @@
     google.script.run.withSuccessHandler(res => {
       Swal.fire({title: 'Berhasil!', text: res, icon:'success'});
       document.getElementById('kas-item').value = '';
+      // FIX: Reset ke kosong, bukan '0'
       document.getElementById('kas-nominal-visual').value = '';
       document.getElementById('kas-nominal-raw').value = '0';
       document.getElementById('kas-catatan').value = '';
       document.getElementById('kas-template-input').value = ''; 
       document.getElementById('kas-dropdown-list').classList.add('hidden');
       btn.innerText = btnTeksLama; 
+      btn.disabled = false;
+    }).withFailureHandler(err => {
+      Swal.fire('Gagal', err.message, 'error');
+      btn.innerText = btnTeksLama;
       btn.disabled = false;
     }).simpanTrxArusKas(payload);
   }

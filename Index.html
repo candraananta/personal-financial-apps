@@ -2,8 +2,14 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <!-- PERBAIKAN 1: Hapus maximum-scale dan user-scalable yang bermasalah di iOS -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <!-- 
+    FIX iOS ZOOM:
+    - maximum-scale=1 → mencegah Safari zoom saat input di-tap
+    - user-scalable=no → disable pinch zoom (opsional, tapi fix paling ampuh)
+    - shrink-to-fit=no → mencegah Safari menyusutkan layout
+    - viewport-fit=cover → untuk notch iPhone
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
   <title>Aplikasi Keuangan</title>
 
   <!-- Tailwind CSS -->
@@ -19,7 +25,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
-    /* PERBAIKAN 2: Cegah scroll horizontal di level root */
+    /* Cegah scroll horizontal di level root */
     html, body {
       overflow-x: hidden;
       width: 100%;
@@ -30,45 +36,61 @@
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-    /* Tinggi layar penuh, konten bisa scroll */
     body { 
       overscroll-behavior: none;
-      /* PERBAIKAN 3: Safe area untuk notch iPhone */
       padding-left: env(safe-area-inset-left);
       padding-right: env(safe-area-inset-right);
     }
 
-    /* PERBAIKAN 4: Pastikan semua tabel tidak melebihi container-nya */
+    /* Pastikan semua tabel tidak melebihi container */
     table {
       table-layout: auto;
       word-break: break-word;
     }
 
-    /* PERBAIKAN 5: Input & select tidak overflow di iOS */
-    input, select, textarea {
+    /* 
+      FIX iOS ZOOM - ROOT CAUSE UTAMA:
+      iOS Safari auto-zoom jika font-size input < 16px.
+      Rule ini memastikan SEMUA input, select, textarea 
+      SELALU minimum 16px — termasuk saat focus.
+      !important diperlukan untuk override Tailwind inline styles.
+    */
+    input,
+    select,
+    textarea,
+    input:focus,
+    select:focus,
+    textarea:focus {
+      font-size: 16px !important;
       max-width: 100%;
       box-sizing: border-box;
-      /* Cegah iOS zoom saat focus (font-size min 16px) */
-      font-size: 16px;
     }
 
-    /* Override untuk label kecil yang memang butuh font kecil */
-    input.text-sm, select.text-sm { font-size: 16px; }
-    input.text-xs, select.text-xs { font-size: 14px; }
+    /* 
+      EXCEPTION: Input nominal yang memang butuh font besar (20px+).
+      Tetap 16px+ sehingga iOS tidak zoom, tapi bisa override via JS
+      untuk tampilan visual saja.
+      Solusi: biarkan 16px untuk anti-zoom, tampilkan besar via padding.
+    */
+    #kas-nominal-visual,
+    #klinik-omset-visual,
+    #aset-total-visual {
+      font-size: 20px !important; /* 20px > 16px threshold → aman, tidak zoom */
+    }
 
-    /* PERBAIKAN 6: Bottom nav dengan safe area iPhone X+ */
+    /* Bottom nav dengan safe area iPhone X+ */
     .bottom-nav-safe {
       padding-bottom: env(safe-area-inset-bottom, 0px);
     }
 
-    /* PERBAIKAN 7: Konten utama tidak bisa overflow ke kanan */
+    /* Konten utama tidak bisa overflow ke kanan */
     main {
       overflow-x: hidden;
       width: 100%;
       box-sizing: border-box;
     }
 
-    /* PERBAIKAN 8: Wrapper tabel scroll hanya horizontal di dalam box */
+    /* Wrapper tabel scroll hanya horizontal di dalam box */
     .table-scroll-wrapper {
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
@@ -82,6 +104,22 @@
     }
     .swal2-input {
       font-size: 16px !important; /* Cegah zoom di iOS */
+    }
+
+    /* 
+      FIX TAMBAHAN: Cegah iOS zoom pada SweetAlert2 inputs
+      yang dirender dinamis di dalam popup
+    */
+    .swal2-popup input,
+    .swal2-popup select,
+    .swal2-popup textarea {
+      font-size: 16px !important;
+    }
+
+    /* Prevent text size adjustment di iOS */
+    * {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
     }
   </style>
 </head>
@@ -105,7 +143,6 @@
   </header>
 
   <!-- ===== KONTEN UTAMA ===== -->
-  <!-- PERBAIKAN 9: pt harus memperhitungkan safe area top + tinggi header -->
   <main class="pt-16 pb-24 max-w-lg mx-auto px-3" 
         style="padding-top: calc(env(safe-area-inset-top, 0px) + 4rem);">
 
@@ -132,7 +169,6 @@
   </main>
 
   <!-- ===== NAVIGASI BAWAH (Bottom Nav) ===== -->
-  <!-- PERBAIKAN 10: Safe area bottom untuk iPhone X+ (home indicator) -->
   <nav class="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-pink-100 shadow-lg bottom-nav-safe">
     <div class="flex items-center justify-around max-w-lg mx-auto px-2 py-1">
 

@@ -2,6 +2,8 @@
  * ==================================================================
  * FILE: Code_Master.gs
  * FUNGSI: Logika CRUD untuk semua tabel Master
+ * PERBAIKAN:
+ *   - Tambah fungsi getReferensiTransaksi() [BUG #1 FIX]
  * ==================================================================
  */
 
@@ -25,37 +27,79 @@ function hapusDataMaster(namaSheet, idTarget) {
   return "Gagal: ID tidak ditemukan.";
 }
 
-// Fungsi Spesifik: Simpan Master Lokasi
+/**
+ * ============================================================
+ * [BUG #1 FIX] - FUNGSI INI SEBELUMNYA TIDAK ADA!
+ * Dipanggil oleh initModulTransaksi() di View_Transaksi.html
+ * Mengembalikan semua referensi dropdown dalam 1 request.
+ * ============================================================
+ */
+function getReferensiTransaksi() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var result = {
+    lokasi: [],
+    kategori: [],
+    platform: [],
+    item: []
+  };
+
+  // Ambil Master Lokasi (5 kolom: ID, Nama, Komisi, Cutoff, TarifBPJS)
+  var sheetLokasi = ss.getSheetByName("Master Lokasi");
+  if (sheetLokasi && sheetLokasi.getLastRow() > 1) {
+    result.lokasi = sheetLokasi.getRange(2, 1, sheetLokasi.getLastRow() - 1, 5).getValues();
+  }
+
+  // Ambil Master Kategori (2 kolom: ID, Nama)
+  var sheetKategori = ss.getSheetByName("Master Kategori");
+  if (sheetKategori && sheetKategori.getLastRow() > 1) {
+    result.kategori = sheetKategori.getRange(2, 1, sheetKategori.getLastRow() - 1, 2).getValues();
+  }
+
+  // Ambil Master Platform (2 kolom: ID, Nama)
+  var sheetPlatform = ss.getSheetByName("Master Platform");
+  if (sheetPlatform && sheetPlatform.getLastRow() > 1) {
+    result.platform = sheetPlatform.getRange(2, 1, sheetPlatform.getLastRow() - 1, 2).getValues();
+  }
+
+  // Ambil Master Item (3 kolom: ID, Kategori, NamaItem)
+  var sheetItem = ss.getSheetByName("Master Item");
+  if (sheetItem && sheetItem.getLastRow() > 1) {
+    result.item = sheetItem.getRange(2, 1, sheetItem.getLastRow() - 1, 3).getValues();
+  }
+
+  return result;
+}
+
+// ============================================================
+// Fungsi Spesifik CRUD Master
+// ============================================================
+
 function simpanMasterLokasi(nama, komisi, cutoff, tarif) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Master Lokasi");
-  sheet.appendRow([Utilities.getUuid(), nama, parseFloat(komisi), parseInt(cutoff), parseFloat(tarif)]);
+  sheet.appendRow([Utilities.getUuid(), nama, parseFloat(komisi), parseInt(cutoff), parseFloat(tarif) || 0]);
   return "Lokasi berhasil ditambahkan!";
 }
 
-// Fungsi Spesifik: Simpan Master Kategori
 function simpanMasterKategori(nama) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Master Kategori");
   sheet.appendRow([Utilities.getUuid(), nama]);
   return "Kategori berhasil ditambahkan!";
 }
 
-// Fungsi Spesifik: Simpan Master Platform
 function simpanMasterPlatform(nama) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Master Platform");
   sheet.appendRow([Utilities.getUuid(), nama]);
   return "Platform berhasil ditambahkan!";
 }
 
-// Fungsi Spesifik: Simpan Master Item
 function simpanMasterItem(kategori, nama) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Master Item");
   sheet.appendRow([Utilities.getUuid(), kategori, nama]);
   return "Item berhasil ditambahkan!";
 }
 
-// Fungsi Spesifik: Simpan Master Pengeluaran Rutin
 function simpanMasterPengeluaran(nama, nominal, catatan) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Master Pengeluaran Rutin");
-  sheet.appendRow([Utilities.getUuid(), nama, parseFloat(nominal), catatan]);
+  sheet.appendRow([Utilities.getUuid(), nama, parseFloat(nominal), catatan || '-']);
   return "Master pengeluaran berhasil ditambahkan!";
 }

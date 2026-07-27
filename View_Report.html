@@ -1,521 +1,1262 @@
 <!-- ===================================================================
-     FILE: View_Report.html
-     PERBAIKAN MOBILE: Tabel tidak overflow horizontal, layout fit di iPhone
+     FILE: View_Report.html — UPGRADED
+     Fitur baru: Saldo Meter, trend chart, card list, grouped ledger,
+     skeleton loading, modal dengan summary, empty states informatif
      =================================================================== -->
+
+<style>
+  /* ── Animasi & Transisi ── */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes countUp {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position:  200% 0; }
+  }
+  @keyframes arcDraw {
+    from { stroke-dashoffset: 282; }
+  }
+
+  .fade-in-up { animation: fadeInUp 0.35s ease both; }
+
+  /* Skeleton loading */
+  .skeleton {
+    background: linear-gradient(90deg, #fce7f3 25%, #fbcfe8 50%, #fce7f3 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 8px;
+  }
+
+  /* Tab active style */
+  .tab-aktif {
+    background: linear-gradient(135deg, #db2777, #be185d);
+    color: white;
+    box-shadow: 0 2px 8px rgba(219,39,119,.35);
+  }
+  .tab-nonaktif {
+    background: transparent;
+    color: #9f1239;
+  }
+
+  /* Progress bar */
+  .progress-bar-inner {
+    transition: width 0.7s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* Saldo arc meter */
+  .arc-track { stroke: #fce7f3; }
+  .arc-fill  {
+    stroke: #db2777;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* Card hover */
+  .item-card {
+    transition: box-shadow 0.18s, transform 0.18s;
+  }
+  .item-card:active {
+    transform: scale(0.98);
+    box-shadow: 0 1px 4px rgba(190,24,93,.15);
+  }
+
+  /* Chip filter */
+  .chip-aktif   { background: #db2777; color: white; border-color: #db2777; }
+  .chip-nonaktif { background: white; color: #9f1239; border-color: #fbcfe8; }
+
+  /* Badge */
+  .badge-count {
+    background: rgba(255,255,255,0.25);
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 9999px;
+    vertical-align: middle;
+    margin-left: 3px;
+  }
+  .badge-count-dark {
+    background: #fce7f3;
+    color: #be185d;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 9999px;
+    vertical-align: middle;
+    margin-left: 3px;
+  }
+
+  /* Collapsible rows */
+  .row-expanded  { display: table-row; }
+  .row-collapsed { display: none; }
+
+  /* Scrollbar tipis untuk modal */
+  .thin-scroll::-webkit-scrollbar { width: 3px; }
+  .thin-scroll::-webkit-scrollbar-track { background: #fce7f3; }
+  .thin-scroll::-webkit-scrollbar-thumb { background: #db2777; border-radius: 3px; }
+</style>
+
 <section id="modul-report" class="block pb-24 relative w-full overflow-x-hidden">
-  
-  <!-- BARIS 1: KARTU FILTER PERIODE -->
-  <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-3 mb-3 flex items-center justify-between gap-2">
-    <div class="flex items-center gap-2 flex-shrink-0">
-      <div class="bg-pink-100 p-2 rounded-lg text-pink-600">
-        <i class="fa-solid fa-calendar-days text-sm"></i>
-      </div>
-      <label class="text-xs font-bold text-gray-500 whitespace-nowrap">PERIODE:</label>
+
+  <!-- ═══════════════════════════════════════════════════════
+       BARIS 1: FILTER PERIODE — chip scroll horizontal
+  ═══════════════════════════════════════════════════════ -->
+  <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-3 mb-3">
+    <div class="flex items-center gap-2 mb-2">
+      <i class="fa-solid fa-calendar-days text-pink-500 text-xs"></i>
+      <span class="text-[10px] font-bold text-gray-400 tracking-widest">PERIODE</span>
     </div>
-    <!-- PERBAIKAN: min-w-0 agar select bisa menyempit di layar kecil -->
-    <select id="filter-periode-report" onchange="terapkanFilterPeriode()" 
-            class="min-w-0 flex-1 bg-rose-50 border border-pink-200 py-1.5 px-2 rounded-xl text-xs font-bold text-rose-900 outline-none cursor-pointer focus:ring-2 focus:ring-pink-500 transition-all">
-      <option value="ALL">Semua Periode (All-Time)</option>
-    </select>
+    <!-- Chip scroll — lebih intuitif dari dropdown di mobile -->
+    <div id="chip-periode-container" 
+         class="flex gap-2 overflow-x-auto no-scrollbar pb-1"
+         style="-webkit-overflow-scrolling: touch;">
+      <!-- Diisi JS -->
+      <div class="skeleton h-7 w-24 flex-shrink-0 rounded-full"></div>
+      <div class="skeleton h-7 w-24 flex-shrink-0 rounded-full"></div>
+      <div class="skeleton h-7 w-24 flex-shrink-0 rounded-full"></div>
+    </div>
   </div>
 
-  <!-- BARIS 2: TAB NAVIGASI MODUL -->
-  <div class="flex bg-white rounded-xl shadow-sm border border-pink-100 p-1 mb-4 w-full">
-    <button onclick="switchTabReport('aset')" id="tab-report-aset" 
-            class="flex-1 py-2 px-1 text-[11px] font-bold rounded-lg bg-pink-600 text-white transition-all text-center">
-      <i class="fa-solid fa-chart-line mr-1"></i> Aset
+  <!-- ═══════════════════════════════════════════════════════
+       BARIS 2: TAB NAVIGASI dengan badge jumlah transaksi
+  ═══════════════════════════════════════════════════════ -->
+  <div class="flex bg-white rounded-2xl shadow-sm border border-pink-100 p-1.5 mb-4 gap-1">
+    <button onclick="switchTabReport('kas')" id="tab-report-kas"
+            class="flex-1 py-2.5 px-1 text-[11px] font-bold rounded-xl tab-aktif transition-all text-center">
+      <i class="fa-solid fa-wallet mr-1"></i>Kas
+      <span id="badge-kas" class="badge-count">0</span>
     </button>
-    <button onclick="switchTabReport('klinik')" id="tab-report-klinik" 
-            class="flex-1 py-2 px-1 text-[11px] font-bold rounded-lg text-gray-500 hover:bg-pink-50 transition-all text-center">
-      <i class="fa-solid fa-user-doctor mr-1"></i> Klinik
+    <button onclick="switchTabReport('klinik')" id="tab-report-klinik"
+            class="flex-1 py-2.5 px-1 text-[11px] font-bold rounded-xl tab-nonaktif transition-all text-center">
+      <i class="fa-solid fa-user-doctor mr-1"></i>Klinik
+      <span id="badge-klinik" class="badge-count-dark">0</span>
     </button>
-    <button onclick="switchTabReport('kas')" id="tab-report-kas" 
-            class="flex-1 py-2 px-1 text-[11px] font-bold rounded-lg text-gray-500 hover:bg-pink-50 transition-all text-center">
-      <i class="fa-solid fa-wallet mr-1"></i> Arus Kas
+    <button onclick="switchTabReport('aset')" id="tab-report-aset"
+            class="flex-1 py-2.5 px-1 text-[11px] font-bold rounded-xl tab-nonaktif transition-all text-center">
+      <i class="fa-solid fa-chart-line mr-1"></i>Aset
+      <span id="badge-aset" class="badge-count-dark">0</span>
     </button>
   </div>
 
-  <!-- CONTAINER 1: LAPORAN TABUNGAN ASET -->
-  <div id="container-report-aset" class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4 block w-full">
-    <div class="grid grid-cols-2 gap-3 mb-4">
-      <div class="bg-rose-50 border border-pink-100 p-3 rounded-xl text-center">
-        <p class="text-[10px] text-gray-500 font-bold mb-1">TOTAL MODAL BELI</p>
-        <p class="text-sm font-bold text-rose-900 truncate" id="rep-total-beli">Rp 0</p>
-      </div>
-      <div class="bg-rose-50 border border-pink-100 p-3 rounded-xl text-center">
-        <p class="text-[10px] text-gray-500 font-bold mb-1">TOTAL JUAL</p>
-        <p class="text-sm font-bold text-rose-900 truncate" id="rep-total-jual">Rp 0</p>
-      </div>
-    </div>
-    <div class="bg-pink-600 text-white p-4 rounded-xl text-center shadow-md mb-6">
-      <p class="text-xs font-bold opacity-80 mb-1">REALISASI PNL (PROFIT/LOSS)</p>
-      <p class="text-2xl font-bold" id="rep-pnl">Rp 0</p>
-    </div>
-    <div class="relative h-48 w-full mb-6">
-      <canvas id="grafikAset"></canvas>
-    </div>
-    <!-- PERBAIKAN: Wrapper dengan max-width dan overflow-x auto hanya di dalam box ini -->
-    <div class="overflow-x-auto -mx-1 px-1" style="max-width: calc(100vw - 2rem);">
-      <table class="text-left text-[10px] min-w-full border border-pink-100 rounded-lg">
-        <thead class="bg-rose-50 text-pink-700">
-          <!-- PERBAIKAN: Kolom lebih sedikit, gabungkan yang bisa digabung -->
-          <tr>
-            <th class="px-2 py-2 sticky left-0 bg-rose-50 z-10 min-w-[80px]">Item</th>
-            <th class="px-2 py-2 text-right whitespace-nowrap">Qty Beli</th>
-            <th class="px-2 py-2 text-right whitespace-nowrap">Nilai Beli</th>
-            <th class="px-2 py-2 text-right whitespace-nowrap">Qty Jual</th>
-            <th class="px-2 py-2 text-right whitespace-nowrap">Nilai Jual</th>
-            <th class="px-2 py-2 text-right whitespace-nowrap">Sisa</th>
-          </tr>
-        </thead>
-        <tbody id="tbody-report-aset" class="divide-y divide-pink-50"></tbody>
-      </table>
-    </div>
-  </div>
 
-  <!-- CONTAINER 2: LAPORAN FEE KLINIK MEDIS -->
-  <div id="container-report-klinik" class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4 hidden w-full">
-    <div class="grid grid-cols-2 gap-3 mb-4">
-      <div class="bg-rose-50 border border-pink-100 p-3 rounded-xl text-center">
-        <p class="text-[10px] text-gray-500 font-bold mb-1">TOTAL OMSET</p>
-        <p class="text-sm font-bold text-rose-900 truncate" id="rep-klinik-omset">Rp 0</p>
-      </div>
-      <div class="bg-rose-50 border border-pink-100 p-3 rounded-xl text-center">
-        <p class="text-[10px] text-gray-500 font-bold mb-1">KOMISI DOKTER</p>
-        <p class="text-sm font-bold text-rose-900 truncate" id="rep-klinik-komisi">Rp 0</p>
-      </div>
-    </div>
-    <div class="bg-green-600 text-white p-4 rounded-xl text-center shadow-md mb-6">
-      <p class="text-xs font-bold opacity-80 mb-1">TOTAL LABA BERSIH KLINIK</p>
-      <p class="text-2xl font-bold" id="rep-klinik-laba">Rp 0</p>
-    </div>
-    <div class="relative h-48 w-full mb-6 flex justify-center">
-      <canvas id="grafikKlinik"></canvas>
-    </div>
-    <div class="overflow-x-auto -mx-1 px-1" style="max-width: calc(100vw - 2rem);">
-      <table class="text-left text-[10px] min-w-full border border-pink-100 rounded-lg">
-        <thead class="bg-rose-50 text-pink-700">
-          <tr>
-            <th class="px-2 py-2 sticky left-0 bg-rose-50 z-10 min-w-[70px]">Lokasi</th>
-            <th class="px-2 py-2 text-center whitespace-nowrap">Pasien</th>
-            <th class="px-2 py-2 text-right whitespace-nowrap">Omset</th>
-            <th class="px-2 py-2 text-right whitespace-nowrap">Komisi</th>
-            <th class="px-2 py-2 text-right whitespace-nowrap">Laba</th>
-          </tr>
-        </thead>
-        <tbody id="tbody-report-klinik" class="divide-y divide-pink-50"></tbody>
-      </table>
-    </div>
-  </div>
+  <!-- ═══════════════════════════════════════════════════════
+       CONTAINER KAS
+  ═══════════════════════════════════════════════════════ -->
+  <div id="container-report-kas" class="block w-full fade-in-up">
 
-  <!-- CONTAINER 3: LAPORAN ARUS KAS -->
-  <div id="container-report-kas" class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4 hidden w-full">
-    <div class="grid grid-cols-2 gap-3 mb-4">
-      <div class="bg-rose-50 border border-pink-100 p-3 rounded-xl text-center">
-        <p class="text-[10px] text-gray-500 font-bold mb-1">TOTAL MASUK</p>
-        <p class="text-sm font-bold text-rose-900 truncate" id="rep-kas-masuk">Rp 0</p>
+    <!-- Saldo Meter + 2 kartu -->
+    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
+      <div class="flex items-center gap-4">
+        <!-- Arc Gauge -->
+        <div class="relative flex-shrink-0" style="width:96px;height:60px;">
+          <svg viewBox="0 0 100 60" width="96" height="60">
+            <!-- Track -->
+            <path d="M10,55 A45,45 0 0,1 90,55"
+                  fill="none" stroke="#fce7f3" stroke-width="10" stroke-linecap="round"/>
+            <!-- Fill -->
+            <path id="arc-fill-kas" d="M10,55 A45,45 0 0,1 90,55"
+                  fill="none" stroke="#db2777" stroke-width="10" stroke-linecap="round"
+                  stroke-dasharray="141" stroke-dashoffset="141"/>
+          </svg>
+          <div class="absolute inset-0 flex flex-col items-center justify-end pb-1">
+            <span id="arc-pct-kas" class="text-[11px] font-bold text-rose-900">--%</span>
+            <span class="text-[8px] text-gray-400">terpakai</span>
+          </div>
+        </div>
+        <!-- Angka -->
+        <div class="flex-1 min-w-0">
+          <p class="text-[9px] font-bold text-gray-400 tracking-widest mb-0.5">SALDO BERSIH</p>
+          <p id="rep-kas-saldo" class="text-xl font-bold text-rose-900 truncate">Rp 0</p>
+          <p id="label-periode-kas" class="text-[9px] text-pink-500 mt-0.5">Semua periode</p>
+        </div>
       </div>
-      <div class="bg-red-50 border border-red-100 p-3 rounded-xl text-center">
-        <p class="text-[10px] text-gray-500 font-bold mb-1">TOTAL KELUAR</p>
-        <p class="text-sm font-bold text-red-900 truncate" id="rep-kas-keluar">Rp 0</p>
+      <!-- Divider -->
+      <div class="border-t border-pink-50 mt-3 pt-3 grid grid-cols-2 gap-2 text-center">
+        <div>
+          <p class="text-[9px] text-gray-400 font-bold mb-0.5">TOTAL MASUK</p>
+          <p id="rep-kas-masuk" class="text-sm font-bold text-green-600 truncate">Rp 0</p>
+        </div>
+        <div>
+          <p class="text-[9px] text-gray-400 font-bold mb-0.5">TOTAL KELUAR</p>
+          <p id="rep-kas-keluar" class="text-sm font-bold text-red-500 truncate">Rp 0</p>
+        </div>
       </div>
-    </div>
-    <div class="bg-pink-600 text-white p-4 rounded-xl text-center shadow-md mb-6">
-      <p class="text-xs font-bold opacity-80 mb-1">SALDO BERSIH KAS (<span id="label-periode-kas">ALL</span>)</p>
-      <p class="text-2xl font-bold" id="rep-kas-saldo">Rp 0</p>
     </div>
 
-    <!-- GRAFIK DONAT -->
-    <div class="mb-6 bg-rose-50/50 p-4 rounded-xl border border-pink-100">
-      <p class="text-[11px] font-bold text-rose-900 text-center mb-2">
-        <i class="fa-solid fa-chart-pie text-pink-500 mr-1"></i> Komposisi Pengeluaran
+    <!-- Trend bulanan (bar chart) -->
+    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
+      <p class="text-[10px] font-bold text-rose-900 mb-3">
+        <i class="fa-solid fa-chart-column text-pink-500 mr-1"></i>TREN BULANAN
       </p>
-      <div class="relative h-48 w-full flex justify-center">
-        <canvas id="grafikKas"></canvas>
+      <div class="relative w-full" style="height:140px;">
+        <canvas id="grafikTrendKas"></canvas>
       </div>
     </div>
-    
-    <h3 class="text-xs font-bold text-rose-900 mb-2 mt-4">
-      <i class="fa-solid fa-book text-pink-500 mr-1"></i> Buku Besar (Agregasi)
-    </h3>
-    <!-- PERBAIKAN: Kolom Aksi diperkecil, teks dipotong jika panjang -->
-    <div class="overflow-x-auto -mx-1 px-1" style="max-width: calc(100vw - 2rem);">
-      <table class="text-left text-[10px] min-w-full border border-pink-100 rounded-lg">
-        <thead class="bg-rose-50 text-pink-700">
-          <tr>
-            <th class="px-2 py-2 min-w-[90px]">Item/Kategori</th>
-            <th class="px-2 py-2 text-right whitespace-nowrap">Debit</th>
-            <th class="px-2 py-2 text-right whitespace-nowrap">Kredit</th>
-            <th class="px-2 py-2 text-center whitespace-nowrap w-12">Aksi</th>
-          </tr>
-        </thead>
-        <tbody id="tbody-report-kas" class="divide-y divide-pink-50">
-          <tr><td colspan="4" class="px-2 py-4 text-center text-gray-400">Memuat data...</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
 
-  <!-- MODAL POP-UP DETAIL KAS -->
-  <!-- PERBAIKAN: Modal menggunakan 100dvh agar pas di iPhone dengan safe area -->
-  <div id="modal-detail-kas" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 z-[60] flex items-end justify-center p-0 backdrop-blur-sm transition-opacity">
-    <div class="bg-white rounded-t-2xl w-full max-w-lg flex flex-col shadow-2xl overflow-hidden"
-         style="max-height: 90dvh; max-height: 90vh;">
-       <div class="bg-pink-600 p-4 text-white flex justify-between items-center flex-shrink-0">
-         <div class="min-w-0 flex-1 mr-2">
-           <h3 class="text-sm font-bold truncate" id="title-modal-kas">Detail Jurnal</h3>
-           <p class="text-[10px] opacity-80">Periode: <span id="label-modal-periode">Semua</span></p>
-         </div>
-         <button onclick="tutupDetailKas()" class="text-white hover:text-pink-200 text-xl flex-shrink-0">
-           <i class="fa-solid fa-xmark"></i>
-         </button>
-       </div>
-       <div class="p-4 bg-rose-50 border-b border-pink-100 flex-shrink-0">
-         <div class="relative">
-           <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-sm"></i>
-           <input type="text" id="input-cari-detail-kas" oninput="cariDetailKas()" 
-                  class="w-full bg-white border border-pink-200 py-2 pl-9 pr-3 rounded-lg outline-none text-sm focus:ring-2 focus:ring-pink-500" 
-                  placeholder="Cari tanggal atau catatan...">
-         </div>
-       </div>
-       <div class="overflow-y-auto flex-1 no-scrollbar p-4">
-          <table class="w-full text-left text-[10px]">
-             <thead class="text-gray-500 border-b border-gray-200">
-                <tr>
-                  <th class="pb-2 whitespace-nowrap">Tanggal</th>
-                  <th class="pb-2">Catatan</th>
-                  <th class="pb-2 text-right whitespace-nowrap">Nominal</th>
-                </tr>
-             </thead>
-             <tbody id="tbody-detail-kas" class="divide-y divide-gray-100">
-             </tbody>
-          </table>
-       </div>
+    <!-- Donat komposisi pengeluaran -->
+    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
+      <p class="text-[10px] font-bold text-rose-900 mb-3">
+        <i class="fa-solid fa-chart-pie text-pink-500 mr-1"></i>KOMPOSISI PENGELUARAN
+      </p>
+      <div class="flex items-center gap-3">
+        <div class="relative flex-shrink-0" style="width:110px;height:110px;">
+          <canvas id="grafikKas"></canvas>
+        </div>
+        <div id="legend-kas" class="flex-1 min-w-0 space-y-1.5">
+          <!-- Diisi JS -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Buku Besar — card list dengan progress bar -->
+    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-[10px] font-bold text-rose-900">
+          <i class="fa-solid fa-book text-pink-500 mr-1"></i>BUKU BESAR
+        </p>
+        <div class="flex gap-1">
+          <button onclick="filterBukuBesar('semua')" id="bb-filter-semua"
+                  class="text-[9px] font-bold px-2 py-1 rounded-full bg-pink-600 text-white transition-colors">Semua</button>
+          <button onclick="filterBukuBesar('keluar')" id="bb-filter-keluar"
+                  class="text-[9px] font-bold px-2 py-1 rounded-full bg-pink-50 text-pink-600 transition-colors">Keluar</button>
+          <button onclick="filterBukuBesar('masuk')" id="bb-filter-masuk"
+                  class="text-[9px] font-bold px-2 py-1 rounded-full bg-pink-50 text-pink-600 transition-colors">Masuk</button>
+        </div>
+      </div>
+      <div id="list-buku-besar" class="space-y-2">
+        <!-- Skeleton -->
+        <div class="skeleton h-14 w-full rounded-xl"></div>
+        <div class="skeleton h-14 w-full rounded-xl"></div>
+        <div class="skeleton h-14 w-full rounded-xl"></div>
+      </div>
+    </div>
+
+  </div><!-- /container-report-kas -->
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       CONTAINER KLINIK
+  ═══════════════════════════════════════════════════════ -->
+  <div id="container-report-klinik" class="hidden w-full fade-in-up">
+
+    <!-- Summary 3 kartu -->
+    <div class="grid grid-cols-3 gap-2 mb-3">
+      <div class="bg-white rounded-2xl border border-pink-100 p-3 text-center shadow-sm">
+        <div class="w-8 h-8 bg-pink-100 rounded-xl flex items-center justify-center mx-auto mb-1.5">
+          <i class="fa-solid fa-receipt text-pink-600 text-xs"></i>
+        </div>
+        <p class="text-[8px] text-gray-400 font-bold">OMSET</p>
+        <p class="text-xs font-bold text-rose-900 truncate" id="rep-klinik-omset">Rp 0</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-pink-100 p-3 text-center shadow-sm">
+        <div class="w-8 h-8 bg-rose-100 rounded-xl flex items-center justify-center mx-auto mb-1.5">
+          <i class="fa-solid fa-percent text-rose-600 text-xs"></i>
+        </div>
+        <p class="text-[8px] text-gray-400 font-bold">KOMISI</p>
+        <p class="text-xs font-bold text-rose-900 truncate" id="rep-klinik-komisi">Rp 0</p>
+      </div>
+      <div class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-3 text-center shadow-sm">
+        <div class="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-1.5">
+          <i class="fa-solid fa-sack-dollar text-white text-xs"></i>
+        </div>
+        <p class="text-[8px] text-white/80 font-bold">LABA</p>
+        <p class="text-xs font-bold text-white truncate" id="rep-klinik-laba">Rp 0</p>
+      </div>
+    </div>
+
+    <!-- Grafik donat klinik -->
+    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
+      <p class="text-[10px] font-bold text-rose-900 mb-3">
+        <i class="fa-solid fa-hospital text-pink-500 mr-1"></i>KONTRIBUSI PER LOKASI
+      </p>
+      <div class="flex items-center gap-3">
+        <div class="relative flex-shrink-0" style="width:110px;height:110px;">
+          <canvas id="grafikKlinik"></canvas>
+        </div>
+        <div id="legend-klinik" class="flex-1 min-w-0 space-y-1.5"></div>
+      </div>
+    </div>
+
+    <!-- Leaderboard Klinik -->
+    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
+      <p class="text-[10px] font-bold text-rose-900 mb-3">
+        <i class="fa-solid fa-ranking-star text-pink-500 mr-1"></i>RANKING KLINIK
+      </p>
+      <div id="list-klinik" class="space-y-2">
+        <div class="skeleton h-14 w-full rounded-xl"></div>
+        <div class="skeleton h-14 w-full rounded-xl"></div>
+      </div>
+    </div>
+
+    <!-- Riwayat per pasien -->
+    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-[10px] font-bold text-rose-900">
+          <i class="fa-solid fa-list text-pink-500 mr-1"></i>RIWAYAT PASIEN
+        </p>
+        <input type="text" id="cari-pasien" oninput="cariRiwayatPasien()"
+               placeholder="Cari nama..." 
+               class="text-[11px] bg-rose-50 border border-pink-200 rounded-lg px-2 py-1 outline-none w-28">
+      </div>
+      <div id="list-pasien" class="space-y-1.5 max-h-64 overflow-y-auto thin-scroll">
+        <div class="skeleton h-10 w-full rounded-xl"></div>
+        <div class="skeleton h-10 w-full rounded-xl"></div>
+      </div>
+    </div>
+
+  </div><!-- /container-report-klinik -->
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       CONTAINER ASET
+  ═══════════════════════════════════════════════════════ -->
+  <div id="container-report-aset" class="hidden w-full fade-in-up">
+
+    <!-- Summary -->
+    <div class="grid grid-cols-2 gap-2 mb-3">
+      <div class="bg-white rounded-2xl border border-pink-100 p-3 shadow-sm">
+        <p class="text-[8px] text-gray-400 font-bold mb-1">MODAL BELI</p>
+        <p class="text-sm font-bold text-rose-900 truncate" id="rep-total-beli">Rp 0</p>
+        <p class="text-[8px] text-gray-400 mt-0.5">Total investasi keluar</p>
+      </div>
+      <div class="bg-white rounded-2xl border border-pink-100 p-3 shadow-sm">
+        <p class="text-[8px] text-gray-400 font-bold mb-1">TOTAL JUAL</p>
+        <p class="text-sm font-bold text-green-600 truncate" id="rep-total-jual">Rp 0</p>
+        <p class="text-[8px] text-gray-400 mt-0.5">Dana dicairkan</p>
+      </div>
+    </div>
+
+    <!-- PNL Banner -->
+    <div id="pnl-banner" class="bg-gradient-to-r from-pink-600 to-rose-700 rounded-2xl p-4 mb-3 shadow-md">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-[9px] text-white/70 font-bold mb-1">REALISASI PNL</p>
+          <p class="text-2xl font-bold text-white" id="rep-pnl">Rp 0</p>
+        </div>
+        <div id="pnl-icon" class="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+          <i class="fa-solid fa-arrow-trend-up text-white text-xl"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart bar aset -->
+    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
+      <p class="text-[10px] font-bold text-rose-900 mb-3">
+        <i class="fa-solid fa-chart-bar text-pink-500 mr-1"></i>MODAL vs REALISASI
+      </p>
+      <div class="relative w-full" style="height:160px;">
+        <canvas id="grafikAset"></canvas>
+      </div>
+    </div>
+
+    <!-- Card per item aset -->
+    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
+      <p class="text-[10px] font-bold text-rose-900 mb-3">
+        <i class="fa-solid fa-boxes-stacked text-pink-500 mr-1"></i>PORTOFOLIO DETAIL
+      </p>
+      <div id="list-aset" class="space-y-2">
+        <div class="skeleton h-16 w-full rounded-xl"></div>
+        <div class="skeleton h-16 w-full rounded-xl"></div>
+      </div>
+    </div>
+
+  </div><!-- /container-report-aset -->
+
+
+  <!-- ═══════════════════════════════════════════════════════
+       MODAL DETAIL KAS — bottom sheet dengan summary header
+  ═══════════════════════════════════════════════════════ -->
+  <div id="modal-detail-kas"
+       class="hidden fixed inset-0 bg-gray-900/60 z-[60] flex items-end justify-center backdrop-blur-sm">
+    <div class="bg-white rounded-t-3xl w-full max-w-lg flex flex-col shadow-2xl overflow-hidden"
+         style="max-height: 92dvh; max-height: 92vh;">
+
+      <!-- Header dengan summary -->
+      <div class="bg-gradient-to-r from-pink-600 to-rose-700 p-4 flex-shrink-0">
+        <div class="flex items-start justify-between mb-3">
+          <div class="min-w-0 flex-1 mr-2">
+            <p class="text-[9px] text-white/70 font-bold tracking-widest">DETAIL TRANSAKSI</p>
+            <h3 class="text-sm font-bold text-white truncate mt-0.5" id="title-modal-kas">—</h3>
+            <p class="text-[10px] text-white/70 mt-0.5">Periode: <span id="label-modal-periode">Semua</span></p>
+          </div>
+          <button onclick="tutupDetailKas()"
+                  class="text-white/80 hover:text-white text-xl flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/20 transition-colors">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <!-- Mini summary -->
+        <div class="grid grid-cols-3 gap-2">
+          <div class="bg-white/15 rounded-xl p-2 text-center">
+            <p class="text-[8px] text-white/70">MASUK</p>
+            <p class="text-xs font-bold text-white" id="modal-sum-masuk">Rp 0</p>
+          </div>
+          <div class="bg-white/15 rounded-xl p-2 text-center">
+            <p class="text-[8px] text-white/70">KELUAR</p>
+            <p class="text-xs font-bold text-white" id="modal-sum-keluar">Rp 0</p>
+          </div>
+          <div class="bg-white/15 rounded-xl p-2 text-center">
+            <p class="text-[8px] text-white/70">TRX</p>
+            <p class="text-xs font-bold text-white" id="modal-sum-count">0</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search bar -->
+      <div class="p-3 bg-rose-50 border-b border-pink-100 flex-shrink-0">
+        <div class="relative">
+          <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-xs"></i>
+          <input type="text" id="input-cari-detail-kas" oninput="cariDetailKas()"
+                 class="w-full bg-white border border-pink-200 py-2 pl-8 pr-3 rounded-xl outline-none text-xs focus:ring-2 focus:ring-pink-500"
+                 placeholder="Cari tanggal, catatan...">
+        </div>
+      </div>
+
+      <!-- List transaksi -->
+      <div class="overflow-y-auto flex-1 thin-scroll p-3 space-y-2"
+           id="list-detail-kas">
+      </div>
+
     </div>
   </div>
 
 </section>
 
+
 <script>
-  let chartAset = null;
-  let chartKlinik = null;
-  let chartKas = null;
-  let masterDataLaporan = { aset: [], klinik: [], kas: [] };
+/* ═══════════════════════════════════════════════════════════
+   STATE & CACHE
+═══════════════════════════════════════════════════════════ */
+let chartTrendKas = null;
+let chartKas      = null;
+let chartKlinik   = null;
+let chartAset     = null;
 
-  function normPeriode(val) {
-    if (!val) return "";
-    if (val instanceof Date || (typeof val === 'object' && typeof val.getMonth === 'function')) {
-      const namaBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-      return namaBulan[val.getMonth()] + " " + val.getFullYear();
-    }
-    let str = String(val).trim();
-    const parts = str.split(" ");
-    if (parts.length >= 2) {
-      const bul = parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase();
-      return bul + " " + parts[1];
-    }
-    return str;
+let masterDataLaporan = { aset: [], klinik: [], kas: [] };
+let periodeTerpilih   = 'ALL';
+let tabAktif          = 'kas';
+
+// Cache untuk filter buku besar
+let cacheBukuBesar = {};
+let filterBBMode   = 'semua';
+
+// Cache untuk riwayat pasien
+let cacheListPasien = [];
+
+const WARNA_GRAFIK = [
+  '#db2777','#e11d48','#f59e0b','#10b981',
+  '#3b82f6','#8b5cf6','#ec4899','#f97316','#06b6d4'
+];
+
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
+function initModulReport() {
+  tampilSkeleton();
+  google.script.run
+    .withSuccessHandler(data => {
+      masterDataLaporan.aset   = data.aset   || [];
+      masterDataLaporan.klinik = data.klinik || [];
+      masterDataLaporan.kas    = data.kas    || [];
+
+      updateBadgeTab();
+      buatChipPeriode();
+      // Default: bulan ini atau ALL jika kosong
+      terapkanFilter(periodeTerpilih);
+    })
+    .withFailureHandler(err => {
+      Swal.fire('Error Backend', err.message, 'error');
+    })
+    .getDataLaporan();
+}
+
+function tampilSkeleton() {
+  // Kosongkan list agar skeleton terlihat
+  const ids = ['list-buku-besar','list-klinik','list-pasien','list-aset'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '<div class="skeleton h-14 w-full rounded-xl"></div><div class="skeleton h-14 w-full rounded-xl mt-2"></div>';
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HELPER NORMALISASI PERIODE
+═══════════════════════════════════════════════════════════ */
+const NAMA_BULAN = ["Januari","Februari","Maret","April","Mei","Juni",
+                    "Juli","Agustus","September","Oktober","November","Desember"];
+
+function normPeriode(val) {
+  if (!val) return "";
+  if (val instanceof Date || (typeof val === 'object' && typeof val.getMonth === 'function')) {
+    return NAMA_BULAN[val.getMonth()] + " " + val.getFullYear();
   }
-
-  function initModulReport() {
-    document.getElementById('tbody-report-aset').innerHTML = '<tr><td colspan="6" class="px-2 py-4 text-center text-gray-400">Memuat...</td></tr>';
-    document.getElementById('tbody-report-klinik').innerHTML = '<tr><td colspan="5" class="px-2 py-4 text-center text-gray-400">Memuat...</td></tr>';
-    document.getElementById('tbody-report-kas').innerHTML = '<tr><td colspan="4" class="px-2 py-4 text-center text-gray-400">Memuat...</td></tr>';
-    
-    google.script.run
-      .withSuccessHandler(data => {
-        masterDataLaporan.aset = data.aset || [];
-        masterDataLaporan.klinik = data.klinik || [];
-        masterDataLaporan.kas = data.kas || [];
-        buatDropdownPeriode();
-        terapkanFilterPeriode();
-      })
-      .withFailureHandler(error => { Swal.fire('Error Backend', error.message, 'error'); })
-      .getDataLaporan();
+  let str = String(val).trim();
+  const parts = str.split(" ");
+  if (parts.length >= 2) {
+    return parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase() + " " + parts[1];
   }
+  return str;
+}
 
-  function buatDropdownPeriode() {
-    const setPeriode = new Set();
-    masterDataLaporan.kas.forEach(r => { if(r[2]) setPeriode.add(normPeriode(r[2])); });
-    masterDataLaporan.aset.forEach(r => { if(r[2]) setPeriode.add(normPeriode(r[2])); });
-    masterDataLaporan.klinik.forEach(r => { if(r[2]) setPeriode.add(normPeriode(r[2])); });
+function urutPeriode(a, b) {
+  const pa = a.split(" "), pb = b.split(" ");
+  const ta = parseInt(pa[1])||0, tb = parseInt(pb[1])||0;
+  if (ta !== tb) return ta - tb;
+  return NAMA_BULAN.indexOf(pa[0]) - NAMA_BULAN.indexOf(pb[0]);
+}
 
-    const skrg = new Date();
-    const namaBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
-    
-    let blnIni = skrg.getMonth();
-    let thnIni = skrg.getFullYear();
-    if (skrg.getDate() >= 28) { blnIni += 1; if (blnIni > 11) { blnIni = 0; thnIni += 1; } }
-    
-    let blnDepan = blnIni + 1;
-    let thnDepan = thnIni;
-    if (blnDepan > 11) { blnDepan = 0; thnDepan += 1; }
+function periodeSkrg() {
+  const now = new Date();
+  let bln = now.getMonth(), thn = now.getFullYear();
+  if (now.getDate() >= 28) { bln++; if (bln > 11) { bln = 0; thn++; } }
+  return NAMA_BULAN[bln] + " " + thn;
+}
 
-    const periodeAktif = namaBulan[blnIni] + " " + thnIni;
-    const periodeBerikutnya = namaBulan[blnDepan] + " " + thnDepan;
+/* ═══════════════════════════════════════════════════════════
+   CHIP PERIODE
+═══════════════════════════════════════════════════════════ */
+function buatChipPeriode() {
+  const setPeriode = new Set();
+  masterDataLaporan.kas.forEach(r    => { if(r[2]) setPeriode.add(normPeriode(r[2])); });
+  masterDataLaporan.aset.forEach(r   => { if(r[2]) setPeriode.add(normPeriode(r[2])); });
+  masterDataLaporan.klinik.forEach(r => { if(r[2]) setPeriode.add(normPeriode(r[2])); });
 
-    setPeriode.add(periodeAktif);
-    setPeriode.add(periodeBerikutnya);
+  const ps = periodeSkrg();
+  setPeriode.add(ps);
 
-    const daftarPeriode = Array.from(setPeriode).filter(p => p !== "").sort((a, b) => {
-      const partsA = a.split(" "); const partsB = b.split(" ");
-      const thnA = parseInt(partsA[1]) || 0; const thnB = parseInt(partsB[1]) || 0;
-      if (thnA !== thnB) return thnA - thnB;
-      return namaBulan.indexOf(partsA[0]) - namaBulan.indexOf(partsB[0]);
+  const daftar = Array.from(setPeriode).filter(Boolean).sort(urutPeriode);
+
+  // Default ke bulan ini jika ada data, else ALL
+  if (periodeTerpilih === 'ALL' && daftar.includes(ps)) periodeTerpilih = ps;
+
+  const container = document.getElementById('chip-periode-container');
+  let html = `<button onclick="pilihChipPeriode('ALL')" id="chip-ALL"
+    class="flex-shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border transition-colors ${periodeTerpilih==='ALL'?'chip-aktif':'chip-nonaktif'}">
+    Semua
+  </button>`;
+  daftar.forEach(p => {
+    const aktif = p === periodeTerpilih;
+    html += `<button onclick="pilihChipPeriode('${p}')" id="chip-${p.replace(/ /g,'_')}"
+      class="flex-shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border transition-colors ${aktif?'chip-aktif':'chip-nonaktif'}">
+      ${p}
+    </button>`;
+  });
+  container.innerHTML = html;
+
+  // Scroll chip aktif ke tengah
+  setTimeout(() => {
+    const aktifEl = document.getElementById('chip-' + periodeTerpilih.replace(/ /g,'_'));
+    if (aktifEl) aktifEl.scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' });
+  }, 100);
+}
+
+function pilihChipPeriode(p) {
+  periodeTerpilih = p;
+  // Update visual chip
+  document.querySelectorAll('[id^="chip-"]').forEach(el => {
+    el.classList.remove('chip-aktif');
+    el.classList.add('chip-nonaktif');
+  });
+  const aktifEl = document.getElementById('chip-' + p.replace(/ /g,'_'));
+  if (aktifEl) { aktifEl.classList.add('chip-aktif'); aktifEl.classList.remove('chip-nonaktif'); }
+  terapkanFilter(p);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FILTER & DISPATCH
+═══════════════════════════════════════════════════════════ */
+function terapkanFilter(periode) {
+  periodeTerpilih = periode;
+
+  const filterFn = r => periode === 'ALL' || normPeriode(r[2]).toLowerCase() === periode.toLowerCase();
+  const kas    = masterDataLaporan.kas.filter(filterFn);
+  const aset   = masterDataLaporan.aset.filter(filterFn);
+  const klinik = masterDataLaporan.klinik.filter(filterFn);
+
+  document.getElementById('label-periode-kas').innerText =
+    periode === 'ALL' ? 'Semua periode' : periode;
+
+  kalkulasiKas(kas);
+  kalkulasiKlinik(klinik);
+  kalkulasiAset(aset);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BADGE TAB
+═══════════════════════════════════════════════════════════ */
+function updateBadgeTab() {
+  document.getElementById('badge-kas').innerText    = masterDataLaporan.kas.length;
+  document.getElementById('badge-klinik').innerText = masterDataLaporan.klinik.length;
+  document.getElementById('badge-aset').innerText   = masterDataLaporan.aset.length;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TAB SWITCH
+═══════════════════════════════════════════════════════════ */
+function switchTabReport(tab) {
+  tabAktif = tab;
+  ['kas','klinik','aset'].forEach(t => {
+    const btn = document.getElementById('tab-report-' + t);
+    const box = document.getElementById('container-report-' + t);
+    if (t === tab) {
+      btn.classList.add('tab-aktif');
+      btn.classList.remove('tab-nonaktif');
+      // Ganti badge style
+      btn.querySelector('.badge-count, .badge-count-dark')
+         .className = 'badge-count';
+      box.classList.remove('hidden');
+      box.classList.add('fade-in-up');
+    } else {
+      btn.classList.remove('tab-aktif');
+      btn.classList.add('tab-nonaktif');
+      btn.querySelector('.badge-count, .badge-count-dark')
+         .className = 'badge-count-dark';
+      box.classList.add('hidden');
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   FORMAT HELPER
+═══════════════════════════════════════════════════════════ */
+function fRp(n) {
+  if (Math.abs(n) >= 1e9)  return 'Rp ' + (n/1e9).toFixed(1) + ' M';
+  if (Math.abs(n) >= 1e6)  return 'Rp ' + (n/1e6).toFixed(1) + ' jt';
+  return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(n);
+}
+function fRpFull(n) {
+  return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(n);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ███ KALKULASI KAS ███
+═══════════════════════════════════════════════════════════ */
+function kalkulasiKas(data) {
+  let totMasuk = 0, totKeluar = 0;
+  let bukuBesar = {}, rekapKat = {}, trendBulan = {};
+
+  data.forEach(row => {
+    const item   = row[4] || '-';
+    const debit  = parseFloat(row[6]) || 0;
+    const kredit = parseFloat(row[7]) || 0;
+    const periode = normPeriode(row[2]);
+
+    totMasuk  += debit;
+    totKeluar += kredit;
+
+    // Buku besar
+    if (!bukuBesar[item]) bukuBesar[item] = { debit:0, kredit:0, rows:[] };
+    bukuBesar[item].debit  += debit;
+    bukuBesar[item].kredit += kredit;
+    bukuBesar[item].rows.push(row);
+
+    // Rekap kategori pengeluaran
+    if (kredit > 0) {
+      const kat = String(item).includes(':') ? String(item).split(':')[0].trim() : item;
+      rekapKat[kat] = (rekapKat[kat] || 0) + kredit;
+    }
+
+    // Trend bulanan
+    if (periode) {
+      if (!trendBulan[periode]) trendBulan[periode] = { masuk:0, keluar:0 };
+      trendBulan[periode].masuk  += debit;
+      trendBulan[periode].keluar += kredit;
+    }
+  });
+
+  cacheBukuBesar = bukuBesar;
+
+  const saldo = totMasuk - totKeluar;
+  const pct   = totMasuk > 0 ? Math.min(totKeluar / totMasuk * 100, 100) : 0;
+
+  // Update UI
+  document.getElementById('rep-kas-saldo').innerText  = fRpFull(saldo);
+  document.getElementById('rep-kas-masuk').innerText  = fRp(totMasuk);
+  document.getElementById('rep-kas-keluar').innerText = fRp(totKeluar);
+
+  // Warna saldo
+  const elSaldo = document.getElementById('rep-kas-saldo');
+  elSaldo.className = 'text-xl font-bold truncate ' + (saldo < 0 ? 'text-red-600' : 'text-rose-900');
+
+  // Arc gauge
+  updateArcKas(pct);
+
+  // Trend chart
+  renderTrendKas(trendBulan);
+
+  // Donat + legend
+  renderDonatKas(rekapKat);
+
+  // Buku besar list
+  renderBukuBesar(bukuBesar, filterBBMode);
+}
+
+function updateArcKas(pct) {
+  const arc      = document.getElementById('arc-fill-kas');
+  const label    = document.getElementById('arc-pct-kas');
+  const maxDash  = 141; // panjang arc path (estimasi setengah lingkaran r=45)
+  const offset   = maxDash - (maxDash * pct / 100);
+  arc.style.strokeDashoffset = offset;
+  arc.style.stroke = pct > 90 ? '#dc2626' : pct > 70 ? '#f59e0b' : '#16a34a';
+  label.innerText  = Math.round(pct) + '%';
+}
+
+function renderTrendKas(trendBulan) {
+  const periodeUrut = Object.keys(trendBulan).sort(urutPeriode).slice(-6);
+  const labelChart  = periodeUrut.map(p => {
+    const parts = p.split(' ');
+    return (parts[0]||'').substring(0,3) + ' ' + (parts[1]||'');
+  });
+  const dataMasuk  = periodeUrut.map(p => trendBulan[p].masuk);
+  const dataKeluar = periodeUrut.map(p => trendBulan[p].keluar);
+
+  const ctx = document.getElementById('grafikTrendKas').getContext('2d');
+  if (chartTrendKas) chartTrendKas.destroy();
+
+  chartTrendKas = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labelChart,
+      datasets: [
+        {
+          label: 'Masuk',
+          data: dataMasuk,
+          backgroundColor: '#bbf7d0',
+          borderColor: '#16a34a',
+          borderWidth: 1.5,
+          borderRadius: 6,
+          borderSkipped: false
+        },
+        {
+          label: 'Keluar',
+          data: dataKeluar,
+          backgroundColor: '#fecdd3',
+          borderColor: '#e11d48',
+          borderWidth: 1.5,
+          borderRadius: 6,
+          borderSkipped: false
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position:'bottom', labels:{ boxWidth:8, font:{size:9}, padding:8 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.dataset.label + ': ' + fRpFull(ctx.raw)
+          }
+        }
+      },
+      scales: {
+        x: { grid:{ display:false }, ticks:{ font:{size:9}, maxRotation:20 } },
+        y: { display:false }
+      }
+    }
+  });
+}
+
+function renderDonatKas(rekapKat) {
+  const entries = Object.entries(rekapKat).sort((a,b) => b[1]-a[1]).slice(0,8);
+  const labels  = entries.map(e => e[0]);
+  const values  = entries.map(e => e[1]);
+  const total   = values.reduce((s,v) => s+v, 0);
+
+  const ctx = document.getElementById('grafikKas').getContext('2d');
+  if (chartKas) chartKas.destroy();
+
+  if (labels.length === 0) {
+    chartKas = new Chart(ctx, {
+      type:'doughnut',
+      data:{ labels:['Kosong'], datasets:[{ data:[1], backgroundColor:['#fce7f3'] }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{enabled:false} }, cutout:'72%' }
     });
+    document.getElementById('legend-kas').innerHTML = '<p class="text-[10px] text-gray-400">Belum ada data</p>';
+    return;
+  }
 
-    const dropdown = document.getElementById('filter-periode-report');
-    dropdown.innerHTML = '<option value="ALL">Semua Periode</option>';
-    daftarPeriode.forEach(p => {
-      const isSelected = (p === periodeAktif) ? 'selected' : '';
-      dropdown.innerHTML += `<option value="${p}" ${isSelected}>${p}</option>`;
+  chartKas = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets:[{ data:values, backgroundColor:WARNA_GRAFIK, borderWidth:2, borderColor:'#fff' }] },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: {
+        legend:{ display:false },
+        tooltip: { callbacks: { label: c => c.label + ': ' + fRpFull(c.raw) } }
+      },
+      cutout: '72%'
+    }
+  });
+
+  // Custom legend
+  let legendHtml = '';
+  entries.forEach(([nama,val], i) => {
+    const pct = total > 0 ? (val/total*100).toFixed(0) : 0;
+    legendHtml += `
+      <div class="flex items-center gap-1.5">
+        <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${WARNA_GRAFIK[i%WARNA_GRAFIK.length]}"></span>
+        <span class="text-[9px] text-gray-600 truncate flex-1">${nama}</span>
+        <span class="text-[9px] font-bold text-gray-500">${pct}%</span>
+      </div>`;
+  });
+  document.getElementById('legend-kas').innerHTML = legendHtml;
+}
+
+function renderBukuBesar(bb, mode) {
+  const container = document.getElementById('list-buku-besar');
+
+  // Update button state
+  ['semua','keluar','masuk'].forEach(m => {
+    const btn = document.getElementById('bb-filter-' + m);
+    if (m === mode) {
+      btn.className = 'text-[9px] font-bold px-2 py-1 rounded-full bg-pink-600 text-white transition-colors';
+    } else {
+      btn.className = 'text-[9px] font-bold px-2 py-1 rounded-full bg-pink-50 text-pink-600 transition-colors';
+    }
+  });
+
+  const entries = Object.entries(bb)
+    .filter(([,v]) => {
+      if (mode === 'keluar') return v.kredit > 0;
+      if (mode === 'masuk')  return v.debit  > 0;
+      return true;
+    })
+    .sort((a,b) => (b[1].kredit+b[1].debit) - (a[1].kredit+a[1].debit));
+
+  if (entries.length === 0) {
+    container.innerHTML = renderEmptyState('Tidak ada transaksi', 'Belum ada data untuk ditampilkan.');
+    return;
+  }
+
+  const maxNominal = Math.max(...entries.map(([,v]) => v.debit + v.kredit));
+
+  let html = '';
+  entries.forEach(([nama, val]) => {
+    const isKeluar  = val.kredit > 0 && val.debit === 0;
+    const isMasuk   = val.debit  > 0 && val.kredit === 0;
+    const pctBar    = maxNominal > 0 ? ((val.kredit || val.debit) / maxNominal * 100) : 0;
+    const warna     = isKeluar ? '#e11d48' : '#16a34a';
+    const bgBar     = isKeluar ? '#fecdd3' : '#bbf7d0';
+    const nominal   = isKeluar ? val.kredit : isMasuk ? val.debit : (val.debit - val.kredit);
+    const sign      = isKeluar ? '-' : '+';
+    const signClass = isKeluar ? 'text-red-600' : 'text-green-600';
+    const jmlTrx    = val.rows.length;
+    const encodedNama = encodeURIComponent(nama);
+
+    html += `
+      <div class="item-card bg-rose-50/50 border border-pink-100 rounded-xl p-3 cursor-pointer"
+           onclick="bukaDetailKas('${encodedNama}')">
+        <div class="flex items-center gap-2 mb-1.5">
+          <div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+               style="background:${bgBar}">
+            <i class="fa-solid fa-${isKeluar?'arrow-up':'arrow-down'} text-[10px]"
+               style="color:${warna}"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-[11px] font-bold text-slate-700 truncate">${nama}</p>
+            <p class="text-[9px] text-gray-400">${jmlTrx} transaksi</p>
+          </div>
+          <p class="text-xs font-bold ${signClass} flex-shrink-0">${sign}${fRp(Math.abs(nominal))}</p>
+        </div>
+        <!-- Progress bar -->
+        <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+          <div class="h-full rounded-full progress-bar-inner"
+               style="width:${pctBar.toFixed(1)}%; background:${warna}"></div>
+        </div>
+      </div>`;
+  });
+  container.innerHTML = html;
+}
+
+function filterBukuBesar(mode) {
+  filterBBMode = mode;
+  renderBukuBesar(cacheBukuBesar, mode);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ███ KALKULASI KLINIK ███
+═══════════════════════════════════════════════════════════ */
+function kalkulasiKlinik(data) {
+  let totOmset = 0, totKomisi = 0, totLaba = 0;
+  let rekapLokasi = {};
+  let listPasien  = [];
+
+  data.forEach(row => {
+    const klinik = row[3]; if (!klinik) return;
+    const omset  = parseFloat(row[6]) || 0;
+    const komisi = parseFloat(row[8]) || 0;
+    const laba   = parseFloat(row[9]) || 0;
+    const pasien = row[4] || '-';
+    const tgl    = row[1] || '-';
+
+    totOmset  += omset;
+    totKomisi += komisi;
+    totLaba   += laba;
+
+    if (!rekapLokasi[klinik]) rekapLokasi[klinik] = { pasien:0, omset:0, komisi:0, laba:0 };
+    rekapLokasi[klinik].pasien++;
+    rekapLokasi[klinik].omset  += omset;
+    rekapLokasi[klinik].komisi += komisi;
+    rekapLokasi[klinik].laba   += laba;
+
+    listPasien.push({ tgl, klinik, pasien, omset, laba });
+  });
+
+  cacheListPasien = listPasien.reverse();
+
+  document.getElementById('rep-klinik-omset').innerText = fRp(totOmset);
+  document.getElementById('rep-klinik-komisi').innerText = fRp(totKomisi);
+  document.getElementById('rep-klinik-laba').innerText   = fRp(totLaba);
+
+  renderDonatKlinik(rekapLokasi);
+  renderLeaderboardKlinik(rekapLokasi);
+  renderListPasien(cacheListPasien);
+}
+
+function renderDonatKlinik(rekapLokasi) {
+  const entries = Object.entries(rekapLokasi).sort((a,b) => b[1].laba - a[1].laba);
+  const labels  = entries.map(e => e[0]);
+  const values  = entries.map(e => e[1].laba);
+
+  const ctx = document.getElementById('grafikKlinik').getContext('2d');
+  if (chartKlinik) chartKlinik.destroy();
+
+  if (labels.length === 0) {
+    chartKlinik = new Chart(ctx, {
+      type:'doughnut',
+      data:{ labels:['Kosong'], datasets:[{data:[1],backgroundColor:['#fce7f3']}] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{enabled:false}}, cutout:'72%' }
     });
+    document.getElementById('legend-klinik').innerHTML = '<p class="text-[10px] text-gray-400">Belum ada data</p>';
+    return;
   }
 
-  function terapkanFilterPeriode() {
-    const periodeDipilih = document.getElementById('filter-periode-report').value;
-    document.getElementById('label-periode-kas').innerText = periodeDipilih === 'ALL' ? 'Semua' : periodeDipilih;
-
-    const kasTerfilter = periodeDipilih === 'ALL' ? masterDataLaporan.kas : masterDataLaporan.kas.filter(r => normPeriode(r[2]).toLowerCase() === periodeDipilih.toLowerCase());
-    const asetTerfilter = periodeDipilih === 'ALL' ? masterDataLaporan.aset : masterDataLaporan.aset.filter(r => normPeriode(r[2]).toLowerCase() === periodeDipilih.toLowerCase());
-    const klinikTerfilter = periodeDipilih === 'ALL' ? masterDataLaporan.klinik : masterDataLaporan.klinik.filter(r => normPeriode(r[2]).toLowerCase() === periodeDipilih.toLowerCase());
-
-    kalkulasiLaporanKas(kasTerfilter);
-    kalkulasiLaporanAset(asetTerfilter);
-    kalkulasiLaporanKlinik(klinikTerfilter);
-  }
-
-  function switchTabReport(tabTarget) {
-    const btnAset = document.getElementById('tab-report-aset');
-    const btnKlinik = document.getElementById('tab-report-klinik');
-    const btnKas = document.getElementById('tab-report-kas');
-    const boxAset = document.getElementById('container-report-aset');
-    const boxKlinik = document.getElementById('container-report-klinik');
-    const boxKas = document.getElementById('container-report-kas');
-
-    const inaktif = "flex-1 py-2 px-1 text-[11px] font-bold rounded-lg text-gray-500 hover:bg-pink-50 transition-all text-center";
-    btnAset.className = inaktif; btnKlinik.className = inaktif; btnKas.className = inaktif;
-    boxAset.classList.add('hidden'); boxKlinik.classList.add('hidden'); boxKas.classList.add('hidden');
-
-    if (tabTarget === 'aset') {
-      btnAset.className = "flex-1 py-2 px-1 text-[11px] font-bold rounded-lg bg-pink-600 text-white transition-all text-center shadow-sm";
-      boxAset.classList.remove('hidden');
-    } else if (tabTarget === 'klinik') {
-      btnKlinik.className = "flex-1 py-2 px-1 text-[11px] font-bold rounded-lg bg-pink-600 text-white transition-all text-center shadow-sm";
-      boxKlinik.classList.remove('hidden');
-    } else if (tabTarget === 'kas') {
-      btnKas.className = "flex-1 py-2 px-1 text-[11px] font-bold rounded-lg bg-pink-600 text-white transition-all text-center shadow-sm";
-      boxKas.classList.remove('hidden');
+  const warna = ['#16a34a','#db2777','#2563eb','#f59e0b','#9333ea','#06b6d4'];
+  chartKlinik = new Chart(ctx, {
+    type:'doughnut',
+    data:{ labels, datasets:[{ data:values, backgroundColor:warna, borderWidth:2, borderColor:'#fff' }] },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: { legend:{display:false}, tooltip:{ callbacks:{ label:c=>c.label+': '+fRpFull(c.raw) } } },
+      cutout:'72%'
     }
+  });
+
+  const total = values.reduce((s,v)=>s+v,0);
+  let html = '';
+  entries.forEach(([nama, data], i) => {
+    const pct = total > 0 ? (data.laba/total*100).toFixed(0) : 0;
+    html += `
+      <div class="flex items-center gap-1.5">
+        <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${warna[i%warna.length]}"></span>
+        <span class="text-[9px] text-gray-600 truncate flex-1">${nama}</span>
+        <span class="text-[9px] font-bold text-gray-500">${pct}%</span>
+      </div>`;
+  });
+  document.getElementById('legend-klinik').innerHTML = html;
+}
+
+function renderLeaderboardKlinik(rekapLokasi) {
+  const entries = Object.entries(rekapLokasi).sort((a,b) => b[1].laba - a[1].laba);
+  const container = document.getElementById('list-klinik');
+
+  if (entries.length === 0) {
+    container.innerHTML = renderEmptyState('Belum ada data klinik', 'Catat transaksi fee klinik terlebih dahulu.');
+    return;
   }
 
-  // ===================================================================
-  // LOGIKA ARUS KAS
-  // ===================================================================
-  function kalkulasiLaporanKas(dataKas) {
-    try {
-      let totMasuk = 0; let totKeluar = 0; 
-      let bukuBesar = {};
-      let rekapKategori = {};
+  const maxLaba = Math.max(...entries.map(e => e[1].laba));
+  const medali  = ['🥇','🥈','🥉'];
 
-      dataKas.forEach(row => {
-        let namaItem = row[4] || '-'; 
-        let debit = parseFloat(row[6]) || 0; 
-        let kredit = parseFloat(row[7]) || 0;
-        totMasuk += debit; totKeluar += kredit;
-        if (!bukuBesar[namaItem]) { bukuBesar[namaItem] = { debit: 0, kredit: 0 }; }
-        bukuBesar[namaItem].debit += debit; bukuBesar[namaItem].kredit += kredit;
-        if (kredit > 0) {
-          let kategoriBesar = String(namaItem).includes(':') ? String(namaItem).split(':')[0].trim() : 'Lain-lain';
-          if (!rekapKategori[kategoriBesar]) { rekapKategori[kategoriBesar] = 0; }
-          rekapKategori[kategoriBesar] += kredit;
-        }
-      });
+  let html = '';
+  entries.forEach(([nama, d], i) => {
+    const pct = maxLaba > 0 ? (d.laba / maxLaba * 100) : 0;
+    html += `
+      <div class="item-card bg-white border border-pink-100 rounded-xl p-3">
+        <div class="flex items-center gap-2 mb-1.5">
+          <span class="text-lg flex-shrink-0 w-7 text-center">${medali[i] || (i+1)}</span>
+          <div class="flex-1 min-w-0">
+            <p class="text-[11px] font-bold text-slate-700 truncate">${nama}</p>
+            <p class="text-[9px] text-gray-400">${d.pasien} pasien · omset ${fRp(d.omset)}</p>
+          </div>
+          <p class="text-xs font-bold text-green-600 flex-shrink-0">${fRp(d.laba)}</p>
+        </div>
+        <div class="w-full bg-green-50 rounded-full h-1.5 overflow-hidden">
+          <div class="h-full bg-green-500 rounded-full progress-bar-inner" style="width:${pct.toFixed(1)}%"></div>
+        </div>
+      </div>`;
+  });
+  container.innerHTML = html;
+}
 
-      let saldo = totMasuk - totKeluar;
-      document.getElementById('rep-kas-masuk').innerText = formatRpRep(totMasuk);
-      document.getElementById('rep-kas-keluar').innerText = formatRpRep(totKeluar);
-      
-      const elSaldo = document.getElementById('rep-kas-saldo');
-      elSaldo.innerText = formatRpRep(saldo);
-      if (saldo < 0) elSaldo.parentElement.classList.replace('bg-pink-600', 'bg-red-600');
-      else elSaldo.parentElement.classList.replace('bg-red-600', 'bg-pink-600');
-
-      const tbody = document.getElementById('tbody-report-kas'); tbody.innerHTML = '';
-      if (Object.keys(bukuBesar).length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="px-2 py-6 text-center text-gray-400 font-medium">Belum ada transaksi.</td></tr>';
-      } else {
-        for (const [nama, nominal] of Object.entries(bukuBesar)) {
-          let formatDebit = nominal.debit > 0 ? `<span class="text-green-600 font-bold">${formatRpRep(nominal.debit)}</span>` : '-';
-          let formatKredit = nominal.kredit > 0 ? `<span class="text-red-500 font-bold">${formatRpRep(nominal.kredit)}</span>` : '-';
-          // PERBAIKAN: nama item dibatasi panjangnya dengan max-w dan overflow hidden
-          tbody.innerHTML += `
-            <tr class="hover:bg-rose-50 border-b border-pink-50 last:border-0 transition-colors">
-              <td class="px-2 py-3 font-bold text-slate-700 max-w-[90px] overflow-hidden">
-                <span class="block truncate">${nama}</span>
-              </td>
-              <td class="px-2 py-3 text-right whitespace-nowrap">${formatDebit}</td>
-              <td class="px-2 py-3 text-right whitespace-nowrap">${formatKredit}</td>
-              <td class="px-2 py-3 text-center w-12">
-                <button type="button" data-nama="${nama}" onclick="bukaDetailKas(this)" 
-                        class="bg-pink-100 hover:bg-pink-200 text-pink-700 font-bold px-2 py-1 rounded text-[9px] transition-colors">
-                  <i class="fa-solid fa-eye"></i>
-                </button>
-              </td>
-            </tr>
-          `;
-        }
-      }
-      renderGrafikKas(Object.keys(rekapKategori), Object.values(rekapKategori));
-    } catch (error) { console.error("Error Kalkulasi Kas:", error); }
+function renderListPasien(list) {
+  const container = document.getElementById('list-pasien');
+  if (list.length === 0) {
+    container.innerHTML = renderEmptyState('Belum ada pasien', '');
+    return;
   }
+  let html = '';
+  list.forEach(p => {
+    html += `
+      <div class="pasien-row flex items-center gap-2 py-2 border-b border-pink-50 last:border-0">
+        <div class="w-6 h-6 bg-pink-100 rounded-full flex items-center justify-center flex-shrink-0">
+          <i class="fa-solid fa-user text-pink-500" style="font-size:8px;"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-[11px] font-bold text-slate-700 truncate">${p.pasien}</p>
+          <p class="text-[9px] text-gray-400">${p.tgl} · ${p.klinik}</p>
+        </div>
+        <p class="text-[10px] font-bold text-green-600 flex-shrink-0">${fRp(p.laba)}</p>
+      </div>`;
+  });
+  container.innerHTML = html;
+}
 
-  function renderGrafikKas(labels, dataNominal) {
-    try {
-      const ctx = document.getElementById('grafikKas').getContext('2d');
-      if (chartKas != null) chartKas.destroy(); 
-      if (labels.length === 0) {
-        chartKas = new Chart(ctx, { type: 'doughnut', data: { labels: ['Kosong'], datasets: [{ data: [1], backgroundColor: ['#f3f4f6'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, cutout: '70%' } });
-        return;
-      }
-      chartKas = new Chart(ctx, { 
-        type: 'doughnut', 
-        data: { labels: labels, datasets: [{ data: dataNominal, backgroundColor: ['#db2777', '#e11d48', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#6366f1'], borderWidth: 2, borderColor: '#ffffff' }] }, 
-        options: { 
-          responsive: true, maintainAspectRatio: false, 
-          plugins: { 
-            legend: { position: 'right', labels: { boxWidth: 8, font: {size: 9}, padding: 6 } },
-            tooltip: { callbacks: { label: function(context) { return context.label + ': ' + formatRpRep(context.raw); } } }
-          }, 
-          cutout: '65%' 
-        } 
-      });
-    } catch (e) { console.error("Error Grafik Kas:", e); }
-  }
+function cariRiwayatPasien() {
+  const q = document.getElementById('cari-pasien').value.toLowerCase();
+  const filtered = cacheListPasien.filter(p =>
+    p.pasien.toLowerCase().includes(q) || p.klinik.toLowerCase().includes(q)
+  );
+  renderListPasien(filtered);
+}
 
-  function bukaDetailKas(btnElement) {
-    const targetNama = btnElement.getAttribute('data-nama');
-    const periodeDipilih = document.getElementById('filter-periode-report').value;
-    document.getElementById('title-modal-kas').innerText = targetNama;
-    document.getElementById('label-modal-periode').innerText = periodeDipilih === 'ALL' ? 'Semua Periode' : periodeDipilih;
-    document.getElementById('input-cari-detail-kas').value = ''; 
-    let detailData = masterDataLaporan.kas.filter(row => row[4] === targetNama);
-    if(periodeDipilih !== 'ALL') {
-      detailData = detailData.filter(row => normPeriode(row[2]).toLowerCase() === periodeDipilih.toLowerCase());
+/* ═══════════════════════════════════════════════════════════
+   ███ KALKULASI ASET ███
+═══════════════════════════════════════════════════════════ */
+function kalkulasiAset(data) {
+  let totalBeli = 0, totalJual = 0, realizedPNL = 0;
+  let rekapItem = {}, mapHargaBeli = {};
+
+  data.forEach(row => { if (row[5] === "BELI") mapHargaBeli[row[0]] = parseFloat(row[7]) || 0; });
+
+  data.forEach(row => {
+    const item  = row[4], tipe = row[5];
+    const qty   = parseFloat(row[6]) || 0;
+    const total = parseFloat(row[8]) || 0;
+    const idRef = row[9];
+    if (!item) return;
+
+    if (!rekapItem[item]) rekapItem[item] = { qtyBeli:0, nilaiBeli:0, qtyJual:0, nilaiJual:0, kategori: row[3] };
+
+    if (tipe === "BELI") {
+      totalBeli += total;
+      rekapItem[item].qtyBeli  += qty;
+      rekapItem[item].nilaiBeli += total;
+    } else if (tipe === "JUAL") {
+      totalJual += total;
+      rekapItem[item].qtyJual  += qty;
+      rekapItem[item].nilaiJual += total;
+      realizedPNL += (total - (qty * (mapHargaBeli[idRef] || 0)));
     }
-    renderTabelDetailKas(detailData.reverse());
-    document.getElementById('modal-detail-kas').classList.remove('hidden');
+  });
+
+  document.getElementById('rep-total-beli').innerText = fRp(totalBeli);
+  document.getElementById('rep-total-jual').innerText = fRp(totalJual);
+  document.getElementById('rep-pnl').innerText        = fRpFull(realizedPNL);
+
+  // PNL banner warna
+  const banner  = document.getElementById('pnl-banner');
+  const pnlIcon = document.getElementById('pnl-icon');
+  if (realizedPNL < 0) {
+    banner.className  = banner.className.replace(/from-pink-\d+ to-rose-\d+/, 'from-red-500 to-red-700');
+    pnlIcon.innerHTML = '<i class="fa-solid fa-arrow-trend-down text-white text-xl"></i>';
+  } else {
+    banner.className  = banner.className.replace(/from-red-\d+ to-red-\d+/, 'from-pink-600 to-rose-700');
+    pnlIcon.innerHTML = '<i class="fa-solid fa-arrow-trend-up text-white text-xl"></i>';
   }
 
-  function tutupDetailKas() { document.getElementById('modal-detail-kas').classList.add('hidden'); }
+  renderGrafikAset(rekapItem);
+  renderCardAset(rekapItem);
+}
 
-  function renderTabelDetailKas(dataArr) {
-    const tbody = document.getElementById('tbody-detail-kas'); tbody.innerHTML = '';
-    if (dataArr.length === 0) { tbody.innerHTML = '<tr><td colspan="3" class="px-2 py-4 text-center text-gray-400">Data tidak ditemukan.</td></tr>'; return; }
-    dataArr.forEach(row => {
-      let tgl = row[1]; let periode = normPeriode(row[2]); let catatan = row[5] || '-'; let tipe = row[3]; let debit = parseFloat(row[6]) || 0; let kredit = parseFloat(row[7]) || 0;
-      let badge = tipe === 'PEMASUKAN' ? `<span class="text-green-600 font-bold bg-green-50 px-1 rounded block mt-1 whitespace-nowrap">+${formatRpRep(debit)}</span>` : `<span class="text-red-500 font-bold bg-red-50 px-1 rounded block mt-1 whitespace-nowrap">-${formatRpRep(kredit)}</span>`;
-      tbody.innerHTML += `
-        <tr class="detail-row hover:bg-rose-50/50">
-          <td class="py-3 px-2 whitespace-nowrap"><span class="block font-bold text-slate-700">${tgl}</span><span class="block text-[9px] text-gray-400">${periode}</span></td>
-          <td class="py-3 px-2 text-gray-600 break-words" style="max-width: 100px; word-break: break-word; white-space: normal;">${catatan}</td>
-          <td class="py-3 px-2 text-right">${badge}</td>
-        </tr>
-      `;
-    });
-  }
+function renderGrafikAset(rekapItem) {
+  const entries  = Object.entries(rekapItem);
+  const labels   = entries.map(e => e[0].length > 12 ? e[0].substring(0,10)+'…' : e[0]);
+  const dataBeli = entries.map(e => e[1].nilaiBeli);
+  const dataJual = entries.map(e => e[1].nilaiJual);
 
-  function cariDetailKas() {
-    const input = document.getElementById('input-cari-detail-kas').value.toLowerCase();
-    const rows = document.getElementById('tbody-detail-kas').getElementsByClassName('detail-row');
-    for (let i = 0; i < rows.length; i++) {
-      let textContent = rows[i].textContent || rows[i].innerText;
-      if (textContent.toLowerCase().indexOf(input) > -1) rows[i].style.display = ""; else rows[i].style.display = "none";
+  const ctx = document.getElementById('grafikAset').getContext('2d');
+  if (chartAset) chartAset.destroy();
+
+  if (entries.length === 0) { return; }
+
+  chartAset = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        { label:'Modal', data:dataBeli, backgroundColor:'#fbcfe8', borderColor:'#db2777', borderWidth:1.5, borderRadius:6, borderSkipped:false },
+        { label:'Jual',  data:dataJual, backgroundColor:'#bbf7d0', borderColor:'#16a34a', borderWidth:1.5, borderRadius:6, borderSkipped:false }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ position:'bottom', labels:{ boxWidth:8, font:{size:9}, padding:8 } },
+        tooltip:{ callbacks:{ label: c => c.dataset.label+': '+fRpFull(c.raw) } }
+      },
+      scales:{
+        x:{ grid:{display:false}, ticks:{ font:{size:9}, maxRotation:20 } },
+        y:{ display:false }
+      }
     }
+  });
+}
+
+function renderCardAset(rekapItem) {
+  const container = document.getElementById('list-aset');
+  const entries   = Object.entries(rekapItem);
+
+  if (entries.length === 0) {
+    container.innerHTML = renderEmptyState('Belum ada portofolio', 'Catat transaksi beli aset pertama kamu.');
+    return;
   }
 
-  // ===================================================================
-  // LOGIKA FEE KLINIK
-  // ===================================================================
-  function kalkulasiLaporanKlinik(dataKlinik) {
-    try {
-      let totOmset = 0, totKomisi = 0, totLaba = 0, rekapLokasi = {};
-      dataKlinik.forEach(row => {
-        let klinik = row[3]; if (!klinik) return;
-        let omset = parseFloat(row[6]) || 0, komisi = parseFloat(row[8]) || 0, laba = parseFloat(row[9]) || 0;
-        totOmset += omset; totKomisi += komisi; totLaba += laba;
-        if (!rekapLokasi[klinik]) rekapLokasi[klinik] = { pasien: 0, omset: 0, komisi: 0, laba: 0 };
-        rekapLokasi[klinik].pasien += 1; rekapLokasi[klinik].omset += omset; rekapLokasi[klinik].komisi += komisi; rekapLokasi[klinik].laba += laba;
-      });
-      document.getElementById('rep-klinik-omset').innerText = formatRpRep(totOmset);
-      document.getElementById('rep-klinik-komisi').innerText = formatRpRep(totKomisi);
-      document.getElementById('rep-klinik-laba').innerText = formatRpRep(totLaba);
+  let html = '';
+  entries.forEach(([nama, d]) => {
+    const sisaQty  = d.qtyBeli - d.qtyJual;
+    const pnlItem  = d.nilaiJual - (d.qtyJual / d.qtyBeli * d.nilaiBeli);
+    const hasPNL   = d.qtyJual > 0;
+    const pnlClass = pnlItem >= 0 ? 'text-green-600' : 'text-red-600';
+    const pctBeli  = d.qtyBeli > 0 ? (d.qtyJual / d.qtyBeli * 100) : 0;
 
-      const tbody = document.getElementById('tbody-report-klinik'); tbody.innerHTML = '';
-      const labelsChart = [], dataLabaChart = [];
-      if (Object.keys(rekapLokasi).length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="px-2 py-6 text-center text-gray-400 font-medium">Belum ada transaksi.</td></tr>';
-      } else {
-        for (const [namaKlinik, data] of Object.entries(rekapLokasi)) {
-          labelsChart.push(namaKlinik); dataLabaChart.push(data.laba);
-          tbody.innerHTML += `<tr class="hover:bg-rose-50"><td class="px-2 py-2 font-bold text-slate-700 max-w-[70px]"><span class="block truncate">${namaKlinik}</span></td><td class="px-2 py-2 text-center text-gray-500 whitespace-nowrap">${data.pasien}</td><td class="px-2 py-2 text-right font-bold text-gray-700 whitespace-nowrap">${formatRpRep(data.omset)}</td><td class="px-2 py-2 text-right text-gray-500 whitespace-nowrap">${formatRpRep(data.komisi)}</td><td class="px-2 py-2 text-right font-bold text-green-600 whitespace-nowrap">${formatRpRep(data.laba)}</td></tr>`;
-        }
-      }
-      renderGrafikKlinik(labelsChart, dataLabaChart);
-    } catch (error) { console.error("Error Kalkulasi Klinik:", error); }
+    html += `
+      <div class="item-card border border-pink-100 rounded-xl overflow-hidden">
+        <!-- Header -->
+        <div class="bg-rose-50 px-3 py-2 flex items-center gap-2">
+          <div class="w-7 h-7 bg-pink-200 rounded-lg flex items-center justify-center flex-shrink-0">
+            <i class="fa-solid fa-gem text-pink-700" style="font-size:10px;"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-[11px] font-bold text-slate-700 truncate">${nama}</p>
+            <p class="text-[9px] text-gray-400">${d.kategori || '—'}</p>
+          </div>
+          ${hasPNL ? `<span class="text-[10px] font-bold ${pnlClass}">${pnlItem>=0?'+':''}${fRp(pnlItem)}</span>` : ''}
+        </div>
+        <!-- Body -->
+        <div class="px-3 py-2 grid grid-cols-3 gap-1 text-center">
+          <div>
+            <p class="text-[8px] text-gray-400">BELI</p>
+            <p class="text-[10px] font-bold text-slate-700">${d.qtyBeli} unit</p>
+            <p class="text-[9px] text-pink-600">${fRp(d.nilaiBeli)}</p>
+          </div>
+          <div>
+            <p class="text-[8px] text-gray-400">JUAL</p>
+            <p class="text-[10px] font-bold text-slate-700">${d.qtyJual} unit</p>
+            <p class="text-[9px] text-green-600">${fRp(d.nilaiJual)}</p>
+          </div>
+          <div>
+            <p class="text-[8px] text-gray-400">SISA</p>
+            <p class="text-[10px] font-bold text-rose-900">${sisaQty} unit</p>
+            <p class="text-[9px] text-gray-400">—</p>
+          </div>
+        </div>
+        <!-- Progress kepemilikan yang sudah dijual -->
+        <div class="px-3 pb-2">
+          <div class="flex justify-between text-[8px] text-gray-400 mb-0.5">
+            <span>Terjual</span>
+            <span>${pctBeli.toFixed(0)}%</span>
+          </div>
+          <div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+            <div class="h-full bg-pink-500 rounded-full progress-bar-inner"
+                 style="width:${pctBeli.toFixed(1)}%"></div>
+          </div>
+        </div>
+      </div>`;
+  });
+  container.innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODAL DETAIL KAS
+═══════════════════════════════════════════════════════════ */
+function bukaDetailKas(encodedNama) {
+  const nama    = decodeURIComponent(encodedNama);
+  const periode = periodeTerpilih;
+
+  document.getElementById('title-modal-kas').innerText     = nama;
+  document.getElementById('label-modal-periode').innerText = periode === 'ALL' ? 'Semua Periode' : periode;
+  document.getElementById('input-cari-detail-kas').value   = '';
+
+  let detailData = masterDataLaporan.kas.filter(row => row[4] === nama);
+  if (periode !== 'ALL') detailData = detailData.filter(row => normPeriode(row[2]).toLowerCase() === periode.toLowerCase());
+  detailData = detailData.slice().reverse();
+
+  // Hitung summary modal
+  let sumMasuk = 0, sumKeluar = 0;
+  detailData.forEach(r => { sumMasuk += parseFloat(r[6])||0; sumKeluar += parseFloat(r[7])||0; });
+  document.getElementById('modal-sum-masuk').innerText  = fRp(sumMasuk);
+  document.getElementById('modal-sum-keluar').innerText = fRp(sumKeluar);
+  document.getElementById('modal-sum-count').innerText  = detailData.length;
+
+  renderListDetailKas(detailData);
+  document.getElementById('modal-detail-kas').classList.remove('hidden');
+}
+
+function tutupDetailKas() {
+  document.getElementById('modal-detail-kas').classList.add('hidden');
+}
+
+function renderListDetailKas(data) {
+  const container = document.getElementById('list-detail-kas');
+  if (data.length === 0) {
+    container.innerHTML = renderEmptyState('Tidak ada transaksi', '');
+    return;
   }
+  let html = '';
+  data.forEach(row => {
+    const tgl     = row[1];
+    const catatan = row[5] || '-';
+    const tipe    = row[3];
+    const debit   = parseFloat(row[6]) || 0;
+    const kredit  = parseFloat(row[7]) || 0;
+    const isDebit = debit > 0;
+    const nominal = isDebit ? debit : kredit;
 
-  function renderGrafikKlinik(labels, dataLaba) {
-    try {
-      const ctx = document.getElementById('grafikKlinik').getContext('2d');
-      if (chartKlinik != null) chartKlinik.destroy(); 
-      chartKlinik = new Chart(ctx, { type: 'doughnut', data: { labels: labels, datasets: [{ data: dataLaba, backgroundColor: ['#16a34a', '#db2777', '#2563eb', '#eab308', '#9333ea'], borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 8, font: {size: 9} } } }, cutout: '65%' } });
-    } catch (e) { console.error("Error Grafik Klinik:", e); }
-  }
+    html += `
+      <div class="detail-row flex items-center gap-2 bg-white border border-pink-50 rounded-xl p-2.5 item-card">
+        <div class="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${isDebit?'bg-green-50':'bg-red-50'}">
+          <i class="fa-solid fa-${isDebit?'arrow-down text-green-600':'arrow-up text-red-500'}" style="font-size:11px;"></i>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-[10px] font-bold text-slate-700 truncate">${catatan}</p>
+          <p class="text-[9px] text-gray-400">${tgl}</p>
+        </div>
+        <p class="text-[11px] font-bold flex-shrink-0 ${isDebit?'text-green-600':'text-red-500'}">
+          ${isDebit?'+':'-'}${fRp(nominal)}
+        </p>
+      </div>`;
+  });
+  container.innerHTML = html;
+}
 
-  // ===================================================================
-  // LOGIKA TABUNGAN ASET
-  // ===================================================================
-  function kalkulasiLaporanAset(dataAset) {
-    try {
-      let totalBeli = 0, totalJual = 0, realizedPNL = 0, rekapItem = {}, mapHargaBeli = {};
-      dataAset.forEach(row => { if (row[5] === "BELI") mapHargaBeli[row[0]] = parseFloat(row[7]) || 0; });
-      dataAset.forEach(row => {
-        let item = row[4], tipe = row[5], qty = parseFloat(row[6]) || 0, total = parseFloat(row[8]) || 0, idRef = row[9];
-        if (!item) return;
-        if (!rekapItem[item]) rekapItem[item] = { qtyBeli: 0, nilaiBeli: 0, qtyJual: 0, nilaiJual: 0 };
-        if (tipe === "BELI") { totalBeli += total; rekapItem[item].qtyBeli += qty; rekapItem[item].nilaiBeli += total; } 
-        else if (tipe === "JUAL") { totalJual += total; rekapItem[item].qtyJual += qty; rekapItem[item].nilaiJual += total; realizedPNL += (total - (qty * (mapHargaBeli[idRef] || 0))); }
-      });
-      document.getElementById('rep-total-beli').innerText = formatRpRep(totalBeli);
-      document.getElementById('rep-total-jual').innerText = formatRpRep(totalJual);
-      const pnlEl = document.getElementById('rep-pnl'); pnlEl.innerText = formatRpRep(realizedPNL);
-      if (realizedPNL < 0) { pnlEl.parentElement.classList.replace('bg-pink-600', 'bg-red-500'); } else { pnlEl.parentElement.classList.replace('bg-red-500', 'bg-pink-600'); }
+function cariDetailKas() {
+  const q    = document.getElementById('input-cari-detail-kas').value.toLowerCase();
+  const rows = document.getElementById('list-detail-kas').querySelectorAll('.detail-row');
+  rows.forEach(r => {
+    r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
 
-      const tbody = document.getElementById('tbody-report-aset'); tbody.innerHTML = '';
-      const labelsChart = [], dataModalChart = [], dataJualChart = [];
-      if (Object.keys(rekapItem).length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="px-2 py-6 text-center text-gray-400 font-medium">Belum ada transaksi.</td></tr>';
-      } else {
-        for (const [namaItem, data] of Object.entries(rekapItem)) {
-          let sisaQty = data.qtyBeli - data.qtyJual;
-          labelsChart.push(namaItem); dataModalChart.push(data.nilaiBeli); dataJualChart.push(data.nilaiJual);
-          tbody.innerHTML += `<tr class="hover:bg-rose-50"><td class="px-2 py-2 font-bold text-slate-700 max-w-[80px]"><span class="block truncate">${namaItem}</span></td><td class="px-2 py-2 text-right text-gray-500 whitespace-nowrap">${data.qtyBeli}</td><td class="px-2 py-2 text-right font-bold text-pink-600 whitespace-nowrap">${formatRpRep(data.nilaiBeli)}</td><td class="px-2 py-2 text-right text-gray-500 whitespace-nowrap">${data.qtyJual}</td><td class="px-2 py-2 text-right font-bold text-green-600 whitespace-nowrap">${formatRpRep(data.nilaiJual)}</td><td class="px-2 py-2 text-right font-bold text-rose-900 bg-rose-50 whitespace-nowrap">${sisaQty}</td></tr>`;
-        }
-      }
-      renderGrafikAset(labelsChart, dataModalChart, dataJualChart);
-    } catch (error) { console.error("Error Kalkulasi Aset:", error); }
-  }
+/* ═══════════════════════════════════════════════════════════
+   EMPTY STATE
+═══════════════════════════════════════════════════════════ */
+function renderEmptyState(title, sub) {
+  return `
+    <div class="py-8 text-center">
+      <div class="w-14 h-14 bg-pink-50 rounded-full flex items-center justify-center mx-auto mb-3">
+        <i class="fa-solid fa-inbox text-pink-300 text-2xl"></i>
+      </div>
+      <p class="text-xs font-bold text-gray-400">${title}</p>
+      ${sub ? `<p class="text-[10px] text-gray-300 mt-1">${sub}</p>` : ''}
+    </div>`;
+}
 
-  function renderGrafikAset(labels, dataBeli, dataJual) {
-    try {
-      const ctx = document.getElementById('grafikAset').getContext('2d');
-      if (chartAset != null) chartAset.destroy(); 
-      chartAset = new Chart(ctx, { type: 'bar', data: { labels: labels, datasets: [ { label: 'Modal', data: dataBeli, backgroundColor: '#fbcfe8', borderRadius: 4 }, { label: 'Jual', data: dataJual, backgroundColor: '#db2777', borderRadius: 4 } ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 10} } } }, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: {size: 9}, maxRotation: 30 } } } } });
-    } catch (e) { console.error("Error Grafik Aset:", e); }
-  }
-
-  function formatRpRep(angka) { 
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka); 
-  }
+/* ═══════════════════════════════════════════════════════════
+   TUTUP MODAL SAAT KLIK BACKDROP
+═══════════════════════════════════════════════════════════ */
+document.getElementById('modal-detail-kas').addEventListener('click', function(e) {
+  if (e.target === this) tutupDetailKas();
+});
 </script>
