@@ -2,16 +2,24 @@
  * ==================================================================
  * FILE: Code_Transaksi.gs
  * FUNGSI: Mesin Backend untuk Menyimpan Transaksi & Menghitung Periode
- * PERBAIKAN v2:
- *   - FIX KRITIS getRiwayatBeliAktif(): mapping kolom disesuaikan
- *     dengan urutan appendRow() di simpanTrxAset():
- *     Col A(0)=ID, B(1)=Tanggal, C(2)=Platform, D(3)=Kategori,
- *     E(4)=NamaItem, F(5)=Tipe, G(6)=Qty, H(7)=Harga, I(8)=Total,
- *     J(9)=IdReferensi
- *   - FIX: Sorting riwayat beli berdasarkan tanggal (kolom 1, bukan 0)
- *   - FIX: Harga beli per lot disimpan di beliMap untuk kalkulasi PNL
+ * PERBAIKAN v3:
+ *   - getRiwayatBeliAktif():
+ *       * Mode FISIK (Emas/Perak/dll): return per lot seperti sebelumnya
+ *       * Mode NOMINAL (Reksadana/Saham): agregasi semua lot per item+platform
+ *         sehingga frontend bisa jual sebagian nominal
+ *   - simpanTrxAset(): handle jual nominal (qty=1, harga=nominal)
+ *   - KATA_KUNCI_UNIT_FISIK sinkron dengan frontend
  * ==================================================================
  */
+
+// === KONSTANTA — SINKRON DENGAN FRONTEND ===
+var KATA_KUNCI_UNIT_FISIK = ['emas', 'perak', 'logam', 'gold', 'silver', 'antam', 'fisik', 'koin'];
+
+function isKategoriFisik_(namaKategori) {
+  if (!namaKategori) return false;
+  var lower = String(namaKategori).toLowerCase();
+  return KATA_KUNCI_UNIT_FISIK.some(function(k) { return lower.indexOf(k) !== -1; });
+}
 
 /**
  * FUNGSI PEMBANTU (SMART CUT-OFF ANTI-TIMEZONE BUG)
@@ -97,19 +105,24 @@ function simpanTrxKlinik(data) {
 }
 
 // ============================================================
-// [BUG FIX v2] getRiwayatBeliAktif()
+// getRiwayatBeliAktif()
 //
-// Urutan kolom di sheet "Trx Tabungan Aset" (sesuai simpanTrxAset):
-//   A(idx 0) = ID_Trx_Aset
-//   B(idx 1) = Tanggal_Perolehan
-//   C(idx 2) = Platform
-//   D(idx 3) = Kategori
-//   E(idx 4) = Nama_Item
-//   F(idx 5) = Tipe_Transaksi  (BELI / JUAL)
-//   G(idx 6) = Kuantitas
-//   H(idx 7) = Harga_Satuan
-//   I(idx 8) = Total_Nilai
-//   J(idx 9) = ID_Referensi
+// Mengembalikan campuran dua tipe entry:
+//
+// 1. MODE FISIK (Emas, Perak, dll):
+//    Entry per lot dengan sisaQty dalam unit fisik (gram, keping, dll)
+//    { id, tanggal, platform, kategori, item, qtyBeli, hargaBeli, totalBeli, sisaQty }
+//
+// 2. MODE NOMINAL (Reksadana, Saham, dll):
+//    Entry diagregasi per kombinasi item+platform+kategori.
+//    sisaQty = 1 (dummy), hargaBeli = total nominal sisa (bukan per unit).
+//    Frontend akan menggunakan hargaBeli sebagai "sisa nominal".
+//    { id (lot pertama sebagai referensi), tanggal, platform, kategori, item,
+//      qtyBeli, hargaBeli (=totalNominalSisa), totalBeli, sisaQty=1 }
+//
+// KOLOM Trx Tabungan Aset:
+//   A(0)=ID, B(1)=Tanggal, C(2)=Platform, D(3)=Kategori,
+//   E(4)=NamaItem, F(5)=Tipe, G(6)=Qty, H(7)=Harga, I(8)=Total, J(9)=IdReferensi
 // ============================================================
 function getRiwayatBeliAktif() {
   try {
@@ -119,56 +132,113 @@ function getRiwayatBeliAktif() {
 
     var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues();
 
-    var beliMap = {};
+    // ── PASS 1: Proses semua transaksi ke beliMap ──
+    var beliMap    = {};  // id → entry fisik
+    var nominalMap = {};  // key(item||platform||kategori) → entry teragregasi
 
     data.forEach(function(row) {
-      var id       = String(row[0]).trim();   // A: ID unik transaksi
-      var tgl      = row[1];                  // B: Tanggal
-      var platform = String(row[2]).trim();   // C: Platform
-      var kategori = String(row[3]).trim();   // D: Kategori
-      var item     = String(row[4]).trim();   // E: Nama Item
-      var tipe     = String(row[5]).trim();   // F: Tipe (BELI/JUAL)
-      var qty      = parseFloat(row[6]) || 0; // G: Kuantitas
-      var harga    = parseFloat(row[7]) || 0; // H: Harga Satuan
-      var total    = parseFloat(row[8]) || 0; // I: Total Nilai
-      var idRef    = String(row[9]).trim();   // J: ID Referensi
+      var id       = String(row[0]).trim();
+      var tgl      = row[1];
+      var platform = String(row[2]).trim();
+      var kategori = String(row[3]).trim();
+      var item     = String(row[4]).trim();
+      var tipe     = String(row[5]).trim();
+      var qty      = parseFloat(row[6]) || 0;
+      var harga    = parseFloat(row[7]) || 0;
+      var total    = parseFloat(row[8]) || 0;
+      var idRef    = String(row[9]).trim();
 
       if (!id || id === "") return;
 
+      var fisik = isKategoriFisik_(kategori);
+
       if (tipe === "BELI") {
-        beliMap[id] = {
-          id:        id,
-          tanggal:   tgl,
-          platform:  platform,
-          kategori:  kategori,
-          item:      item,
-          qtyBeli:   qty,
-          hargaBeli: harga,
-          totalBeli: total,
-          sisaQty:   qty
-        };
-      } else if (tipe === "JUAL" && idRef && idRef !== "-" && beliMap[idRef]) {
-        beliMap[idRef].sisaQty -= qty;
+        if (fisik) {
+          // Simpan per lot
+          beliMap[id] = {
+            id:        id,
+            tanggal:   tgl,
+            platform:  platform,
+            kategori:  kategori,
+            item:      item,
+            qtyBeli:   qty,
+            hargaBeli: harga,
+            totalBeli: total,
+            sisaQty:   qty
+          };
+        } else {
+          // Agregasi nominal
+          var key = item + "||" + platform + "||" + kategori;
+          if (!nominalMap[key]) {
+            nominalMap[key] = {
+              id:            id,          // simpan ID lot pertama sebagai referensi
+              tanggal:       tgl,
+              platform:      platform,
+              kategori:      kategori,
+              item:          item,
+              totalModalBeli: 0,
+              totalTerjual:   0,
+              lotIds:         []
+            };
+          }
+          nominalMap[key].totalModalBeli += total;
+          nominalMap[key].lotIds.push(id);
+        }
+      }
+
+      else if (tipe === "JUAL") {
+        if (fisik) {
+          // Kurangi sisa qty lot referensi
+          if (idRef && idRef !== "-" && beliMap[idRef]) {
+            beliMap[idRef].sisaQty -= qty;
+          }
+        } else {
+          // Kurangi sisa nominal
+          var keyJ = item + "||" + platform + "||" + kategori;
+          if (nominalMap[keyJ]) {
+            nominalMap[keyJ].totalTerjual += total;
+          }
+        }
       }
     });
 
-    // Filter yang masih punya sisa qty > 0
     var hasil = [];
+
+    // ── PASS 2: Kumpulkan entry FISIK dengan sisaQty > 0 ──
     Object.keys(beliMap).forEach(function(id) {
       var entry = beliMap[id];
-      if (entry.sisaQty > 0.000001) { // Pakai epsilon untuk float precision
+      if (entry.sisaQty > 0.000001) {
         hasil.push(entry);
       }
     });
 
-    // Urutkan: terbaru di atas
+    // ── PASS 3: Kumpulkan entry NOMINAL dengan sisa > 0 ──
+    Object.keys(nominalMap).forEach(function(key) {
+      var n   = nominalMap[key];
+      var sisa = n.totalModalBeli - n.totalTerjual;
+      if (sisa > 0.01) {
+        hasil.push({
+          id:        n.id,        // lot pertama sebagai referensi
+          tanggal:   n.tanggal,
+          platform:  n.platform,
+          kategori:  n.kategori,
+          item:      n.item,
+          qtyBeli:   1,
+          hargaBeli: sisa,        // frontend baca ini sebagai "sisa nominal"
+          totalBeli: n.totalModalBeli,
+          sisaQty:   1            // dummy — mode nominal tidak pakai qty
+        });
+      }
+    });
+
+    // ── Urutkan: terbaru di atas ──
     hasil.sort(function(a, b) {
       var da = a.tanggal instanceof Date ? a.tanggal.getTime() : new Date(String(a.tanggal)).getTime();
       var db = b.tanggal instanceof Date ? b.tanggal.getTime() : new Date(String(b.tanggal)).getTime();
       return db - da;
     });
 
-    // Format tanggal untuk tampilan
+    // ── Format tanggal untuk tampilan ──
     hasil = hasil.map(function(e) {
       if (e.tanggal instanceof Date) {
         var d = e.tanggal;
@@ -209,8 +279,12 @@ function simpanTrxArusKas(data) {
 
 // ============================================================
 // simpanTrxAset()
+//
 // Kolom tersimpan: ID, Tanggal, Platform, Kategori, NamaItem,
 //                 Tipe, Qty, Harga, Total, IdReferensi
+//
+// Mode FISIK: Qty = unit fisik sesungguhnya, Harga = per unit
+// Mode NOMINAL: Qty = 1, Harga = total nominal, Total = total nominal
 // ============================================================
 function simpanTrxAset(data) {
   try {
@@ -221,37 +295,48 @@ function simpanTrxAset(data) {
     var periodePembukuan = hitungPeriodeSmart(data.tanggal);
     var idTransaksi = Utilities.getUuid();
 
-    var qty   = parseFloat(data.kuantitas) || 0;
+    var qty   = parseFloat(data.kuantitas) || 1;
     var harga = parseFloat(data.harga)     || 0;
     var total = parseFloat(data.total)     || 0;
 
-    // Urutan kolom HARUS konsisten dengan getRiwayatBeliAktif()
+    // Untuk mode nominal: pastikan qty=1 dan harga=total
+    var fisik = isKategoriFisik_(data.kategori);
+    if (!fisik) {
+      qty   = 1;
+      harga = total;
+    }
+
     sheetAset.appendRow([
-      idTransaksi,       // A(0): ID
-      data.tanggal,      // B(1): Tanggal
-      data.platform,     // C(2): Platform
-      data.kategori,     // D(3): Kategori
-      data.item,         // E(4): Nama Item
-      data.tipe,         // F(5): Tipe
-      qty,               // G(6): Qty
-      harga,             // H(7): Harga Satuan
-      total,             // I(8): Total
-      data.idReferensi || "-"  // J(9): ID Referensi
+      idTransaksi,
+      data.tanggal,
+      data.platform,
+      data.kategori,
+      data.item,
+      data.tipe,
+      qty,
+      harga,
+      total,
+      data.idReferensi || "-"
     ]);
 
-    // Catat ke GL / Jurnal Arus Kas
+    // Catat ke GL
     if (data.tipe === "BELI" && data.coaKas) {
       catatKeJurnalKas(
         ss, data.tanggal, periodePembukuan, "PENGELUARAN",
         data.coaKas,
-        "Pembelian Aset: " + data.item + " | " + data.platform + " | Qty: " + qty,
+        "Pembelian Aset: " + data.item + " | " + data.platform +
+          (fisik ? " | Qty: " + qty : " | Nominal: Rp" + total.toLocaleString()),
         0, total
       );
     } else if (data.tipe === "JUAL") {
-      // Hitung harga pokok dari lot referensi untuk GL PNL
-      var keteranganJual = "Penjualan Aset: " + data.item + " | " + data.platform + " | Qty: " + qty;
+      var keteranganJual = "Penjualan Aset: " + data.item + " | " + data.platform;
+      if (fisik) {
+        keteranganJual += " | Qty: " + qty;
+      } else {
+        keteranganJual += " | Nominal: Rp" + total.toLocaleString();
+      }
       if (data.idReferensi && data.idReferensi !== "-") {
-        keteranganJual += " | Ref: " + data.idReferensi.substring(0,8) + "...";
+        keteranganJual += " | Ref: " + String(data.idReferensi).substring(0,8) + "...";
       }
       catatKeJurnalKas(
         ss, data.tanggal, periodePembukuan, "PEMASUKAN",

@@ -1,11 +1,10 @@
 <!-- KONTEN: View_Transaksi.html
-     PERBAIKAN v2:
-       - Dropdown COA dikelompokkan per kategori (<optgroup>) [REQ #1]
-       - Dropdown Lokasi diurutkan abjad (tidak ada kategori)
-       - Dropdown Platform diurutkan abjad
-       - Dropdown Kategori diurutkan abjad
-       - Dropdown Item dikelompokkan per kategori
-       - getRiwayatBeliAktif() mapping kolom diperbaiki [BUG #2 FIX v2]
+     PERBAIKAN v3:
+       - Mode BELI adaptif: kategori fisik (Emas/Perak) → input Qty+Total
+         kategori nominal (Reksadana/Saham) → input Total saja, Qty auto=1
+       - Mode JUAL adaptif:
+         * Fisik: grid per lot, Qty dikunci = sisaQty (tidak bisa pecah)
+         * Nominal: grid agregasi per item, user input nominal jual bebas
 -->
 <section id="modul-transaksi" class="block relative w-full">
 
@@ -133,7 +132,7 @@
         </div>
       </div>
 
-      <!-- Akun COA (hanya untuk BELI) — dikelompokkan per kategori -->
+      <!-- Akun COA (hanya untuk BELI) -->
       <div class="mb-4" id="area-coa-aset">
         <label class="block text-xs font-bold text-gray-500 mb-1">AKUN BIAYA (COA) <span class="text-red-500">*</span></label>
         <select id="aset-coa"
@@ -154,7 +153,7 @@
       <div class="mb-4 grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-bold text-gray-500 mb-1">KATEGORI <span class="text-red-500">*</span></label>
-          <select id="aset-kategori" onchange="filterItemBerdasarkanKategori()"
+          <select id="aset-kategori" onchange="onKategoriChange()"
                   class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm" required>
             <option value="" disabled selected>Pilih...</option>
           </select>
@@ -168,25 +167,41 @@
         </div>
       </div>
 
-      <div class="mb-4 grid grid-cols-2 gap-3">
+      <!-- == AREA INPUT ADAPTIF: UNIT vs NOMINAL == -->
+
+      <!-- MODE UNIT (Emas, Perak, dll) — tampil Qty + Total -->
+      <div id="area-input-unit" class="mb-4 grid grid-cols-2 gap-3">
         <div>
-          <label class="block text-xs font-bold text-gray-500 mb-1">KUANTITAS <span class="text-red-500">*</span></label>
+          <label class="block text-xs font-bold text-gray-500 mb-1" id="label-kuantitas">
+            KUANTITAS / GRAM <span class="text-red-500">*</span>
+          </label>
           <input type="number" step="any" id="aset-kuantitas" oninput="kalkulasiAset()"
                  class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm font-bold"
-                 style="font-size: 16px;" placeholder="Misal: 10" required>
+                 style="font-size: 16px;" placeholder="Misal: 5" required>
         </div>
         <div>
-          <label class="block text-xs font-bold text-gray-500 mb-1">TOTAL (RP) <span class="text-red-500">*</span></label>
+          <label class="block text-xs font-bold text-gray-500 mb-1">TOTAL BAYAR (RP) <span class="text-red-500">*</span></label>
           <input type="text" id="aset-total-visual"
                  oninput="formatVisualAngka(this, 'aset-total-raw'); kalkulasiAset()"
                  class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm font-bold text-rose-900"
-                 style="font-size: 16px;" placeholder="0" required>
+                 style="font-size: 16px;" placeholder="0">
           <input type="hidden" id="aset-total-raw" value="0">
         </div>
       </div>
 
-      <div class="bg-pink-50 border border-pink-200 rounded-xl p-4 mb-6 text-center">
-        <p class="text-[10px] text-pink-600 font-bold mb-1">HARGA EFEKTIF PER UNIT</p>
+      <!-- MODE NOMINAL (Reksadana, Saham, dll) — tampil Total saja -->
+      <div id="area-input-nominal" class="mb-4 hidden">
+        <label class="block text-xs font-bold text-gray-500 mb-1">NOMINAL INVESTASI (RP) <span class="text-red-500">*</span></label>
+        <input type="text" id="aset-nominal-visual"
+               oninput="formatVisualAngka(this, 'aset-total-raw'); kalkulasiAset()"
+               class="w-full bg-rose-50 border border-pink-200 py-4 px-4 rounded-xl font-bold text-gray-800 focus:ring-2 focus:ring-pink-500 outline-none text-center"
+               style="font-size: 20px;" placeholder="0">
+        <p class="text-[10px] text-gray-400 mt-1">💡 Qty otomatis = 1 (nominal, bukan unit fisik)</p>
+      </div>
+
+      <!-- Preview harga per unit — hanya tampil untuk mode UNIT -->
+      <div id="area-harga-satuan" class="bg-pink-50 border border-pink-200 rounded-xl p-4 mb-6 text-center">
+        <p class="text-[10px] text-pink-600 font-bold mb-1" id="label-harga-satuan">HARGA EFEKTIF PER UNIT</p>
         <p class="text-2xl font-bold text-gray-700" id="txt-harga-satuan">Rp 0</p>
         <input type="hidden" id="val-harga-satuan" value="0">
       </div>
@@ -199,9 +214,8 @@
   </div>
 
   <!-- ============================================================ -->
-  <!-- MODAL: PILIH LOT ASET UNTUK DIJUAL                           -->
+  <!-- MODAL: PILIH LOT/ITEM ASET UNTUK DIJUAL                      -->
   <!-- ============================================================ -->
-  <!-- onclick di backdrop hanya tutup, TIDAK reset form jika sudah pilih lot -->
   <div id="modal-grid-jual" class="hidden fixed inset-0 bg-gray-900 bg-opacity-60 z-[60] flex items-end justify-center p-0 backdrop-blur-sm"
        onclick="if(event.target===this) tutupGridJual()">
     <div class="bg-white rounded-t-2xl w-full max-w-lg flex flex-col shadow-2xl overflow-hidden"
@@ -210,30 +224,31 @@
         <h3 class="text-sm font-bold text-rose-900">
           <i class="fa-solid fa-list-check text-pink-500 mr-2"></i>Pilih Aset Untuk Dijual
         </h3>
+        <!-- Mode badge -->
+        <span id="badge-mode-jual" class="text-[9px] font-bold px-2 py-1 rounded-full bg-pink-100 text-pink-700 mr-2"></span>
         <button type="button" onclick="tutupGridJual()" class="text-gray-400 hover:text-gray-600">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
 
-      <!-- Filter kategori di dalam modal -->
+      <!-- Filter kategori -->
       <div class="px-4 pt-3 pb-2 border-b border-pink-50 flex-shrink-0">
         <div class="flex gap-2 overflow-x-auto no-scrollbar">
           <button onclick="filterGridJual('semua')" id="jual-chip-semua"
                   class="flex-shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border bg-pink-600 text-white border-pink-600 transition-colors">
             Semua
           </button>
-          <!-- Chip kategori diisi JS -->
           <div id="jual-chips-kategori" class="flex gap-2 flex-shrink-0"></div>
         </div>
       </div>
 
       <div class="overflow-y-auto flex-1 no-scrollbar">
         <table class="w-full text-left text-xs">
-          <thead class="bg-rose-50 text-pink-700 sticky top-0 z-10">
+          <thead class="bg-rose-50 text-pink-700 sticky top-0 z-10" id="thead-grid-jual">
             <tr>
               <th class="px-3 py-2 whitespace-nowrap">Tgl Beli</th>
               <th class="px-3 py-2">Item</th>
-              <th class="px-3 py-2 whitespace-nowrap text-center">Sisa Qty</th>
+              <th class="px-3 py-2 whitespace-nowrap text-center" id="th-sisa">Sisa Qty</th>
               <th class="px-3 py-2 text-center whitespace-nowrap">Pilih</th>
             </tr>
           </thead>
@@ -254,10 +269,23 @@
 </section>
 
 <script>
-  // Cache data master
+  // ============================================================
+  // STATE
+  // ============================================================
   let dataMasterCache = { lokasi: [], kategori: [], platform: [], item: [] };
-  let cacheRiwayatJual = [];
-  let filterKategoriJual = 'semua'; // State filter modal jual
+  let cacheRiwayatJual = [];       // raw data dari backend
+  let cacheAgregatJual = [];       // data teragregasi untuk mode nominal
+  let filterKategoriJual = 'semua';
+
+  // Deteksi apakah kategori adalah "unit fisik" (Emas, Perak, dll)
+  // Kata kunci ini bisa diperluas sesuai kebutuhan
+  const KATA_KUNCI_UNIT_FISIK = ['emas', 'perak', 'logam', 'gold', 'silver', 'antam', 'fisik', 'koin'];
+
+  function isKategoriFisik(namaKategori) {
+    if (!namaKategori) return false;
+    var lower = namaKategori.toLowerCase();
+    return KATA_KUNCI_UNIT_FISIK.some(function(k) { return lower.indexOf(k) !== -1; });
+  }
 
   // ============================================================
   // INISIALISASI MODUL
@@ -278,36 +306,28 @@
       })
       .getReferensiTransaksi();
 
-    // COA dikelompokkan: karena Master Pengeluaran Rutin tidak punya kategori,
-    // tampilkan flat diurutkan abjad
     google.script.run
       .withSuccessHandler(function(data) {
         var opsi = '<option value="" disabled selected>-- Pilih Akun Pengeluaran --</option>';
         if (data.length === 0) {
           opsi = '<option value="" disabled selected>⚠ Tambah data di Master Pengeluaran Rutin</option>';
         } else {
-          // Urutkan abjad berdasarkan nama (index 1)
           data.sort(function(a, b) { return String(a[1]).localeCompare(String(b[1]), 'id'); });
           data.forEach(function(d) {
-            // d = [ID, Nama, Nominal, Catatan]
             var nominal = parseInt(d[2] || 0).toLocaleString('id-ID');
             opsi += '<option value="' + d[1] + '">' + d[1] + ' — Rp' + nominal + '</option>';
           });
         }
         document.getElementById('aset-coa').innerHTML = opsi;
       })
-      .withFailureHandler(function(err) {
-        console.warn('COA gagal dimuat:', err.message);
-      })
+      .withFailureHandler(function(err) { console.warn('COA gagal dimuat:', err.message); })
       .getReferensiArusKas();
   }
 
   // ============================================================
-  // POPULATE DROPDOWNS — GROUPED BY CATEGORY
-  // [REQ #1 FIX] Semua dropdown yang punya kategori pakai <optgroup>
+  // POPULATE DROPDOWNS
   // ============================================================
   function populateDropdowns() {
-    // --- Dropdown Lokasi Klinik: tidak punya kategori → urutkan abjad ---
     var lokasiSorted = dataMasterCache.lokasi.slice().sort(function(a, b) {
       return String(a[1]).localeCompare(String(b[1]), 'id');
     });
@@ -316,19 +336,12 @@
       cbKlinik = '<option value="" disabled selected>⚠ Tambah data di Master Lokasi</option>';
     } else {
       lokasiSorted.forEach(function(k) {
-        var objVal = JSON.stringify({
-          nama: k[1],
-          komisi: parseFloat(k[2]) || 0,
-          cutoff: parseInt(k[3]) || 25,
-          tarifBpjs: parseFloat(k[4]) || 0
-        });
-        var safeVal = objVal.replace(/'/g, '&#39;');
-        cbKlinik += '<option value=\'' + safeVal + '\'>' + k[1] + '</option>';
+        var objVal = JSON.stringify({ nama: k[1], komisi: parseFloat(k[2])||0, cutoff: parseInt(k[3])||25, tarifBpjs: parseFloat(k[4])||0 });
+        cbKlinik += '<option value=\'' + objVal.replace(/'/g, '&#39;') + '\'>' + k[1] + '</option>';
       });
     }
     document.getElementById('klinik-lokasi').innerHTML = cbKlinik;
 
-    // --- Dropdown Platform: tidak punya kategori → urutkan abjad ---
     var platformSorted = dataMasterCache.platform.slice().sort(function(a, b) {
       return String(a[1]).localeCompare(String(b[1]), 'id');
     });
@@ -336,13 +349,10 @@
     if (platformSorted.length === 0) {
       cbPlatform = '<option value="" disabled selected>⚠ Tambah data di Master Platform</option>';
     } else {
-      platformSorted.forEach(function(p) {
-        cbPlatform += '<option value="' + p[1] + '">' + p[1] + '</option>';
-      });
+      platformSorted.forEach(function(p) { cbPlatform += '<option value="' + p[1] + '">' + p[1] + '</option>'; });
     }
     document.getElementById('aset-platform').innerHTML = cbPlatform;
 
-    // --- Dropdown Kategori: tidak punya parent kategori → urutkan abjad ---
     var kategoriSorted = dataMasterCache.kategori.slice().sort(function(a, b) {
       return String(a[1]).localeCompare(String(b[1]), 'id');
     });
@@ -350,27 +360,63 @@
     if (kategoriSorted.length === 0) {
       cbKat = '<option value="" disabled selected>⚠ Tambah data di Master Kategori</option>';
     } else {
-      kategoriSorted.forEach(function(k) {
-        cbKat += '<option value="' + k[1] + '">' + k[1] + '</option>';
-      });
+      kategoriSorted.forEach(function(k) { cbKat += '<option value="' + k[1] + '">' + k[1] + '</option>'; });
     }
     document.getElementById('aset-kategori').innerHTML = cbKat;
+    document.getElementById('aset-item').innerHTML = '<option value="" disabled selected>← Pilih Kategori dulu</option>';
+  }
 
-    // Item dikosongkan, diisi setelah user pilih kategori
-    document.getElementById('aset-item').innerHTML =
-      '<option value="" disabled selected>← Pilih Kategori dulu</option>';
+  // ============================================================
+  // HANDLER SAAT KATEGORI BERUBAH
+  // ============================================================
+  function onKategoriChange() {
+    filterItemBerdasarkanKategori();
+    var kat = document.getElementById('aset-kategori').value;
+    applyModeInput(kat);
+  }
+
+  // Terapkan mode input UNIT atau NOMINAL berdasarkan kategori
+  function applyModeInput(namaKategori) {
+    var isFisik = isKategoriFisik(namaKategori);
+    var areaUnit    = document.getElementById('area-input-unit');
+    var areaNominal = document.getElementById('area-input-nominal');
+    var areaHarga   = document.getElementById('area-harga-satuan');
+    var elQty       = document.getElementById('aset-kuantitas');
+    var elTotal     = document.getElementById('aset-total-visual');
+
+    // Reset nilai
+    elQty.value = '';
+    elTotal.value = '';
+    document.getElementById('aset-nominal-visual').value = '';
+    document.getElementById('aset-total-raw').value = '0';
+    document.getElementById('txt-harga-satuan').innerText = 'Rp 0';
+    document.getElementById('val-harga-satuan').value = '0';
+
+    if (isFisik) {
+      // MODE UNIT: tampil Qty + Total, preview harga/unit
+      areaUnit.classList.remove('hidden');
+      areaNominal.classList.add('hidden');
+      areaHarga.classList.remove('hidden');
+      elQty.required = true;
+      elTotal.required = false; // Total bisa kosong jika mau isi manual
+      document.getElementById('label-kuantitas').innerHTML = 'GRAMASI / QTY <span class="text-red-500">*</span>';
+      document.getElementById('label-harga-satuan').innerText = 'HARGA PER UNIT';
+    } else {
+      // MODE NOMINAL: sembunyikan Qty, hanya Total
+      areaUnit.classList.add('hidden');
+      areaNominal.classList.remove('hidden');
+      areaHarga.classList.add('hidden');
+      elQty.required = false;
+      elQty.value = '1'; // Set qty = 1 untuk mode nominal
+    }
   }
 
   // ============================================================
   // FILTER ITEM BERDASARKAN KATEGORI
-  // Item sudah terkelompok karena user sudah pilih kategori duluan,
-  // tapi tetap urutkan abjad di dalam kategori yang dipilih
   // ============================================================
   function filterItemBerdasarkanKategori() {
     var katTerpilih = document.getElementById('aset-kategori').value;
     var cbItem = document.getElementById('aset-item');
-
-    // dataMasterCache.item = [[ID, Kategori, NamaItem], ...]
     var itemSesuai = dataMasterCache.item
       .filter(function(i) { return i[1] === katTerpilih; })
       .sort(function(a, b) { return String(a[2]).localeCompare(String(b[2]), 'id'); });
@@ -379,9 +425,7 @@
       cbItem.innerHTML = '<option value="" disabled selected>⚠ Belum ada item di kategori ini</option>';
     } else {
       var opsi = '<option value="" disabled selected>-- Pilih Item --</option>';
-      itemSesuai.forEach(function(i) {
-        opsi += '<option value="' + i[2] + '">' + i[2] + '</option>';
-      });
+      itemSesuai.forEach(function(i) { opsi += '<option value="' + i[2] + '">' + i[2] + '</option>'; });
       cbItem.innerHTML = opsi;
     }
   }
@@ -396,7 +440,7 @@
   }
 
   // ============================================================
-  // FORMAT ANGKA VISUAL
+  // FORMAT ANGKA
   // ============================================================
   function formatVisualAngka(elVisual, idRaw) {
     var raw = elVisual.value.replace(/[^0-9]/g, '');
@@ -406,9 +450,7 @@
   }
 
   function formatRp(angka) {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency', currency: 'IDR', minimumFractionDigits: 0
-    }).format(angka);
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
   }
 
   // ============================================================
@@ -425,16 +467,15 @@
       document.getElementById('klinik-bpjs').checked = false;
       return;
     }
-
     if (isBPJS) {
       var tarif = JSON.parse(klinikVal).tarifBpjs || 0;
-      inputRaw.value     = tarif;
-      inputVisual.value  = parseInt(tarif).toLocaleString('id-ID');
+      inputRaw.value = tarif;
+      inputVisual.value = parseInt(tarif).toLocaleString('id-ID');
       inputVisual.readOnly = true;
       inputVisual.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
     } else {
-      inputRaw.value     = '0';
-      inputVisual.value  = '';
+      inputRaw.value = '0';
+      inputVisual.value = '';
       inputVisual.readOnly = false;
       inputVisual.classList.remove('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
     }
@@ -444,39 +485,32 @@
   function kalkulasiKlinik() {
     var klinikVal = document.getElementById('klinik-lokasi').value;
     var isBPJS    = document.getElementById('klinik-bpjs').checked;
-
     var persen = 0, cutoff = 0, tarifBpjs = 0;
     if (klinikVal) {
-      var obj   = JSON.parse(klinikVal);
-      persen    = parseFloat(obj.komisi)    || 0;
-      cutoff    = parseInt(obj.cutoff)      || 25;
+      var obj = JSON.parse(klinikVal);
+      persen = parseFloat(obj.komisi) || 0;
+      cutoff = parseInt(obj.cutoff) || 25;
       tarifBpjs = parseFloat(obj.tarifBpjs) || 0;
     }
-
     if (isBPJS && klinikVal) {
-      document.getElementById('klinik-omset-raw').value    = tarifBpjs;
+      document.getElementById('klinik-omset-raw').value = tarifBpjs;
       document.getElementById('klinik-omset-visual').value = parseInt(tarifBpjs).toLocaleString('id-ID');
     }
-
     var omset = parseFloat(document.getElementById('klinik-omset-raw').value) || 0;
-    var nom   = 0, laba = 0;
-
+    var nom = 0, laba = 0;
     if (isBPJS) {
-      nom  = omset;
-      laba = 0;
+      nom = omset; laba = 0;
       document.getElementById('txt-persen-klinik').innerText = 'Flat';
     } else {
-      nom  = omset * (persen / 100);
-      laba = omset - nom;
+      nom = omset * (persen / 100); laba = omset - nom;
       document.getElementById('txt-persen-klinik').innerText = persen;
     }
-
-    document.getElementById('txt-nominal-klinik').innerText   = formatRp(nom);
-    document.getElementById('txt-laba-klinik').innerText      = formatRp(laba);
-    document.getElementById('val-persen-klinik').value        = isBPJS ? 0 : persen;
-    document.getElementById('val-nominal-klinik').value       = nom;
-    document.getElementById('val-laba-klinik').value          = laba;
-    document.getElementById('val-cutoff-klinik').value        = cutoff;
+    document.getElementById('txt-nominal-klinik').innerText = formatRp(nom);
+    document.getElementById('txt-laba-klinik').innerText    = formatRp(laba);
+    document.getElementById('val-persen-klinik').value      = isBPJS ? 0 : persen;
+    document.getElementById('val-nominal-klinik').value     = nom;
+    document.getElementById('val-laba-klinik').value        = laba;
+    document.getElementById('val-cutoff-klinik').value      = cutoff;
   }
 
   function submitTrxKlinik(e) {
@@ -484,48 +518,72 @@
     if (!document.getElementById('klinik-lokasi').value) {
       return Swal.fire('Oops!', 'Pilih lokasi klinik terlebih dahulu.', 'warning');
     }
-
     var btn = document.getElementById('btn-submit-klinik');
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...';
-    btn.disabled  = true;
-
+    btn.disabled = true;
     var pasienNama = document.getElementById('klinik-pasien').value;
     if (document.getElementById('klinik-bpjs').checked) pasienNama += ' (BPJS)';
-
     var payload = {
-      tanggal:       document.getElementById('klinik-tgl').value,
-      klinik:        JSON.parse(document.getElementById('klinik-lokasi').value).nama,
-      pasien:        pasienNama,
-      tindakan:      document.getElementById('klinik-tindakan').value || '-',
-      omset:         document.getElementById('klinik-omset-raw').value,
-      persenKomisi:  document.getElementById('val-persen-klinik').value,
+      tanggal: document.getElementById('klinik-tgl').value,
+      klinik: JSON.parse(document.getElementById('klinik-lokasi').value).nama,
+      pasien: pasienNama,
+      tindakan: document.getElementById('klinik-tindakan').value || '-',
+      omset: document.getElementById('klinik-omset-raw').value,
+      persenKomisi: document.getElementById('val-persen-klinik').value,
       nominalKomisi: document.getElementById('val-nominal-klinik').value,
-      labaBersih:    document.getElementById('val-laba-klinik').value,
-      cutoff:        document.getElementById('val-cutoff-klinik').value
+      labaBersih: document.getElementById('val-laba-klinik').value,
+      cutoff: document.getElementById('val-cutoff-klinik').value
     };
-
     google.script.run
       .withSuccessHandler(function(res) {
         Swal.fire({ title: '✅ Tersimpan!', text: res, icon: 'success' });
-        document.getElementById('klinik-pasien').value        = '';
-        document.getElementById('klinik-tindakan').value      = '';
-        document.getElementById('klinik-omset-visual').value  = '';
-        document.getElementById('klinik-omset-raw').value     = '0';
-        document.getElementById('klinik-bpjs').checked        = false;
+        document.getElementById('klinik-pasien').value = '';
+        document.getElementById('klinik-tindakan').value = '';
+        document.getElementById('klinik-omset-visual').value = '';
+        document.getElementById('klinik-omset-raw').value = '0';
+        document.getElementById('klinik-bpjs').checked = false;
         toggleBPJS();
         btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> Simpan Fee Klinik';
-        btn.disabled  = false;
+        btn.disabled = false;
       })
       .withFailureHandler(function(err) {
-        Swal.fire({ title: '❌ Gagal Menyimpan!', text: err.message, icon: 'error' });
+        Swal.fire({ title: '❌ Gagal!', text: err.message, icon: 'error' });
         btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> Simpan Fee Klinik';
-        btn.disabled  = false;
+        btn.disabled = false;
       })
       .simpanTrxKlinik(payload);
   }
 
   // ============================================================
-  // LOGIKA TABUNGAN ASET — MODAL JUAL
+  // KALKULASI ASET (BELI)
+  // ============================================================
+  function kalkulasiAset() {
+    var kat   = document.getElementById('aset-kategori').value;
+    var isFisik = isKategoriFisik(kat);
+    var qty   = parseFloat(document.getElementById('aset-kuantitas').value) || (isFisik ? 0 : 1);
+    var total = parseFloat(document.getElementById('aset-total-raw').value) || 0;
+
+    if (!isFisik) {
+      // Mode nominal: qty selalu 1, harga = total
+      document.getElementById('aset-kuantitas').value = '1';
+      return;
+    }
+
+    // Mode unit: validasi max (mode jual)
+    var max = document.getElementById('aset-kuantitas').getAttribute('max');
+    if (max !== null && qty > parseFloat(max)) {
+      Swal.fire('Stok Kurang', 'Kuantitas maksimal: ' + max, 'warning');
+      document.getElementById('aset-kuantitas').value = max;
+      qty = parseFloat(max);
+    }
+
+    var hargaSatuan = qty > 0 ? total / qty : 0;
+    document.getElementById('txt-harga-satuan').innerText = formatRp(hargaSatuan);
+    document.getElementById('val-harga-satuan').value = hargaSatuan;
+  }
+
+  // ============================================================
+  // LOGIKA JUAL — BUKA MODAL
   // ============================================================
   function bukaGridJual() {
     document.getElementById('area-coa-aset').classList.add('hidden');
@@ -537,9 +595,11 @@
 
     google.script.run
       .withSuccessHandler(function(data) {
-        cacheRiwayatJual = data;
+        cacheRiwayatJual = data; // data mentah (mode fisik)
+        // Hitung agregat untuk mode nominal
+        cacheAgregatJual = agregatNominalItems(data);
         buatChipKategoriJual(data);
-        renderGridJual(data);
+        renderGridJual(data, filterKategoriJual);
       })
       .withFailureHandler(function(err) {
         document.getElementById('tbody-grid-jual').innerHTML =
@@ -548,13 +608,39 @@
       .getRiwayatBeliAktif();
   }
 
-  // Buat chip filter kategori untuk modal jual
+  // Agregasi semua lot per kombinasi (item+platform+kategori) untuk mode nominal
+  function agregatNominalItems(rawData) {
+    var map = {};
+    rawData.forEach(function(d) {
+      if (isKategoriFisik(d.kategori)) return; // fisik tidak diagregasi
+      var key = d.item + '||' + d.platform + '||' + d.kategori;
+      if (!map[key]) {
+        map[key] = {
+          key: key,
+          item: d.item,
+          platform: d.platform,
+          kategori: d.kategori,
+          sisaNominal: 0,
+          lotIds: []   // simpan semua ID lot untuk referensi
+        };
+      }
+      // sisaQty di mode nominal = nominal sisa (karena qty=1 per transaksi, total = nominal)
+      // Gunakan totalBeli - totalTerjual, tapi dari backend sisaQty sudah benar
+      // Untuk nominal, hargaBeli = nominal per transaksi, sisaQty selalu 1
+      // Jadi sisaNominal += hargaBeli * sisaQty
+      map[key].sisaNominal += d.hargaBeli * d.sisaQty;
+      map[key].lotIds.push(d.id);
+    });
+    return Object.values(map).filter(function(v) { return v.sisaNominal > 0.01; });
+  }
+
+  // ============================================================
+  // CHIP FILTER MODAL JUAL
+  // ============================================================
   function buatChipKategoriJual(data) {
     var kategoris = [];
     data.forEach(function(d) {
-      if (d.kategori && kategoris.indexOf(d.kategori) === -1) {
-        kategoris.push(d.kategori);
-      }
+      if (d.kategori && kategoris.indexOf(d.kategori) === -1) kategoris.push(d.kategori);
     });
     kategoris.sort(function(a, b) { return a.localeCompare(b, 'id'); });
 
@@ -571,134 +657,222 @@
 
   function filterGridJual(kategori) {
     filterKategoriJual = kategori;
-
     // Update chip visual
-    var semua = document.getElementById('jual-chip-semua');
-    if (semua) {
-      semua.className = 'flex-shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border transition-colors ' +
-        (kategori === 'semua' ? 'bg-pink-600 text-white border-pink-600' : 'bg-white text-pink-600 border-pink-200');
-    }
+    var semaEl = document.getElementById('jual-chip-semua');
+    if (semaEl) semaEl.className = 'flex-shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border transition-colors ' +
+      (kategori === 'semua' ? 'bg-pink-600 text-white border-pink-600' : 'bg-white text-pink-600 border-pink-200');
+
     cacheRiwayatJual.forEach(function(d) {
       var id = 'jual-chip-' + (d.kategori || '').replace(/[^a-zA-Z0-9]/g, '');
       var el = document.getElementById(id);
-      if (el) {
-        el.className = 'flex-shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border transition-colors ' +
-          (d.kategori === kategori ? 'bg-pink-600 text-white border-pink-600' : 'bg-white text-pink-600 border-pink-200');
-      }
+      if (el) el.className = 'flex-shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border transition-colors ' +
+        (d.kategori === kategori ? 'bg-pink-600 text-white border-pink-600' : 'bg-white text-pink-600 border-pink-200');
     });
 
-    var filtered = kategori === 'semua' ? cacheRiwayatJual :
-      cacheRiwayatJual.filter(function(d) { return d.kategori === kategori; });
-    renderGridJual(filtered);
+    renderGridJual(cacheRiwayatJual, kategori);
   }
 
-  function tutupGridJual() {
-    document.getElementById('modal-grid-jual').classList.add('hidden');
-    // Hanya reset ke BELI jika user benar-benar batal (belum pilih lot)
-    var idRef = document.getElementById('val-id-referensi').value;
-    if (!idRef || idRef.trim() === '') {
-      // User batal tanpa memilih lot — kembalikan ke mode BELI
-      document.querySelector('input[name="aset-tipe"][value="BELI"]').checked = true;
-      resetFormBeli();
-    }
-    // Jika sudah ada id-referensi, JANGAN reset apapun — form sudah terisi dengan benar
-  }
-
-  function renderGridJual(data) {
+  // ============================================================
+  // RENDER GRID JUAL — adaptif per kategori
+  // ============================================================
+  function renderGridJual(rawData, filterKat) {
     var tbody = document.getElementById('tbody-grid-jual');
-    if (data.length === 0) {
+    var badge = document.getElementById('badge-mode-jual');
+
+    // Tentukan apakah filter aktif menunjuk ke kategori fisik atau nominal
+    var filterIsFisik = (filterKat === 'semua') ? null : isKategoriFisik(filterKat);
+
+    // Jika filter semua: tampilkan keduanya terpisah (fisik dulu, lalu nominal)
+    var fisikData = rawData.filter(function(d) {
+      if (filterKat !== 'semua' && d.kategori !== filterKat) return false;
+      return isKategoriFisik(d.kategori);
+    });
+
+    var nominalData = (filterKat === 'semua')
+      ? cacheAgregatJual
+      : cacheAgregatJual.filter(function(d) { return d.kategori === filterKat; });
+
+    // Update badge
+    if (filterKat === 'semua') {
+      badge.innerText = 'Fisik + Nominal';
+      badge.className = 'text-[9px] font-bold px-2 py-1 rounded-full bg-purple-100 text-purple-700 mr-2';
+    } else if (isKategoriFisik(filterKat)) {
+      badge.innerText = 'Mode: Per Lot Fisik';
+      badge.className = 'text-[9px] font-bold px-2 py-1 rounded-full bg-amber-100 text-amber-700 mr-2';
+    } else {
+      badge.innerText = 'Mode: Nominal Bebas';
+      badge.className = 'text-[9px] font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-700 mr-2';
+    }
+
+    if (fisikData.length === 0 && nominalData.length === 0) {
       tbody.innerHTML =
         '<tr><td colspan="4" class="px-3 py-8 text-center text-gray-400">' +
         '<i class="fa-solid fa-inbox text-pink-300 text-2xl block mb-2"></i>' +
-        '<span class="font-bold text-xs">Tidak ada aset yang bisa dijual.</span>' +
-        '<br><span class="text-[10px]">Pastikan sudah ada transaksi BELI yang tercatat.</span></td></tr>';
+        '<span class="font-bold text-xs">Tidak ada aset yang bisa dijual.</span></td></tr>';
       return;
     }
 
     var html = '';
-    data.forEach(function(d) {
-      // Format tampilan tanggal & harga beli
-      var tglDisplay = d.tanggal || '-';
-      var hargaDisplay = d.hargaBeli > 0
-        ? '<span class="text-[9px] text-pink-500">@' + parseInt(d.hargaBeli).toLocaleString('id-ID') + '</span>'
-        : '';
-      html +=
-        '<tr class="hover:bg-rose-50 transition-colors">' +
-          '<td class="px-3 py-3 text-[10px] font-mono text-gray-500 whitespace-nowrap">' + tglDisplay + '</td>' +
-          '<td class="px-3 py-3">' +
-            '<span class="font-bold text-slate-700 block text-[11px] max-w-[110px] truncate">' + d.item + '</span>' +
-            '<span class="text-[9px] text-pink-600 bg-pink-50 px-1 py-0.5 rounded border border-pink-100 mr-1">' + d.platform + '</span>' +
-            hargaDisplay +
-          '</td>' +
-          '<td class="px-3 py-3 text-center">' +
-            '<span class="font-bold text-rose-900 text-xs">' + d.sisaQty + '</span>' +
-          '</td>' +
-          '<td class="px-3 py-3 text-center whitespace-nowrap">' +
-            '<button type="button" data-id="' + d.id + '" onclick="pilihLotJual(this)" ' +
-            'class="bg-pink-500 hover:bg-pink-600 active:bg-pink-700 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] shadow-sm">' +
-            'Pilih</button>' +
-          '</td>' +
-        '</tr>';
-    });
+
+    // ── SECTION FISIK ──
+    if (fisikData.length > 0) {
+      html += '<tr class="bg-amber-50"><td colspan="4" class="px-3 py-1.5 text-[9px] font-bold text-amber-700 uppercase tracking-wider">' +
+              '🪙 Aset Fisik — Jual Per Lot (Qty dikunci)</td></tr>';
+      fisikData.forEach(function(d) {
+        var tglDisplay  = d.tanggal || '-';
+        var hargaDisplay = d.hargaBeli > 0
+          ? '<span class="text-[9px] text-pink-500">@' + parseInt(d.hargaBeli).toLocaleString('id-ID') + '</span>' : '';
+        html +=
+          '<tr class="hover:bg-rose-50 transition-colors">' +
+            '<td class="px-3 py-3 text-[10px] font-mono text-gray-500 whitespace-nowrap">' + tglDisplay + '</td>' +
+            '<td class="px-3 py-3">' +
+              '<span class="font-bold text-slate-700 block text-[11px] max-w-[110px] truncate">' + d.item + '</span>' +
+              '<span class="text-[9px] text-pink-600 bg-pink-50 px-1 py-0.5 rounded border border-pink-100 mr-1">' + d.platform + '</span>' +
+              hargaDisplay +
+            '</td>' +
+            '<td class="px-3 py-3 text-center">' +
+              '<span class="font-bold text-rose-900 text-xs">' + d.sisaQty + '</span>' +
+            '</td>' +
+            '<td class="px-3 py-3 text-center whitespace-nowrap">' +
+              '<button type="button" data-id="' + d.id + '" data-mode="fisik" onclick="pilihLotJual(this)" ' +
+              'class="bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] shadow-sm">' +
+              'Pilih</button>' +
+            '</td>' +
+          '</tr>';
+      });
+    }
+
+    // ── SECTION NOMINAL ──
+    if (nominalData.length > 0) {
+      html += '<tr class="bg-blue-50"><td colspan="4" class="px-3 py-1.5 text-[9px] font-bold text-blue-700 uppercase tracking-wider">' +
+              '📊 Aset Nominal — Jual Sebagian (Nominal bebas)</td></tr>';
+      nominalData.forEach(function(d) {
+        if (filterKat !== 'semua' && d.kategori !== filterKat) return;
+        html +=
+          '<tr class="hover:bg-blue-50 transition-colors">' +
+            '<td class="px-3 py-3 text-[10px] text-gray-500 whitespace-nowrap">Terakumulasi</td>' +
+            '<td class="px-3 py-3">' +
+              '<span class="font-bold text-slate-700 block text-[11px] max-w-[110px] truncate">' + d.item + '</span>' +
+              '<span class="text-[9px] text-blue-600 bg-blue-50 px-1 py-0.5 rounded border border-blue-100 mr-1">' + d.platform + '</span>' +
+              '<span class="text-[9px] text-gray-500">Sisa: Rp' + Math.round(d.sisaNominal).toLocaleString('id-ID') + '</span>' +
+            '</td>' +
+            '<td class="px-3 py-3 text-center">' +
+              '<span class="text-[9px] text-blue-600 font-bold">Bebas</span>' +
+            '</td>' +
+            '<td class="px-3 py-3 text-center whitespace-nowrap">' +
+              '<button type="button" data-key="' + escAttr(d.key) + '" data-mode="nominal" ' +
+              'data-sisa="' + d.sisaNominal + '" ' +
+              'data-item="' + escAttr(d.item) + '" data-platform="' + escAttr(d.platform) + '" data-kategori="' + escAttr(d.kategori) + '" ' +
+              'onclick="pilihLotJual(this)" ' +
+              'class="bg-blue-500 hover:bg-blue-600 text-white font-bold px-3 py-1.5 rounded-lg text-[10px] shadow-sm">' +
+              'Pilih</button>' +
+            '</td>' +
+          '</tr>';
+      });
+    }
+
     tbody.innerHTML = html;
   }
 
+  // ============================================================
+  // PILIH LOT (FISIK) ATAU ITEM NOMINAL
+  // ============================================================
   function pilihLotJual(btnElement) {
-    var idTarget = btnElement.getAttribute('data-id');
-    var d = cacheRiwayatJual.find(function(item) {
-      return String(item.id) === String(idTarget);
-    });
+    var mode = btnElement.getAttribute('data-mode');
 
-    if (!d) {
-      Swal.fire('Error', 'Data aset tidak ditemukan (ID: ' + idTarget + ')', 'error');
-      return;
+    if (mode === 'fisik') {
+      pilihLotFisik(btnElement);
+    } else {
+      pilihItemNominal(btnElement);
     }
+  }
 
-    // KRITIS: Set val-id-referensi PERTAMA sebelum apapun,
-    // agar tutupGridJual() tidak salah mengira form belum dipilih
+  // Pilih lot fisik — Qty dikunci = sisaQty, tidak bisa pecah
+  function pilihLotFisik(btnElement) {
+    var idTarget = btnElement.getAttribute('data-id');
+    var d = cacheRiwayatJual.find(function(item) { return String(item.id) === String(idTarget); });
+    if (!d) { Swal.fire('Error', 'Data aset tidak ditemukan', 'error'); return; }
+
     document.getElementById('val-id-referensi').value = d.id;
-
-    // Tutup modal TANPA animasi/callback apapun
     document.getElementById('modal-grid-jual').classList.add('hidden');
 
-    // Setelah modal tertutup, baru isi form (tidak ada race condition)
     var lockClass = 'w-full border border-gray-200 py-3 px-3 rounded-xl outline-none text-sm bg-gray-100 text-gray-500 cursor-not-allowed pointer-events-none';
 
+    // Isi dan kunci dropdown
     document.getElementById('aset-platform').innerHTML = '<option value="' + escAttr(d.platform) + '" selected>' + d.platform + '</option>';
     document.getElementById('aset-kategori').innerHTML = '<option value="' + escAttr(d.kategori) + '" selected>' + d.kategori + '</option>';
     document.getElementById('aset-item').innerHTML     = '<option value="' + escAttr(d.item)     + '" selected>' + d.item     + '</option>';
-
     ['aset-platform', 'aset-kategori', 'aset-item'].forEach(function(f) {
       document.getElementById(f).removeAttribute('required');
       document.getElementById(f).className = lockClass;
     });
 
-    document.getElementById('aset-kuantitas').max         = d.sisaQty;
-    document.getElementById('aset-kuantitas').placeholder = 'Max: ' + d.sisaQty;
-    document.getElementById('aset-kuantitas').value       = '';
-    document.getElementById('aset-total-visual').value    = '';
-    document.getElementById('aset-total-raw').value       = '0';
+    // Terapkan mode input unit (karena fisik)
+    applyModeInput(d.kategori);
+
+    // KUNCI Qty = sisaQty, tidak bisa diubah
+    var elQty = document.getElementById('aset-kuantitas');
+    elQty.value = d.sisaQty;
+    elQty.readOnly = true;
+    elQty.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+    elQty.max = d.sisaQty;
+
+    document.getElementById('aset-total-visual').value = '';
+    document.getElementById('aset-total-raw').value = '0';
     document.getElementById('txt-harga-satuan').innerText = 'Rp 0';
-    document.getElementById('val-harga-satuan').value     = '0';
+    document.getElementById('val-harga-satuan').value = '0';
 
-    // Tampilkan banner info lot di dalam form (tidak pakai Swal agar tidak ada overlay)
-    tampilkanBannerLotDipilih(d);
+    tampilkanBannerLotDipilih(d, 'fisik');
   }
 
-  // Helper escape HTML attribute
-  function escAttr(str) {
-    return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // Pilih item nominal — user input bebas nominal jual
+  function pilihItemNominal(btnElement) {
+    var key      = btnElement.getAttribute('data-key');
+    var sisa     = parseFloat(btnElement.getAttribute('data-sisa')) || 0;
+    var item     = btnElement.getAttribute('data-item');
+    var platform = btnElement.getAttribute('data-platform');
+    var kategori = btnElement.getAttribute('data-kategori');
+
+    // Gunakan first lot ID sebagai referensi (akan dipakai backend)
+    var agregat = cacheAgregatJual.find(function(a) { return a.key === key; });
+    var idRef   = agregat ? (agregat.lotIds[0] || '-') : '-';
+
+    document.getElementById('val-id-referensi').value = idRef || '-';
+    document.getElementById('modal-grid-jual').classList.add('hidden');
+
+    var lockClass = 'w-full border border-gray-200 py-3 px-3 rounded-xl outline-none text-sm bg-gray-100 text-gray-500 cursor-not-allowed pointer-events-none';
+
+    document.getElementById('aset-platform').innerHTML = '<option value="' + escAttr(platform) + '" selected>' + platform + '</option>';
+    document.getElementById('aset-kategori').innerHTML = '<option value="' + escAttr(kategori) + '" selected>' + kategori + '</option>';
+    document.getElementById('aset-item').innerHTML     = '<option value="' + escAttr(item)     + '" selected>' + item     + '</option>';
+    ['aset-platform', 'aset-kategori', 'aset-item'].forEach(function(f) {
+      document.getElementById(f).removeAttribute('required');
+      document.getElementById(f).className = lockClass;
+    });
+
+    // Terapkan mode nominal (sembunyikan qty)
+    applyModeInput(kategori);
+
+    // Kosongkan nominal, biarkan user input bebas
+    document.getElementById('aset-nominal-visual').value = '';
+    document.getElementById('aset-total-raw').value = '0';
+
+    tampilkanBannerLotDipilih({ item: item, platform: platform, kategori: kategori, sisaQty: sisa, hargaBeli: sisa }, 'nominal');
   }
 
-  // Banner info lot yang dipilih — inline di dalam form, bukan popup
-  function tampilkanBannerLotDipilih(d) {
-    // Hapus banner lama jika ada
+  function tampilkanBannerLotDipilih(d, mode) {
     var existing = document.getElementById('banner-lot-dipilih');
     if (existing) existing.remove();
 
-    var hargaStr = d.hargaBeli > 0
-      ? 'Rp' + parseInt(d.hargaBeli).toLocaleString('id-ID') + ' / unit'
-      : 'N/A';
+    var infoTeks, infoSub;
+    if (mode === 'fisik') {
+      infoTeks = d.item + ' · ' + d.platform;
+      infoSub  = 'Qty terkunci: <b>' + d.sisaQty + ' unit</b>' +
+                 (d.hargaBeli > 0 ? ' · Harga beli: <b>Rp' + parseInt(d.hargaBeli).toLocaleString('id-ID') + '/unit</b>' : '');
+    } else {
+      infoTeks = d.item + ' · ' + d.platform;
+      infoSub  = 'Sisa nominal: <b>Rp' + Math.round(d.hargaBeli).toLocaleString('id-ID') + '</b> · Masukkan nominal yang ingin dijual';
+    }
 
     var banner = document.createElement('div');
     banner.id = 'banner-lot-dipilih';
@@ -708,126 +882,145 @@
         '<i class="fa-solid fa-check text-white" style="font-size:10px;"></i>' +
       '</div>' +
       '<div class="flex-1 min-w-0">' +
-        '<p class="text-[11px] font-bold text-green-800">Lot Terpilih</p>' +
-        '<p class="text-[10px] text-green-700 truncate"><b>' + d.item + '</b> · ' + d.platform + '</p>' +
-        '<p class="text-[10px] text-green-600">Sisa: <b>' + d.sisaQty + ' unit</b> · Harga beli: <b>' + hargaStr + '</b></p>' +
+        '<p class="text-[11px] font-bold text-green-800">' + (mode === 'fisik' ? '🪙 Aset Fisik Terpilih' : '📊 Reksadana/Saham Terpilih') + '</p>' +
+        '<p class="text-[10px] text-green-700 truncate"><b>' + infoTeks + '</b></p>' +
+        '<p class="text-[10px] text-green-600">' + infoSub + '</p>' +
       '</div>' +
       '<button type="button" onclick="gantiLotJual()" ' +
-        'class="text-[9px] font-bold text-green-700 bg-green-100 hover:bg-green-200 px-2 py-1 rounded-lg flex-shrink-0 transition-colors">' +
-        'Ganti' +
-      '</button>';
+        'class="text-[9px] font-bold text-green-700 bg-green-100 hover:bg-green-200 px-2 py-1 rounded-lg flex-shrink-0 transition-colors">Ganti</button>';
 
-    // Sisipkan banner sebelum field kuantitas
-    var refEl = document.getElementById('aset-kuantitas').closest('div').parentElement;
+    // Sisipkan sebelum area input
+    var refEl = document.getElementById('area-input-unit').parentElement;
     refEl.parentElement.insertBefore(banner, refEl);
   }
 
-  // Fungsi untuk ganti lot — buka ulang modal tanpa reset radio
   function gantiLotJual() {
-    // Hapus banner
     var banner = document.getElementById('banner-lot-dipilih');
     if (banner) banner.remove();
-    // Kosongkan referensi agar tutupGridJual tahu belum ada pilihan
     document.getElementById('val-id-referensi').value = '';
-    // Buka modal kembali tanpa re-fetch (pakai cache)
     document.getElementById('modal-grid-jual').classList.remove('hidden');
-    renderGridJual(cacheRiwayatJual);
+    renderGridJual(cacheRiwayatJual, filterKategoriJual);
   }
 
+  function tutupGridJual() {
+    document.getElementById('modal-grid-jual').classList.add('hidden');
+    var idRef = document.getElementById('val-id-referensi').value;
+    if (!idRef || idRef.trim() === '') {
+      document.querySelector('input[name="aset-tipe"][value="BELI"]').checked = true;
+      resetFormBeli();
+    }
+  }
+
+  // ============================================================
+  // RESET FORM BELI
+  // ============================================================
   function resetFormBeli() {
     document.getElementById('area-coa-aset').classList.remove('hidden');
-
     var normalClass = 'w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm';
     ['aset-platform', 'aset-kategori', 'aset-item'].forEach(function(f) {
       document.getElementById(f).setAttribute('required', 'true');
       document.getElementById(f).className = normalClass;
     });
 
-    // Bersihkan banner lot yang mungkin masih tampil
     var banner = document.getElementById('banner-lot-dipilih');
     if (banner) banner.remove();
 
-    populateDropdowns();
-    document.getElementById('aset-kuantitas').removeAttribute('max');
-    document.getElementById('aset-kuantitas').placeholder = 'Misal: 10';
-    document.getElementById('aset-kuantitas').value       = '';
-    document.getElementById('aset-total-visual').value    = '';
-    document.getElementById('aset-total-raw').value       = '0';
-    document.getElementById('val-id-referensi').value     = '';
+    // Reset Qty (hapus readOnly jika pernah dikunci)
+    var elQty = document.getElementById('aset-kuantitas');
+    elQty.readOnly = false;
+    elQty.removeAttribute('max');
+    elQty.classList.remove('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+    elQty.value = '';
+
+    // Reset input nominal
+    document.getElementById('aset-nominal-visual').value = '';
+    document.getElementById('aset-total-visual').value = '';
+    document.getElementById('aset-total-raw').value = '0';
+    document.getElementById('val-id-referensi').value = '';
     document.getElementById('txt-harga-satuan').innerText = 'Rp 0';
-    document.getElementById('val-harga-satuan').value     = '0';
+    document.getElementById('val-harga-satuan').value = '0';
+
+    // Restore mode input default (tampilkan area-input-unit)
+    document.getElementById('area-input-unit').classList.remove('hidden');
+    document.getElementById('area-input-nominal').classList.add('hidden');
+    document.getElementById('area-harga-satuan').classList.remove('hidden');
+
+    populateDropdowns();
   }
 
-  function kalkulasiAset() {
-    var qty   = parseFloat(document.getElementById('aset-kuantitas').value)  || 0;
-    var total = parseFloat(document.getElementById('aset-total-raw').value)  || 0;
-    var max   = document.getElementById('aset-kuantitas').getAttribute('max');
-
-    if (max !== null && qty > parseFloat(max)) {
-      Swal.fire('Stok Kurang', 'Kuantitas maksimal yang bisa dijual: ' + max, 'warning');
-      document.getElementById('aset-kuantitas').value = max;
-      qty = parseFloat(max);
-    }
-
-    var hargaSatuan = qty > 0 ? total / qty : 0;
-    document.getElementById('txt-harga-satuan').innerText = formatRp(hargaSatuan);
-    document.getElementById('val-harga-satuan').value     = hargaSatuan;
-  }
-
+  // ============================================================
+  // SUBMIT ASET
+  // ============================================================
   function submitTrxAset(e) {
     e.preventDefault();
 
     var tipe   = document.querySelector('input[name="aset-tipe"]:checked').value;
     var coaKas = document.getElementById('aset-coa').value;
+    var kat    = document.getElementById('aset-kategori').value;
+    var isFisik = isKategoriFisik(kat);
 
     if (tipe === 'BELI' && !coaKas) {
       return Swal.fire('Oops!', 'Pilih Akun Biaya (COA) untuk transaksi pembelian aset.', 'warning');
     }
 
-    // Validasi ID referensi untuk JUAL
     var idRef = document.getElementById('val-id-referensi').value;
     if (tipe === 'JUAL' && (!idRef || idRef === '')) {
-      return Swal.fire('Oops!', 'Pilih lot aset yang akan dijual terlebih dahulu.', 'warning');
+      return Swal.fire('Oops!', 'Pilih aset yang akan dijual terlebih dahulu.', 'warning');
     }
+
+    var totalRaw = parseFloat(document.getElementById('aset-total-raw').value) || 0;
+    if (totalRaw <= 0) {
+      return Swal.fire('Oops!', 'Masukkan nominal/total yang valid.', 'warning');
+    }
+
+    var qty = parseFloat(document.getElementById('aset-kuantitas').value) || 1;
+    var hargaSatuan = qty > 0 ? totalRaw / qty : totalRaw;
 
     var btn = document.getElementById('btn-submit-aset');
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...';
-    btn.disabled  = true;
+    btn.disabled = true;
 
     var payload = {
       tanggal:     document.getElementById('aset-tgl').value,
       tipe:        tipe,
       platform:    document.getElementById('aset-platform').value,
-      kategori:    document.getElementById('aset-kategori').value,
+      kategori:    kat,
       item:        document.getElementById('aset-item').value,
-      kuantitas:   document.getElementById('aset-kuantitas').value,
-      total:       document.getElementById('aset-total-raw').value,
-      harga:       document.getElementById('val-harga-satuan').value,
+      kuantitas:   qty,
+      total:       totalRaw,
+      harga:       hargaSatuan,
       idReferensi: idRef || '-',
-      coaKas:      coaKas || ''
+      coaKas:      coaKas || '',
+      isFisik:     isFisik  // flag untuk backend
     };
 
     google.script.run
       .withSuccessHandler(function(res) {
         Swal.fire({ title: '✅ Tersimpan!', text: res, icon: 'success' });
-        // Bersihkan banner lot
         var banner = document.getElementById('banner-lot-dipilih');
         if (banner) banner.remove();
         document.getElementById('formAset').reset();
-        document.getElementById('aset-tgl').value             = payload.tanggal;
-        document.getElementById('aset-total-raw').value       = '0';
+        document.getElementById('aset-tgl').value = payload.tanggal;
+        document.getElementById('aset-total-raw').value = '0';
         document.getElementById('txt-harga-satuan').innerText = 'Rp 0';
-        document.getElementById('val-harga-satuan').value     = '0';
+        document.getElementById('val-harga-satuan').value = '0';
         document.querySelector('input[name="aset-tipe"][value="BELI"]').checked = true;
         resetFormBeli();
         btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> Simpan Transaksi Aset';
-        btn.disabled  = false;
+        btn.disabled = false;
       })
       .withFailureHandler(function(err) {
-        Swal.fire({ title: '❌ Gagal Menyimpan!', text: err.message, icon: 'error' });
+        Swal.fire({ title: '❌ Gagal!', text: err.message, icon: 'error' });
         btn.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> Simpan Transaksi Aset';
-        btn.disabled  = false;
+        btn.disabled = false;
       })
       .simpanTrxAset(payload);
+  }
+
+  // ============================================================
+  // HELPER
+  // ============================================================
+  function escAttr(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 </script>
