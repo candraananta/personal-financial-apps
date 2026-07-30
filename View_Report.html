@@ -2052,63 +2052,100 @@ function renderRecentTransactions(mode) {
   const container = document.getElementById('list-recent-trx');
   if (!container) return;
 
-  // Gabungkan semua transaksi dari tiga sumber dengan label sumber
+  // ── Helper: normalisasi tanggal → timestamp untuk sorting ──
+  function toTimestamp(val) {
+    if (!val) return 0;
+    if (val instanceof Date) return val.getTime();
+    const str = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) return new Date(str).getTime();
+    if (/^\d{2}\/\d{2}\/\d{4}/.test(str)) {
+      const parts = str.split('/');
+      return new Date(parts[2] + '-' + parts[1] + '-' + parts[0]).getTime();
+    }
+    const ts = Date.parse(str);
+    return isNaN(ts) ? 0 : ts;
+  }
+
+  // ── Helper: format tanggal untuk tampilan ──
+  function formatTglDisplay(val) {
+    if (!val) return '-';
+    if (val instanceof Date) {
+      return String(val.getDate()).padStart(2,'0') + '/' +
+             String(val.getMonth()+1).padStart(2,'0') + '/' +
+             val.getFullYear();
+    }
+    const str = String(val).trim();
+    if (/^\d{2}\/\d{2}\/\d{4}/.test(str)) return str;
+    if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+      const parts = str.split('-');
+      return parts[2] + '/' + parts[1] + '/' + parts[0];
+    }
+    return str;
+  }
+
   let allTrx = [];
 
   // KAS — kolom: [0]=ID, [1]=Tgl, [2]=Periode, [3]=Tipe, [4]=Item, [5]=Catatan, [6]=Debit, [7]=Kredit
   if (mode === 'semua' || mode === 'kas') {
-    masterDataLaporan.kas.forEach(row => {
+    masterDataLaporan.kas.forEach((row, idx) => {
       const debit  = parseFloat(row[6]) || 0;
       const kredit = parseFloat(row[7]) || 0;
       const isDebit = debit > 0;
       allTrx.push({
-        sumber:  'kas',
-        tanggal: String(row[1] || ''),
-        label:   String(row[4] || '-'),
-        sub:     String(row[5] || '-'),
-        nominal: isDebit ? debit : kredit,
-        tipe:    isDebit ? 'MASUK' : 'KELUAR',
-        periode: String(row[2] || '-'),
-        sortKey: String(row[1] || '')
+        sumber:   'kas',
+        tanggal:  formatTglDisplay(row[1]),
+        label:    String(row[4] || '-'),
+        sub:      String(row[5] || '-'),
+        nominal:  isDebit ? debit : kredit,
+        tipe:     isDebit ? 'MASUK' : 'KELUAR',
+        periode:  String(row[2] || '-'),
+        _ts:      toTimestamp(row[1]),
+        _rowIdx:  idx
       });
     });
   }
 
   // KLINIK — kolom: [0]=ID, [1]=Tgl, [2]=Periode, [3]=Klinik, [4]=Pasien, [5]=Tindakan, [6]=Omset, [7]=%, [8]=Komisi, [9]=Laba
   if (mode === 'semua' || mode === 'klinik') {
-    masterDataLaporan.klinik.forEach(row => {
+    masterDataLaporan.klinik.forEach((row, idx) => {
       allTrx.push({
         sumber:  'klinik',
-        tanggal: String(row[1] || ''),
+        tanggal: formatTglDisplay(row[1]),
         label:   String(row[4] || '-'),
         sub:     String(row[3] || '-') + (row[5] && row[5] !== '-' ? ' · ' + row[5] : ''),
         nominal: parseFloat(row[9]) || 0,
         tipe:    'LABA',
         periode: String(row[2] || '-'),
-        sortKey: String(row[1] || '')
+        _ts:     toTimestamp(row[1]),
+        _rowIdx: idx
       });
     });
   }
 
-  // ASET — kolom: [0]=ID, [1]=Tgl, [2]=Platform(?), [3]=Kategori, [4]=Item, [5]=Tipe, [6]=Qty, [7]=Harga, [8]=Total, [9]=IdRef
+  // ASET — kolom: [0]=ID, [1]=Tgl, [2]=Platform, [3]=Kategori, [4]=Item, [5]=Tipe, [6]=Qty, [7]=Harga, [8]=Total, [9]=IdRef
   if (mode === 'semua' || mode === 'aset') {
-    masterDataLaporan.aset.forEach(row => {
+    masterDataLaporan.aset.forEach((row, idx) => {
       const tipeAset = String(row[5] || '').trim();
       allTrx.push({
         sumber:  'aset',
-        tanggal: String(row[1] || ''),
+        tanggal: formatTglDisplay(row[1]),
         label:   String(row[4] || '-'),
         sub:     String(row[2] || '-') + ' · ' + String(row[3] || '-'),
         nominal: parseFloat(row[8]) || 0,
         tipe:    tipeAset,
         periode: '',
-        sortKey: String(row[1] || '')
+        _ts:     toTimestamp(row[1]),
+        _rowIdx: idx
       });
     });
   }
 
-  // Sort terbaru → tertua, ambil top 10
-  allTrx.sort((a, b) => String(b.sortKey).localeCompare(String(a.sortKey)));
+  // Sort: tanggal terbaru dulu, kalau sama tanggal → baris paling bawah (input terakhir) duluan
+  allTrx.sort((a, b) => {
+    if (b._ts !== a._ts) return b._ts - a._ts;
+    return b._rowIdx - a._rowIdx;
+  });
+
   const top10 = allTrx.slice(0, 10);
 
   if (top10.length === 0) {
@@ -2118,23 +2155,23 @@ function renderRecentTransactions(mode) {
 
   const ikonSumber = { kas: 'wallet', klinik: 'user-doctor', aset: 'chart-line' };
   const warnaSumber = {
-    kas:    { bg: 'bg-pink-100',  icon: 'text-pink-600'  },
-    klinik: { bg: 'bg-rose-100',  icon: 'text-rose-600'  },
-    aset:   { bg: 'bg-purple-100',icon: 'text-purple-600'}
+    kas:    { bg: 'bg-pink-100',   icon: 'text-pink-600'   },
+    klinik: { bg: 'bg-rose-100',   icon: 'text-rose-600'   },
+    aset:   { bg: 'bg-purple-100', icon: 'text-purple-600' }
   };
   const labelTipe = {
-    MASUK:  { cls: 'text-green-600', sign: '+', bg: 'bg-green-50'  },
-    KELUAR: { cls: 'text-red-500',   sign: '-', bg: 'bg-red-50'    },
-    LABA:   { cls: 'text-emerald-600',sign: '+', bg: 'bg-emerald-50'},
-    BELI:   { cls: 'text-blue-600',  sign: '-', bg: 'bg-blue-50'   },
-    JUAL:   { cls: 'text-green-600', sign: '+', bg: 'bg-green-50'  },
+    MASUK:  { cls: 'text-green-600',   sign: '+' },
+    KELUAR: { cls: 'text-red-500',     sign: '-' },
+    LABA:   { cls: 'text-emerald-600', sign: '+' },
+    BELI:   { cls: 'text-blue-600',    sign: '-' },
+    JUAL:   { cls: 'text-green-600',   sign: '+' },
   };
 
   let html = '';
   top10.forEach((trx, idx) => {
     const w  = warnaSumber[trx.sumber] || { bg: 'bg-gray-100', icon: 'text-gray-600' };
     const ik = ikonSumber[trx.sumber] || 'circle';
-    const t  = labelTipe[trx.tipe] || { cls: 'text-gray-600', sign: '', bg: 'bg-gray-50' };
+    const t  = labelTipe[trx.tipe] || { cls: 'text-gray-600', sign: '' };
     const badgeSumber = trx.sumber === 'kas' ? 'Arus Kas' : trx.sumber === 'klinik' ? 'Klinik' : 'Aset';
     const badgeKls = trx.sumber === 'kas'
       ? 'bg-pink-100 text-pink-700'
@@ -2145,15 +2182,12 @@ function renderRecentTransactions(mode) {
     html += `
       <div class="item-card flex items-center gap-3 bg-white border border-pink-100 rounded-xl p-3 fade-in-up"
            style="animation-delay: ${idx * 40}ms">
-        <!-- Nomor urut -->
         <div class="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
           <span class="text-[9px] font-bold text-gray-400">${idx + 1}</span>
         </div>
-        <!-- Ikon sumber -->
         <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${w.bg}">
           <i class="fa-solid fa-${ik} text-sm ${w.icon}"></i>
         </div>
-        <!-- Konten -->
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-1.5 mb-0.5 flex-wrap">
             <p class="text-[11px] font-bold text-slate-700 truncate max-w-[130px]">${trx.label}</p>
@@ -2161,7 +2195,6 @@ function renderRecentTransactions(mode) {
           </div>
           <p class="text-[9px] text-gray-400 truncate">${trx.tanggal ? trx.tanggal + ' · ' : ''}${trx.sub}</p>
         </div>
-        <!-- Nominal -->
         <div class="text-right flex-shrink-0">
           <p class="text-xs font-bold ${t.cls}">${t.sign}${fRp(Math.abs(trx.nominal))}</p>
           <p class="text-[9px] font-bold text-gray-400 mt-0.5">${trx.tipe}</p>
