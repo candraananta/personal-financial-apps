@@ -1,6 +1,6 @@
-<!-- KONTEN: View_ArusKas.html - FIX iOS ZOOM -->
+<!-- KONTEN: View_ArusKas.html - UPDATE: COA Pemasukan Dropdown -->
 <section id="modul-aruskas" class="block w-full">
-  
+
   <!-- Pemilih Mode Pemasukan / Pengeluaran -->
   <div class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4 flex items-center gap-3">
     <div class="bg-pink-100 p-3 rounded-xl text-pink-600 flex-shrink-0">
@@ -8,7 +8,7 @@
     </div>
     <div class="flex-1 min-w-0">
       <label class="block text-[10px] font-bold text-gray-400 mb-1">ARUS KAS</label>
-      <select id="pilihModeArusKas" onchange="gantiModeArusKas()" 
+      <select id="pilihModeArusKas" onchange="gantiModeArusKas()"
               class="w-full bg-rose-50 border border-pink-200 py-2 px-2 rounded-lg outline-none font-bold text-rose-900">
         <option value="PENGELUARAN">Catat Pengeluaran</option>
         <option value="PEMASUKAN">Catat Pemasukan (Gaji/Dll)</option>
@@ -18,83 +18,101 @@
 
   <div class="bg-white p-5 rounded-2xl shadow-sm border border-pink-100 mb-20 block w-full">
     <form id="formArusKas" onsubmit="submitTrxArusKas(event)">
-      
+
+      <!-- Tanggal & Periode -->
       <div class="mb-4 grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-bold text-gray-500 mb-1">TANGGAL <span class="text-red-500">*</span></label>
-          <!-- 
-            FIX: input[type=date] di iOS tidak boleh ada inline font-size override.
-            Biarkan CSS global yang handle (16px). 
-          -->
-          <input type="date" id="kas-tgl" onchange="updatePeriodeUI()" 
-                 class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none font-bold text-rose-900" 
+          <input type="date" id="kas-tgl" onchange="updatePeriodeUI()"
+                 class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none font-bold text-rose-900"
                  required>
         </div>
         <div>
           <label class="block text-xs font-bold text-gray-500 mb-1">PERIODE</label>
-          <input type="text" id="kas-periode" 
-                 class="w-full bg-pink-100 border border-pink-200 py-3 px-3 rounded-xl outline-none font-bold text-pink-700 cursor-not-allowed text-sm" 
+          <input type="text" id="kas-periode"
+                 class="w-full bg-pink-100 border border-pink-200 py-3 px-3 rounded-xl outline-none font-bold text-pink-700 cursor-not-allowed text-sm"
                  readonly>
         </div>
       </div>
 
-      <!-- AREA DINAMIS: Custom Searchable Dropdown -->
+      <!-- ═══════════════════════════════════════
+           AREA PENGELUARAN: Template Rutin
+      ═══════════════════════════════════════ -->
       <div id="area-template-rutin" class="mb-4 bg-yellow-50 border border-yellow-200 p-3 rounded-xl">
         <label class="block text-xs font-bold text-yellow-700 mb-1">
           <i class="fa-solid fa-search mr-1"></i> CARI PENGELUARAN RUTIN
+          <span class="text-[9px] font-normal text-yellow-600 ml-1">(opsional)</span>
         </label>
         <div class="relative w-full">
-          <!-- 
-            FIX: Hapus inline style font-size, biarkan CSS global handle.
-            font-size minimum 16px sudah diset di Index.html → tidak akan zoom.
-          -->
-          <input type="text" id="kas-template-input" autocomplete="off" 
-                 oninput="filterTemplateRutin()" onclick="tampilkanDropdownTemplate()" 
-                 class="w-full bg-white border border-yellow-300 py-2 px-3 rounded-lg outline-none placeholder-gray-400 focus:ring-2 focus:ring-yellow-400" 
+          <input type="text" id="kas-template-input" autocomplete="off"
+                 oninput="filterTemplateRutin()" onclick="tampilkanDropdownTemplate()"
+                 class="w-full bg-white border border-yellow-300 py-2 px-3 rounded-lg outline-none placeholder-gray-400 focus:ring-2 focus:ring-yellow-400"
                  placeholder="Ketik nama tagihan...">
-          <ul id="kas-dropdown-list" 
+          <ul id="kas-dropdown-list"
               class="absolute z-50 w-full bg-white border border-yellow-300 mt-1 max-h-48 overflow-y-auto rounded-lg shadow-xl hidden divide-y divide-gray-100">
           </ul>
         </div>
       </div>
 
+      <!-- ═══════════════════════════════════════
+           AREA PEMASUKAN: COA Dropdown (BARU)
+      ═══════════════════════════════════════ -->
+      <div id="area-coa-pemasukan" class="mb-4 bg-green-50 border border-green-200 p-3 rounded-xl hidden">
+        <label class="block text-xs font-bold text-green-700 mb-1">
+          <i class="fa-solid fa-tag mr-1"></i> KATEGORI PEMASUKAN (COA)
+          <span class="text-red-500">*</span>
+        </label>
+        <select id="kas-coa-pemasukan"
+                class="w-full bg-white border border-green-300 py-3 px-3 rounded-xl outline-none font-bold text-green-900 focus:ring-2 focus:ring-green-400">
+          <option value="" disabled selected>⏳ Memuat daftar COA...</option>
+        </select>
+        <p class="text-[10px] text-green-600 mt-1.5 flex items-center gap-1">
+          <i class="fa-solid fa-circle-info"></i>
+          Tambah / kelola akun lewat menu
+          <button type="button" onclick="pindahMenu('master')"
+                  class="font-bold underline text-green-700 hover:text-green-900">
+            Master → COA Pemasukan
+          </button>
+        </p>
+      </div>
+
+      <!-- Nama Item / Sumber -->
       <div class="mb-4">
-        <label class="block text-xs font-bold text-gray-500 mb-1">NAMA ITEM / SUMBER <span class="text-red-500">*</span></label>
-        <input type="text" id="kas-item" 
-               class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none" 
+        <label class="block text-xs font-bold text-gray-500 mb-1">
+          <span id="label-nama-item">NAMA ITEM / SUMBER</span>
+          <span class="text-red-500">*</span>
+          <span id="hint-nama-item" class="text-[9px] font-normal text-gray-400 ml-1">(misal: Gaji Oktober 2026)</span>
+        </label>
+        <input type="text" id="kas-item"
+               class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none"
                placeholder="Misal: Tagihan Listrik / Gaji Bulanan" required>
       </div>
 
+      <!-- Nominal -->
       <div class="mb-4">
         <label class="block text-xs font-bold text-gray-500 mb-1">NOMINAL (RP) <span class="text-red-500">*</span></label>
-        <!-- 
-          FIX KRITIS iOS ZOOM:
-          1. Hapus placeholder="0" → ganti jadi placeholder kosong ""
-             Alasan: iOS zoom saat value/placeholder berubah dari "" ke "0"
-          2. Hapus inline style font-size → pakai CSS exception rule di Index.html
-             yang set #kas-nominal-visual { font-size: 20px !important }
-          3. inputmode="numeric" → iOS munculkan numpad langsung, 
-             lebih smooth daripada type="text" biasa
-        -->
-        <input type="text" id="kas-nominal-visual" 
+        <input type="text" id="kas-nominal-visual"
                inputmode="numeric"
-               oninput="formatVisualAngka(this, 'kas-nominal-raw')" 
-               class="w-full bg-rose-50 border border-pink-200 py-4 px-4 rounded-xl font-bold text-gray-800 outline-none text-center transition-colors" 
+               oninput="formatVisualAngka(this, 'kas-nominal-raw')"
+               class="w-full bg-rose-50 border border-pink-200 py-4 px-4 rounded-xl font-bold text-gray-800 outline-none text-center transition-colors"
                placeholder="">
         <input type="hidden" id="kas-nominal-raw" value="0">
       </div>
 
+      <!-- Catatan -->
       <div class="mb-6">
         <label class="block text-xs font-bold text-gray-500 mb-1">CATATAN / NO REK / KODE BAYAR</label>
-        <input type="text" id="kas-catatan" 
-               class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none" 
+        <input type="text" id="kas-catatan"
+               class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none"
                placeholder="Boleh dikosongkan">
       </div>
 
-      <button type="submit" id="btn-submit-kas" 
+      <!-- Tombol Submit -->
+      <button type="submit" id="btn-submit-kas"
               class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm transition-colors">
         Simpan Pengeluaran (Kredit)
       </button>
+
     </form>
   </div>
 
@@ -102,63 +120,118 @@
 
 <script>
   let dataPengeluaranRutin = [];
+  let dataCOAPemasukan     = [];
 
+  // ── Hitung Periode dari Tanggal ──
   function updatePeriodeUI() {
     const tglInput = document.getElementById('kas-tgl').value;
     if (!tglInput) return;
-    
-    // Parse langsung dari string YYYY-MM-DD untuk menghindari bug timezone
     const parts = tglInput.split('-');
     let thn = parseInt(parts[0]);
-    let bln = parseInt(parts[1]) - 1; // 0-indexed
+    let bln = parseInt(parts[1]) - 1;
     let tgl = parseInt(parts[2]);
-
-    // Logika Cut-Off: Tgl 28 lompat ke bulan depan
     if (tgl >= 28) {
       bln = bln + 1;
       if (bln > 11) { bln = 0; thn = thn + 1; }
     }
-
-    const namaBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const namaBulan = ["Januari","Februari","Maret","April","Mei","Juni",
+                       "Juli","Agustus","September","Oktober","November","Desember"];
     document.getElementById('kas-periode').value = namaBulan[bln] + " " + thn;
   }
 
+  // ── Init Modul ──
   function initModulArusKas() {
-    // FIX: Gunakan cara yang tidak memicu re-layout iOS
-    const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
+    const now    = new Date();
+    const yyyy   = now.getFullYear();
+    const mm     = String(now.getMonth() + 1).padStart(2, '0');
+    const dd     = String(now.getDate()).padStart(2, '0');
     const localDate = `${yyyy}-${mm}-${dd}`;
-    
+
     document.getElementById('kas-tgl').value = localDate;
     updatePeriodeUI();
-
-    // FIX: Pastikan nominal field BERSIH saat init (tidak isi "0")
     document.getElementById('kas-nominal-visual').value = '';
     document.getElementById('kas-nominal-raw').value = '0';
 
-    google.script.run.withSuccessHandler(data => {
-      dataPengeluaranRutin = data;
-      renderDaftarTemplateRutin(data);
-    }).getReferensiArusKas();
+    // Load template pengeluaran rutin
+    google.script.run
+      .withSuccessHandler(data => {
+        dataPengeluaranRutin = data;
+        renderDaftarTemplateRutin(data);
+      })
+      .withFailureHandler(err => console.warn('Template rutin gagal:', err.message))
+      .getReferensiArusKas();
+
+    // Load COA Pemasukan
+    google.script.run
+      .withSuccessHandler(data => {
+        dataCOAPemasukan = data;
+        renderSelectCOAPemasukan(data);
+      })
+      .withFailureHandler(err => console.warn('COA Pemasukan gagal:', err.message))
+      .getReferensiCOAPemasukan();
   }
 
+  // ── Render dropdown template pengeluaran rutin ──
   function renderDaftarTemplateRutin(data) {
     let listHtml = '';
     if (data.length === 0) {
-      listHtml = '<li class="px-3 py-3 text-gray-400 italic text-center">Belum ada template master</li>';
+      listHtml = '<li class="px-3 py-3 text-gray-400 italic text-center text-xs">Belum ada template. Tambah di Master → Pengeluaran Rutin</li>';
     } else {
       data.forEach(d => {
-        const strData = encodeURIComponent(JSON.stringify({nama: d[1], nominal: d[2], catatan: d[3]}));
-        listHtml += `<li onclick="pilihTemplateRutin('${strData}')" class="px-3 py-3 hover:bg-yellow-100 active:bg-yellow-200 cursor-pointer text-gray-700 font-medium transition-colors">${d[1]}</li>`;
+        const strData = encodeURIComponent(JSON.stringify({ nama: d[1], nominal: d[2], catatan: d[3] }));
+        listHtml += `<li onclick="pilihTemplateRutin('${strData}')"
+          class="px-3 py-3 hover:bg-yellow-100 active:bg-yellow-200 cursor-pointer text-gray-700 font-medium transition-colors flex items-center justify-between gap-2">
+          <span>${d[1]}</span>
+          <span class="text-[10px] text-yellow-700 font-bold whitespace-nowrap">Rp${parseInt(d[2]||0).toLocaleString('id-ID')}</span>
+        </li>`;
       });
     }
     document.getElementById('kas-dropdown-list').innerHTML = listHtml;
   }
 
-  function tampilkanDropdownTemplate() { 
-    document.getElementById('kas-dropdown-list').classList.remove('hidden'); 
+  // ── Render select COA Pemasukan dengan optgroup ──
+  function renderSelectCOAPemasukan(data) {
+    const el = document.getElementById('kas-coa-pemasukan');
+    if (!data || data.length === 0) {
+      el.innerHTML = '<option value="" disabled selected>⚠ Belum ada COA — tambah di Master → COA Pemasukan</option>';
+      return;
+    }
+
+    // Kelompokkan per kategori
+    const grouped = {};
+    const urutan  = []; // jaga urutan kategori pertama kali muncul
+    data.forEach(row => {
+      const kategori = String(row[2] || 'Lainnya').trim();
+      if (!grouped[kategori]) {
+        grouped[kategori] = [];
+        urutan.push(kategori);
+      }
+      grouped[kategori].push({ id: row[0], nama: String(row[1]).trim() });
+    });
+
+    // Ikon per kategori
+    const iconMap = {
+      'Pendapatan Aktif':  '💼',
+      'Pendapatan Pasif':  '📈',
+      'Penerimaan Lain':   '🎁',
+      'Transfer Masuk':    '🔄',
+    };
+
+    let html = '<option value="" disabled selected>— Pilih Kategori Pemasukan —</option>';
+    urutan.forEach(kategori => {
+      const icon = iconMap[kategori] || '📂';
+      html += `<optgroup label="${icon} ${kategori}">`;
+      grouped[kategori].forEach(item => {
+        html += `<option value="${item.nama}">${item.nama}</option>`;
+      });
+      html += `</optgroup>`;
+    });
+    el.innerHTML = html;
+  }
+
+  // ── Dropdown template rutin ──
+  function tampilkanDropdownTemplate() {
+    document.getElementById('kas-dropdown-list').classList.remove('hidden');
   }
 
   function filterTemplateRutin() {
@@ -166,24 +239,23 @@
     const inputVal = document.getElementById('kas-template-input').value.toLowerCase();
     const listItems = document.getElementById('kas-dropdown-list').getElementsByTagName('li');
     for (let i = 0; i < listItems.length; i++) {
-      let text = listItems[i].textContent || listItems[i].innerText;
-      if (text.toLowerCase().indexOf(inputVal) > -1) listItems[i].style.display = "";
-      else listItems[i].style.display = "none";
+      const text = listItems[i].textContent || listItems[i].innerText;
+      listItems[i].style.display = text.toLowerCase().includes(inputVal) ? "" : "none";
     }
   }
 
   function pilihTemplateRutin(encodedData) {
     const d = JSON.parse(decodeURIComponent(encodedData));
     document.getElementById('kas-template-input').value = d.nama;
-    document.getElementById('kas-item').value = d.nama;
+    document.getElementById('kas-item').value  = d.nama;
     document.getElementById('kas-catatan').value = d.catatan || '';
     document.getElementById('kas-nominal-raw').value = d.nominal;
-    // FIX: Jika nominal 0 atau kosong, set visual ke '' bukan '0'
     const nominalAngka = parseInt(d.nominal || 0);
     document.getElementById('kas-nominal-visual').value = nominalAngka > 0 ? nominalAngka.toLocaleString('id-ID') : '';
     document.getElementById('kas-dropdown-list').classList.add('hidden');
   }
 
+  // Tutup dropdown saat klik di luar
   document.addEventListener('click', function(event) {
     const area = document.getElementById('area-template-rutin');
     const dropdownList = document.getElementById('kas-dropdown-list');
@@ -192,35 +264,46 @@
     }
   });
 
+  // ── Ganti Mode (PENGELUARAN / PEMASUKAN) ──
   function gantiModeArusKas() {
-    const mode = document.getElementById('pilihModeArusKas').value;
-    const areaTemplate = document.getElementById('area-template-rutin');
+    const mode              = document.getElementById('pilihModeArusKas').value;
+    const areaTemplate      = document.getElementById('area-template-rutin');
+    const areaCOAPemasukan  = document.getElementById('area-coa-pemasukan');
+    const btnSubmit         = document.getElementById('btn-submit-kas');
+    const hintNamaItem      = document.getElementById('hint-nama-item');
 
+    // Reset form
     document.getElementById('formArusKas').reset();
-    // FIX: Setelah reset, pastikan nominal visual KOSONG (bukan "0")
     document.getElementById('kas-nominal-raw').value = '0';
     document.getElementById('kas-nominal-visual').value = '';
     document.getElementById('kas-template-input').value = '';
     updatePeriodeUI();
-    
+
+    // Reset filter dropdown list
     const listItems = document.getElementById('kas-dropdown-list').getElementsByTagName('li');
     for (let i = 0; i < listItems.length; i++) listItems[i].style.display = "";
 
     if (mode === 'PEMASUKAN') {
       areaTemplate.classList.add('hidden');
-      document.getElementById('btn-submit-kas').innerText = "Simpan Pemasukan (Debit)";
-      document.getElementById('btn-submit-kas').className = "w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm transition-colors";
+      areaCOAPemasukan.classList.remove('hidden');
+      document.getElementById('kas-item').placeholder = 'Misal: Gaji Oktober 2026 / Dividen BBCA';
+      hintNamaItem.innerText = '(keterangan tambahan, opsional)';
+      btnSubmit.innerText    = 'Simpan Pemasukan (Debit)';
+      btnSubmit.className    = 'w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm transition-colors';
     } else {
       areaTemplate.classList.remove('hidden');
-      document.getElementById('btn-submit-kas').innerText = "Simpan Pengeluaran (Kredit)";
-      document.getElementById('btn-submit-kas').className = "w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm transition-colors";
+      areaCOAPemasukan.classList.add('hidden');
+      document.getElementById('kas-item').placeholder = 'Misal: Tagihan Listrik / Belanja Bulanan';
+      hintNamaItem.innerText = '(misal: Listrik PLN / Beli Beras)';
+      btnSubmit.innerText    = 'Simpan Pengeluaran (Kredit)';
+      btnSubmit.className    = 'w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm transition-colors';
     }
   }
 
+  // ── Format Angka Visual ──
   function formatVisualAngka(elVisual, idRaw) {
-    let raw = elVisual.value.replace(/[^0-9]/g, ''); 
+    let raw = elVisual.value.replace(/[^0-9]/g, '');
     if (raw === '' || raw === '0') {
-      // FIX: Jangan set visual ke '0' — biarkan kosong agar iOS tidak zoom
       document.getElementById(idRaw).value = '0';
       elVisual.value = '';
       return;
@@ -229,45 +312,84 @@
     elVisual.value = parseInt(raw).toLocaleString('id-ID');
   }
 
+  // ── Submit Transaksi Arus Kas ──
   function submitTrxArusKas(e) {
     e.preventDefault();
+    const mode = document.getElementById('pilihModeArusKas').value;
 
-    // Validasi nominal tidak boleh 0
+    // Validasi COA wajib saat PEMASUKAN
+    let coaVal = '';
+    if (mode === 'PEMASUKAN') {
+      coaVal = document.getElementById('kas-coa-pemasukan').value;
+      if (!coaVal) {
+        Swal.fire('COA Kosong', 'Pilih kategori pemasukan terlebih dahulu.', 'warning');
+        return;
+      }
+    }
+
+    // Validasi nominal
     const nominalRaw = parseInt(document.getElementById('kas-nominal-raw').value) || 0;
     if (nominalRaw <= 0) {
       Swal.fire('Nominal Kosong', 'Masukkan nominal yang valid!', 'warning');
       return;
     }
 
-    let btn = document.getElementById('btn-submit-kas'); 
+    // Susun nama item final
+    // - PEMASUKAN: "COA · Keterangan" atau cukup COA jika keterangan kosong
+    // - PENGELUARAN: nama item langsung
+    const namaItemManual = document.getElementById('kas-item').value.trim();
+    let itemFinal = '';
+    if (mode === 'PEMASUKAN') {
+      if (namaItemManual && namaItemManual !== coaVal) {
+        itemFinal = coaVal + ' · ' + namaItemManual;
+      } else {
+        itemFinal = coaVal;
+      }
+    } else {
+      itemFinal = namaItemManual;
+    }
+
+    if (!itemFinal) {
+      Swal.fire('Nama Item Kosong', 'Isi nama item / sumber dana.', 'warning');
+      return;
+    }
+
+    let btn = document.getElementById('btn-submit-kas');
     let btnTeksLama = btn.innerText;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...'; 
-    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...';
+    btn.disabled  = true;
 
     const payload = {
       tanggal: document.getElementById('kas-tgl').value,
       periode: document.getElementById('kas-periode').value,
-      tipe: document.getElementById('pilihModeArusKas').value,
-      item: document.getElementById('kas-item').value,
+      tipe:    mode,
+      item:    itemFinal,
       nominal: document.getElementById('kas-nominal-raw').value,
-      catatan: document.getElementById('kas-catatan').value || '-'
+      catatan: document.getElementById('kas-catatan').value || '-',
+      coa:     coaVal || '-'
     };
 
-    google.script.run.withSuccessHandler(res => {
-      Swal.fire({title: 'Berhasil!', text: res, icon:'success'});
-      document.getElementById('kas-item').value = '';
-      // FIX: Reset ke kosong, bukan '0'
-      document.getElementById('kas-nominal-visual').value = '';
-      document.getElementById('kas-nominal-raw').value = '0';
-      document.getElementById('kas-catatan').value = '';
-      document.getElementById('kas-template-input').value = ''; 
-      document.getElementById('kas-dropdown-list').classList.add('hidden');
-      btn.innerText = btnTeksLama; 
-      btn.disabled = false;
-    }).withFailureHandler(err => {
-      Swal.fire('Gagal', err.message, 'error');
-      btn.innerText = btnTeksLama;
-      btn.disabled = false;
-    }).simpanTrxArusKas(payload);
+    google.script.run
+      .withSuccessHandler(res => {
+        Swal.fire({ title: 'Berhasil!', text: res, icon: 'success' });
+        // Reset field tapi jaga tanggal & periode
+        document.getElementById('kas-item').value           = '';
+        document.getElementById('kas-nominal-visual').value = '';
+        document.getElementById('kas-nominal-raw').value    = '0';
+        document.getElementById('kas-catatan').value        = '';
+        document.getElementById('kas-template-input').value = '';
+        document.getElementById('kas-dropdown-list').classList.add('hidden');
+        if (mode === 'PEMASUKAN') {
+          document.getElementById('kas-coa-pemasukan').value = '';
+        }
+        btn.innerText = btnTeksLama;
+        btn.disabled  = false;
+      })
+      .withFailureHandler(err => {
+        Swal.fire('Gagal', err.message, 'error');
+        btn.innerText = btnTeksLama;
+        btn.disabled  = false;
+      })
+      .simpanTrxArusKas(payload);
   }
 </script>

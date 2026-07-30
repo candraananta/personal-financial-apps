@@ -122,23 +122,27 @@
   <!-- ═══════════════════════════════════════════════════════
        BARIS 2: TAB NAVIGASI dengan badge jumlah transaksi
   ═══════════════════════════════════════════════════════ -->
-  <div class="flex bg-white rounded-2xl shadow-sm border border-pink-100 p-1.5 mb-4 gap-1">
-    <button onclick="switchTabReport('kas')" id="tab-report-kas"
-            class="flex-1 py-2.5 px-1 text-[11px] font-bold rounded-xl tab-aktif transition-all text-center">
-      <i class="fa-solid fa-wallet mr-1"></i>Kas
-      <span id="badge-kas" class="badge-count">0</span>
-    </button>
-    <button onclick="switchTabReport('klinik')" id="tab-report-klinik"
-            class="flex-1 py-2.5 px-1 text-[11px] font-bold rounded-xl tab-nonaktif transition-all text-center">
-      <i class="fa-solid fa-user-doctor mr-1"></i>Klinik
-      <span id="badge-klinik" class="badge-count-dark">0</span>
-    </button>
-    <button onclick="switchTabReport('aset')" id="tab-report-aset"
-            class="flex-1 py-2.5 px-1 text-[11px] font-bold rounded-xl tab-nonaktif transition-all text-center">
-      <i class="fa-solid fa-chart-line mr-1"></i>Aset
-      <span id="badge-aset" class="badge-count-dark">0</span>
-    </button>
-  </div>
+   <div class="flex bg-white rounded-2xl shadow-sm border border-pink-100 p-1.5 mb-4 gap-1">
+      <button onclick="switchTabReport('kas')" id="tab-report-kas"
+              class="flex-1 py-2.5 px-1 text-[11px] font-bold rounded-xl tab-aktif transition-all text-center">
+          <i class="fa-solid fa-wallet mr-1"></i>Kas
+          <span id="badge-kas" class="badge-count">0</span>
+      </button>
+      <button onclick="switchTabReport('klinik')" id="tab-report-klinik"
+              class="flex-1 py-2.5 px-1 text-[11px] font-bold rounded-xl tab-nonaktif transition-all text-center">
+        <i class="fa-solid fa-user-doctor mr-1"></i>Klinik
+        <span id="badge-klinik" class="badge-count-dark">0</span>
+      </button>
+      <button onclick="switchTabReport('aset')" id="tab-report-aset"
+              class="flex-1 py-2.5 px-1 text-[11px] font-bold rounded-xl tab-nonaktif transition-all text-center">
+        <i class="fa-solid fa-chart-line mr-1"></i>Aset
+        <span id="badge-aset" class="badge-count-dark">0</span>
+      </button>
+      <button onclick="switchTabReport('recent')" id="tab-report-recent"
+              class="flex-1 py-2.5 px-1 text-[11px] font-bold rounded-xl tab-nonaktif transition-all text-center">
+        <i class="fa-solid fa-clock-rotate-left mr-1"></i>Terbaru
+      </button>
+    </div>
 
 
   <!-- ═══════════════════════════════════════════════════════
@@ -408,6 +412,40 @@
     </div>
 
   </div><!-- /container-report-aset -->
+
+  <!-- ═══════════════════════════════════════════════════════
+     CONTAINER RECENT TRANSACTIONS
+═══════════════════════════════════════════════════════ -->
+<div id="container-report-recent" class="hidden w-full fade-in-up">
+
+  <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <p class="text-[10px] font-bold text-rose-900">
+          <i class="fa-solid fa-clock-rotate-left text-pink-500 mr-1"></i>TRANSAKSI TERAKHIR
+        </p>
+        <p class="text-[9px] text-gray-400 mt-0.5">10 transaksi terbaru dari semua modul</p>
+      </div>
+      <!-- Filter chip -->
+      <div class="flex gap-1">
+        <button onclick="filterRecentTrx('semua')" id="recent-filter-semua"
+                class="text-[9px] font-bold px-2 py-1 rounded-full bg-pink-600 text-white transition-colors">Semua</button>
+        <button onclick="filterRecentTrx('kas')" id="recent-filter-kas"
+                class="text-[9px] font-bold px-2 py-1 rounded-full bg-pink-50 text-pink-600 transition-colors">Kas</button>
+        <button onclick="filterRecentTrx('klinik')" id="recent-filter-klinik"
+                class="text-[9px] font-bold px-2 py-1 rounded-full bg-pink-50 text-pink-600 transition-colors">Klinik</button>
+        <button onclick="filterRecentTrx('aset')" id="recent-filter-aset"
+                class="text-[9px] font-bold px-2 py-1 rounded-full bg-pink-50 text-pink-600 transition-colors">Aset</button>
+      </div>
+    </div>
+    <div id="list-recent-trx" class="space-y-2">
+      <div class="skeleton h-16 w-full rounded-xl"></div>
+      <div class="skeleton h-16 w-full rounded-xl"></div>
+      <div class="skeleton h-16 w-full rounded-xl"></div>
+    </div>
+  </div>
+
+</div><!-- /container-report-recent -->
 
 
   <!-- ═══════════════════════════════════════════════════════
@@ -682,22 +720,26 @@ function updateBadgeTab() {
 ═══════════════════════════════════════════════════════════ */
 function switchTabReport(tab) {
   tabAktif = tab;
-  ['kas','klinik','aset'].forEach(t => {
+  ['kas','klinik','aset','recent'].forEach(t => {
     const btn = document.getElementById('tab-report-' + t);
     const box = document.getElementById('container-report-' + t);
+    if (!btn || !box) return;
     if (t === tab) {
       btn.classList.add('tab-aktif');
       btn.classList.remove('tab-nonaktif');
-      btn.querySelector('.badge-count, .badge-count-dark').className = 'badge-count';
+      const badge = btn.querySelector('.badge-count, .badge-count-dark');
+      if (badge) badge.className = 'badge-count';
       box.classList.remove('hidden');
       box.classList.add('fade-in-up');
     } else {
       btn.classList.remove('tab-aktif');
       btn.classList.add('tab-nonaktif');
-      btn.querySelector('.badge-count, .badge-count-dark').className = 'badge-count-dark';
+      const badge = btn.querySelector('.badge-count, .badge-count-dark');
+      if (badge) badge.className = 'badge-count-dark';
       box.classList.add('hidden');
     }
   });
+  if (tab === 'recent') renderRecentTransactions('semua');
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1988,4 +2030,147 @@ async function jalankanExportPDF() {
 document.addEventListener('DOMContentLoaded', function() {
   updateLabelExportPeriode();
 });
+
+/* ═══════════════════════════════════════════════════════════
+   RECENT TRANSACTIONS
+═══════════════════════════════════════════════════════════ */
+let recentFilterMode = 'semua';
+
+function filterRecentTrx(mode) {
+  recentFilterMode = mode;
+  ['semua','kas','klinik','aset'].forEach(m => {
+    const btn = document.getElementById('recent-filter-' + m);
+    if (!btn) return;
+    btn.className = m === mode
+      ? 'text-[9px] font-bold px-2 py-1 rounded-full bg-pink-600 text-white transition-colors'
+      : 'text-[9px] font-bold px-2 py-1 rounded-full bg-pink-50 text-pink-600 transition-colors';
+  });
+  renderRecentTransactions(mode);
+}
+
+function renderRecentTransactions(mode) {
+  const container = document.getElementById('list-recent-trx');
+  if (!container) return;
+
+  // Gabungkan semua transaksi dari tiga sumber dengan label sumber
+  let allTrx = [];
+
+  // KAS — kolom: [0]=ID, [1]=Tgl, [2]=Periode, [3]=Tipe, [4]=Item, [5]=Catatan, [6]=Debit, [7]=Kredit
+  if (mode === 'semua' || mode === 'kas') {
+    masterDataLaporan.kas.forEach(row => {
+      const debit  = parseFloat(row[6]) || 0;
+      const kredit = parseFloat(row[7]) || 0;
+      const isDebit = debit > 0;
+      allTrx.push({
+        sumber:  'kas',
+        tanggal: String(row[1] || ''),
+        label:   String(row[4] || '-'),
+        sub:     String(row[5] || '-'),
+        nominal: isDebit ? debit : kredit,
+        tipe:    isDebit ? 'MASUK' : 'KELUAR',
+        periode: String(row[2] || '-'),
+        sortKey: String(row[1] || '')
+      });
+    });
+  }
+
+  // KLINIK — kolom: [0]=ID, [1]=Tgl, [2]=Periode, [3]=Klinik, [4]=Pasien, [5]=Tindakan, [6]=Omset, [7]=%, [8]=Komisi, [9]=Laba
+  if (mode === 'semua' || mode === 'klinik') {
+    masterDataLaporan.klinik.forEach(row => {
+      allTrx.push({
+        sumber:  'klinik',
+        tanggal: String(row[1] || ''),
+        label:   String(row[4] || '-'),
+        sub:     String(row[3] || '-') + (row[5] && row[5] !== '-' ? ' · ' + row[5] : ''),
+        nominal: parseFloat(row[9]) || 0,
+        tipe:    'LABA',
+        periode: String(row[2] || '-'),
+        sortKey: String(row[1] || '')
+      });
+    });
+  }
+
+  // ASET — kolom: [0]=ID, [1]=Tgl, [2]=Platform(?), [3]=Kategori, [4]=Item, [5]=Tipe, [6]=Qty, [7]=Harga, [8]=Total, [9]=IdRef
+  if (mode === 'semua' || mode === 'aset') {
+    masterDataLaporan.aset.forEach(row => {
+      const tipeAset = String(row[5] || '').trim();
+      allTrx.push({
+        sumber:  'aset',
+        tanggal: String(row[1] || ''),
+        label:   String(row[4] || '-'),
+        sub:     String(row[2] || '-') + ' · ' + String(row[3] || '-'),
+        nominal: parseFloat(row[8]) || 0,
+        tipe:    tipeAset,
+        periode: '',
+        sortKey: String(row[1] || '')
+      });
+    });
+  }
+
+  // Sort terbaru → tertua, ambil top 10
+  allTrx.sort((a, b) => String(b.sortKey).localeCompare(String(a.sortKey)));
+  const top10 = allTrx.slice(0, 10);
+
+  if (top10.length === 0) {
+    container.innerHTML = renderEmptyState('Belum ada transaksi', 'Data akan muncul setelah ada pencatatan.');
+    return;
+  }
+
+  const ikonSumber = { kas: 'wallet', klinik: 'user-doctor', aset: 'chart-line' };
+  const warnaSumber = {
+    kas:    { bg: 'bg-pink-100',  icon: 'text-pink-600'  },
+    klinik: { bg: 'bg-rose-100',  icon: 'text-rose-600'  },
+    aset:   { bg: 'bg-purple-100',icon: 'text-purple-600'}
+  };
+  const labelTipe = {
+    MASUK:  { cls: 'text-green-600', sign: '+', bg: 'bg-green-50'  },
+    KELUAR: { cls: 'text-red-500',   sign: '-', bg: 'bg-red-50'    },
+    LABA:   { cls: 'text-emerald-600',sign: '+', bg: 'bg-emerald-50'},
+    BELI:   { cls: 'text-blue-600',  sign: '-', bg: 'bg-blue-50'   },
+    JUAL:   { cls: 'text-green-600', sign: '+', bg: 'bg-green-50'  },
+  };
+
+  let html = '';
+  top10.forEach((trx, idx) => {
+    const w  = warnaSumber[trx.sumber] || { bg: 'bg-gray-100', icon: 'text-gray-600' };
+    const ik = ikonSumber[trx.sumber] || 'circle';
+    const t  = labelTipe[trx.tipe] || { cls: 'text-gray-600', sign: '', bg: 'bg-gray-50' };
+    const badgeSumber = trx.sumber === 'kas' ? 'Arus Kas' : trx.sumber === 'klinik' ? 'Klinik' : 'Aset';
+    const badgeKls = trx.sumber === 'kas'
+      ? 'bg-pink-100 text-pink-700'
+      : trx.sumber === 'klinik'
+        ? 'bg-rose-100 text-rose-700'
+        : 'bg-purple-100 text-purple-700';
+
+    html += `
+      <div class="item-card flex items-center gap-3 bg-white border border-pink-100 rounded-xl p-3 fade-in-up"
+           style="animation-delay: ${idx * 40}ms">
+        <!-- Nomor urut -->
+        <div class="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+          <span class="text-[9px] font-bold text-gray-400">${idx + 1}</span>
+        </div>
+        <!-- Ikon sumber -->
+        <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${w.bg}">
+          <i class="fa-solid fa-${ik} text-sm ${w.icon}"></i>
+        </div>
+        <!-- Konten -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-1.5 mb-0.5 flex-wrap">
+            <p class="text-[11px] font-bold text-slate-700 truncate max-w-[130px]">${trx.label}</p>
+            <span class="text-[8px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${badgeKls}">${badgeSumber}</span>
+          </div>
+          <p class="text-[9px] text-gray-400 truncate">${trx.tanggal ? trx.tanggal + ' · ' : ''}${trx.sub}</p>
+        </div>
+        <!-- Nominal -->
+        <div class="text-right flex-shrink-0">
+          <p class="text-xs font-bold ${t.cls}">${t.sign}${fRp(Math.abs(trx.nominal))}</p>
+          <p class="text-[9px] font-bold text-gray-400 mt-0.5">${trx.tipe}</p>
+        </div>
+      </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+
 </script>
