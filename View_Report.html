@@ -1,1584 +1,2006 @@
 <!-- ===================================================================
-     FILE: View_Report.html — FIXED v3
-     Perbaikan:
-       1. renderCardAset() ditambahkan (sebelumnya tidak ada → list-aset kosong)
-       2. addEventListener 'modal-detail-kas' dipindah ke dalam DOMContentLoaded
-       3. Normalisasi angka: parseFloat(row[n]) sudah number dari backend (Code_Report v3)
-          sehingga semua parseFloat(row[n]) langsung benar tanpa replace
-       4. normPeriode() + toTimestamp() tetap robust untuk string "YYYY-MM-DD"
+     FILE: View_Report.html — Redesign v4
+     UX Philosophy:
+       · Single-scroll, no hidden tabs — user sees everything
+       · Plain language, zero accounting jargon
+       · Progressive disclosure — summary first, detail on tap
+       · Period picker sticky + always visible
+       · Every section answers a real question the user would ask
      =================================================================== -->
 
 <style>
-  /* ── Animasi & Transisi ── */
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(12px); }
-    to   { opacity: 1; transform: translateY(0); }
+  /* ─── Reset & Base ─────────────────────────────────────── */
+  #modul-report * { box-sizing: border-box; }
+
+  #modul-report {
+    --pink:        #db2777;
+    --pink-d:      #be185d;
+    --pink-dd:     #9d174d;
+    --pink-lt:     #fce7f3;
+    --pink-xs:     #fdf2f8;
+    --green:       #16a34a;
+    --green-lt:    #dcfce7;
+    --green-xs:    #f0fdf4;
+    --red:         #dc2626;
+    --red-lt:      #fee2e2;
+    --red-xs:      #fff5f5;
+    --amber:       #d97706;
+    --amber-lt:    #fef3c7;
+    --indigo:      #4338ca;
+    --indigo-lt:   #e0e7ff;
+    --slate-1:     #f1f5f9;
+    --slate-2:     #e2e8f0;
+    --slate-3:     #cbd5e1;
+    --slate-4:     #94a3b8;
+    --slate-5:     #64748b;
+    --slate-7:     #334155;
+    --slate-9:     #0f172a;
+    --white:       #ffffff;
+    --radius-sm:   0.625rem;
+    --radius-md:   1rem;
+    --radius-lg:   1.375rem;
+    --radius-xl:   1.75rem;
+    --shadow-sm:   0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --shadow-md:   0 4px 12px rgba(0,0,0,.08);
+    --shadow-lg:   0 8px 24px rgba(0,0,0,.10);
   }
-  @keyframes shimmer {
+
+  /* ─── Animations ───────────────────────────────────────── */
+  @keyframes rpt-fade-up {
+    from { opacity:0; transform:translateY(14px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  @keyframes rpt-shimmer {
     0%   { background-position: -200% 0; }
     100% { background-position:  200% 0; }
   }
+  @keyframes rpt-ring-fill {
+    from { stroke-dashoffset: 251.2; }
+  }
+  @keyframes rpt-count-up {
+    from { opacity: 0; transform: scale(0.92); }
+    to   { opacity: 1; transform: scale(1); }
+  }
 
-  .fade-in-up { animation: fadeInUp 0.35s ease both; }
+  #modul-report .rpt-fade-up { animation: rpt-fade-up 0.38s ease both; }
 
-  /* Skeleton loading */
-  .skeleton {
+  /* ─── Skeleton ─────────────────────────────────────────── */
+  #modul-report .rpt-skel {
     background: linear-gradient(90deg, #fce7f3 25%, #fbcfe8 50%, #fce7f3 75%);
     background-size: 200% 100%;
-    animation: shimmer 1.4s infinite;
-    border-radius: 8px;
+    animation: rpt-shimmer 1.5s infinite;
+    border-radius: var(--radius-sm);
   }
 
-  /* Tab active style */
-  .tab-aktif    { background: linear-gradient(135deg, #db2777, #be185d); color: white; box-shadow: 0 2px 8px rgba(219,39,119,.35); }
-  .tab-nonaktif { background: transparent; color: #9f1239; }
-
-  /* Progress bar */
-  .progress-bar-inner { transition: width 0.7s cubic-bezier(.4,0,.2,1); }
-
-  /* Card hover */
-  .item-card { transition: box-shadow 0.18s, transform 0.18s; }
-  .item-card:active { transform: scale(0.98); box-shadow: 0 1px 4px rgba(190,24,93,.15); }
-
-  /* Chip filter */
-  .chip-aktif    { background: #db2777; color: white; border-color: #db2777; }
-  .chip-nonaktif { background: white; color: #9f1239; border-color: #fbcfe8; }
-
-  /* Badge */
-  .badge-count      { background: rgba(255,255,255,0.25); font-size: 9px; padding: 1px 5px; border-radius: 9999px; vertical-align: middle; margin-left: 3px; }
-  .badge-count-dark { background: #fce7f3; color: #be185d; font-size: 9px; padding: 1px 5px; border-radius: 9999px; vertical-align: middle; margin-left: 3px; }
-
-  /* Collapsible rows */
-  .row-expanded  { display: table-row; }
-  .row-collapsed { display: none; }
-
-  /* Scrollbar tipis untuk modal */
-  .thin-scroll::-webkit-scrollbar       { width: 3px; }
-  .thin-scroll::-webkit-scrollbar-track { background: #fce7f3; }
-  .thin-scroll::-webkit-scrollbar-thumb { background: #db2777; border-radius: 3px; }
-
-  /* Toggle saldo */
-  #btn-toggle-saldo {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 1.25rem; height: 1.25rem; border-radius: 9999px;
-    border: none; background: transparent; cursor: pointer;
-    color: #f9a8d4; transition: background 0.15s, color 0.15s; flex-shrink: 0; padding: 0;
+  /* ─── Sticky Period Bar ─────────────────────────────────── */
+  #rpt-period-bar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--slate-2);
+    padding: 0.625rem 0.75rem;
+    margin: 0 -0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
-  #btn-toggle-saldo:hover  { background: #fce7f3; color: #be185d; }
-  #btn-toggle-saldo:active { background: #fbcfe8; }
-  .saldo-mask { letter-spacing: 0.15em; color: #be185d !important; opacity: 0.5; }
+  #rpt-period-bar .period-label {
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--slate-4);
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  #rpt-period-chips {
+    display: flex;
+    gap: 0.375rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
+  }
+  #rpt-period-chips::-webkit-scrollbar { display: none; }
+  .rpt-chip {
+    flex-shrink: 0;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    padding: 0.3125rem 0.75rem;
+    border-radius: 999px;
+    border: 1.5px solid var(--slate-2);
+    background: var(--white);
+    color: var(--slate-5);
+    cursor: pointer;
+    transition: all 0.18s;
+    white-space: nowrap;
+    line-height: 1;
+  }
+  .rpt-chip:active { transform: scale(0.95); }
+  .rpt-chip.active {
+    background: var(--pink);
+    border-color: var(--pink);
+    color: var(--white);
+    box-shadow: 0 2px 8px rgba(219,39,119,.28);
+  }
+
+  /* ─── Section layout ───────────────────────────────────── */
+  #modul-report .rpt-section {
+    margin-bottom: 1.25rem;
+  }
+  #modul-report .rpt-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.625rem;
+    padding: 0 0.125rem;
+  }
+  #modul-report .rpt-section-title .icon-pill {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  #modul-report .rpt-section-title h2 {
+    font-size: 0.8125rem;
+    font-weight: 800;
+    color: var(--slate-9);
+    margin: 0;
+    flex: 1;
+  }
+  #modul-report .rpt-section-title .see-all {
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: var(--pink);
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    transition: background 0.15s;
+  }
+  #modul-report .rpt-section-title .see-all:hover { background: var(--pink-lt); }
+
+  /* ─── Card base ─────────────────────────────────────────── */
+  #modul-report .rpt-card {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--slate-2);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+  #modul-report .rpt-card-p { padding: 1rem; }
+
+  /* ─── HERO: Cash Health Card ────────────────────────────── */
+  #rpt-hero {
+    background: linear-gradient(145deg, var(--pink-dd) 0%, var(--pink) 55%, #f472b6 100%);
+    border-radius: var(--radius-xl);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 8px 24px rgba(190,24,93,.35);
+  }
+  #rpt-hero::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 160px; height: 160px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.08);
+  }
+  #rpt-hero::after {
+    content: '';
+    position: absolute;
+    bottom: -30px; left: -20px;
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.05);
+  }
+  #rpt-hero .hero-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+  #rpt-hero .hero-label {
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: rgba(255,255,255,.65);
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+  }
+  #rpt-hero .hero-saldo {
+    font-size: 1.875rem;
+    font-weight: 900;
+    color: var(--white);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    animation: rpt-count-up 0.4s ease both;
+  }
+  #rpt-hero .hero-period {
+    font-size: 0.625rem;
+    color: rgba(255,255,255,.55);
+    margin-top: 0.25rem;
+  }
+  #rpt-hero .hero-toggle {
+    background: rgba(255,255,255,.15);
+    border: none;
+    width: 2rem; height: 2rem;
+    border-radius: 0.625rem;
+    color: rgba(255,255,255,.8);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  #rpt-hero .hero-toggle:hover { background: rgba(255,255,255,.22); }
+  #rpt-hero .hero-toggle:active { background: rgba(255,255,255,.30); }
+
+  /* Ring gauge */
+  #rpt-hero .gauge-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    background: rgba(255,255,255,.1);
+    border-radius: var(--radius-md);
+    padding: 0.75rem;
+  }
+  #rpt-hero .gauge-ring { flex-shrink: 0; }
+  #rpt-hero #ring-arc {
+    transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1);
+    animation: rpt-ring-fill 1.2s cubic-bezier(.4,0,.2,1) both;
+  }
+  #rpt-hero .gauge-stats { flex: 1; min-width: 0; }
+  #rpt-hero .gauge-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.375rem;
+  }
+  #rpt-hero .gauge-row:last-child { margin-bottom: 0; }
+  #rpt-hero .gauge-dot {
+    width: 0.5rem; height: 0.5rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-right: 0.375rem;
+  }
+  #rpt-hero .gauge-lbl {
+    font-size: 0.625rem;
+    color: rgba(255,255,255,.65);
+    font-weight: 600;
+    flex: 1;
+  }
+  #rpt-hero .gauge-val {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--white);
+  }
+
+  /* ─── Stat 3-grid ───────────────────────────────────────── */
+  #modul-report .rpt-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  #modul-report .rpt-stat-cell {
+    background: var(--white);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--slate-2);
+    padding: 0.75rem 0.5rem;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
+  }
+  #modul-report .rpt-stat-cell:active { transform: scale(0.96); }
+  #modul-report .rpt-stat-cell .cell-icon {
+    width: 2rem; height: 2rem;
+    border-radius: 0.625rem;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 0.375rem;
+    font-size: 0.8125rem;
+  }
+  #modul-report .rpt-stat-cell .cell-val {
+    font-size: 0.8125rem;
+    font-weight: 800;
+    color: var(--slate-9);
+    display: block;
+    margin-bottom: 0.125rem;
+    line-height: 1.1;
+  }
+  #modul-report .rpt-stat-cell .cell-lbl {
+    font-size: 0.5625rem;
+    font-weight: 700;
+    color: var(--slate-4);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    display: block;
+  }
+
+  /* ─── Flow bars (income/expense breakdown) ──────────────── */
+  #modul-report .flow-item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.625rem 0;
+    border-bottom: 1px solid var(--slate-1);
+    cursor: pointer;
+    transition: background 0.12s;
+    border-radius: 0.5rem;
+    margin: 0 -0.25rem;
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+  }
+  #modul-report .flow-item:last-child { border-bottom: none; }
+  #modul-report .flow-item:active { background: var(--slate-1); }
+  #modul-report .flow-dot {
+    width: 0.5rem; height: 0.5rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  #modul-report .flow-name {
+    flex: 1;
+    min-width: 0;
+  }
+  #modul-report .flow-name p {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--slate-7);
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #modul-report .flow-name span {
+    font-size: 0.5625rem;
+    color: var(--slate-4);
+  }
+  #modul-report .flow-bar-wrap {
+    flex: 1;
+    max-width: 5rem;
+  }
+  #modul-report .flow-bar-track {
+    height: 0.3125rem;
+    background: var(--slate-1);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  #modul-report .flow-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.8s cubic-bezier(.4,0,.2,1);
+  }
+  #modul-report .flow-amount {
+    font-size: 0.75rem;
+    font-weight: 800;
+    min-width: 4rem;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  #modul-report .flow-chevron {
+    color: var(--slate-3);
+    font-size: 0.625rem;
+    flex-shrink: 0;
+  }
+
+  /* ─── Klinik ranking card ───────────────────────────────── */
+  #modul-report .klinik-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--white);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--slate-2);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 0.5rem;
+    transition: transform 0.12s;
+  }
+  #modul-report .klinik-card:active { transform: scale(0.98); }
+  #modul-report .klinik-rank {
+    font-size: 1.125rem;
+    width: 1.75rem;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  #modul-report .klinik-info { flex: 1; min-width: 0; }
+  #modul-report .klinik-info .name {
+    font-size: 0.8125rem;
+    font-weight: 800;
+    color: var(--slate-9);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #modul-report .klinik-info .sub {
+    font-size: 0.625rem;
+    color: var(--slate-5);
+    margin-top: 0.125rem;
+  }
+  #modul-report .klinik-bar-col {
+    width: 4rem;
+    flex-shrink: 0;
+  }
+  #modul-report .klinik-amount {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--green);
+    text-align: right;
+  }
+
+  /* ─── Portofolio / Asset card ───────────────────────────── */
+  #modul-report .aset-card {
+    border-radius: var(--radius-md);
+    border: 1px solid var(--slate-2);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+    background: var(--white);
+    transition: transform 0.12s;
+  }
+  #modul-report .aset-card:active { transform: scale(0.98); }
+  #modul-report .aset-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem;
+    border-bottom: 1px solid var(--slate-1);
+  }
+  #modul-report .aset-icon {
+    font-size: 1.375rem;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--pink-xs);
+    border-radius: 0.75rem;
+    flex-shrink: 0;
+  }
+  #modul-report .aset-card-info { flex: 1; min-width: 0; }
+  #modul-report .aset-card-info .name {
+    font-size: 0.8125rem;
+    font-weight: 800;
+    color: var(--slate-9);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #modul-report .aset-card-info .sub {
+    font-size: 0.5625rem;
+    color: var(--slate-4);
+    margin-top: 0.125rem;
+  }
+  #modul-report .aset-card-pnl {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  #modul-report .aset-card-pnl .val {
+    font-size: 0.8125rem;
+    font-weight: 800;
+  }
+  #modul-report .aset-card-pnl .lbl {
+    font-size: 0.5rem;
+    color: var(--slate-4);
+    margin-top: 0.0625rem;
+  }
+  #modul-report .aset-card-body {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    text-align: center;
+  }
+  #modul-report .aset-stat {
+    padding: 0.625rem 0.375rem;
+    border-right: 1px solid var(--slate-1);
+  }
+  #modul-report .aset-stat:last-child { border-right: none; }
+  #modul-report .aset-stat .val {
+    font-size: 0.75rem;
+    font-weight: 800;
+    display: block;
+    margin-bottom: 0.125rem;
+  }
+  #modul-report .aset-stat .lbl {
+    font-size: 0.5rem;
+    font-weight: 700;
+    color: var(--slate-4);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── PNL Banner ─────────────────────────────────────────── */
+  #rpt-pnl-banner {
+    border-radius: var(--radius-lg);
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+    transition: background 0.3s;
+  }
+  #rpt-pnl-banner .pnl-left {}
+  #rpt-pnl-banner .pnl-lbl {
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.7;
+    margin-bottom: 0.25rem;
+  }
+  #rpt-pnl-banner .pnl-val {
+    font-size: 1.625rem;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  #rpt-pnl-banner .pnl-sub {
+    font-size: 0.625rem;
+    opacity: 0.6;
+    margin-top: 0.25rem;
+  }
+  #rpt-pnl-banner .pnl-icon {
+    width: 3rem; height: 3rem;
+    border-radius: 0.875rem;
+    background: rgba(255,255,255,.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+  }
+
+  /* ─── Trend chart area ───────────────────────────────────── */
+  #modul-report .chart-wrap {
+    position: relative;
+    width: 100%;
+    height: 140px;
+  }
+  #modul-report .donut-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.75rem 0;
+  }
+  #modul-report .donut-canvas {
+    width: 100px !important;
+    height: 100px !important;
+    flex-shrink: 0;
+  }
+  #modul-report .donut-legend { flex: 1; min-width: 0; }
+  #modul-report .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.375rem;
+  }
+  #modul-report .legend-dot {
+    width: 0.5rem; height: 0.5rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  #modul-report .legend-name {
+    font-size: 0.625rem;
+    color: var(--slate-5);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #modul-report .legend-pct {
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: var(--slate-5);
+  }
+
+  /* ─── Pasien list ────────────────────────────────────────── */
+  #modul-report .pasien-row {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--slate-1);
+  }
+  #modul-report .pasien-row:last-child { border-bottom: none; }
+  #modul-report .pasien-avatar {
+    width: 2rem; height: 2rem;
+    border-radius: 50%;
+    background: var(--pink-lt);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.5625rem;
+    font-weight: 800;
+    color: var(--pink);
+    flex-shrink: 0;
+  }
+  #modul-report .pasien-info { flex: 1; min-width: 0; }
+  #modul-report .pasien-info .name {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--slate-7);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #modul-report .pasien-info .sub {
+    font-size: 0.5625rem;
+    color: var(--slate-4);
+  }
+  #modul-report .pasien-fee {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    color: var(--green);
+    flex-shrink: 0;
+  }
+
+  /* ─── Collapsible section ───────────────────────────────── */
+  #modul-report .rpt-collapse-toggle {
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 0.625rem 0;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--pink);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border-top: 1px solid var(--slate-1);
+    transition: background 0.12s;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  }
+  #modul-report .rpt-collapse-toggle:hover { background: var(--pink-xs); }
+
+  /* ─── Export area ────────────────────────────────────────── */
+  #modul-report .export-row {
+    display: flex;
+    gap: 0.5rem;
+  }
+  #modul-report .btn-export-secondary {
+    flex: 1;
+    background: var(--slate-1);
+    border: 1.5px solid var(--slate-2);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--slate-7);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    transition: all 0.15s;
+  }
+  #modul-report .btn-export-secondary:hover { background: var(--slate-2); }
+  #modul-report .btn-export-primary {
+    flex: 1.5;
+    background: linear-gradient(135deg, var(--pink-dd), var(--pink));
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--white);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    box-shadow: 0 4px 12px rgba(190,24,93,.3);
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  #modul-report .btn-export-primary:active { transform: scale(0.97); }
+
+  /* ─── Empty state ────────────────────────────────────────── */
+  #modul-report .rpt-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+  }
+  #modul-report .rpt-empty .empty-icon {
+    font-size: 2rem;
+    display: block;
+    margin-bottom: 0.5rem;
+    opacity: 0.3;
+  }
+  #modul-report .rpt-empty p {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--slate-4);
+  }
+  #modul-report .rpt-empty span {
+    font-size: 0.625rem;
+    color: var(--slate-3);
+    display: block;
+    margin-top: 0.25rem;
+  }
+
+  /* ─── Scrollbar styling for modals ─────────────────────── */
+  #modul-report .thin-scroll { scrollbar-width: thin; scrollbar-color: var(--pink-lt) transparent; }
+  #modul-report .thin-scroll::-webkit-scrollbar { width: 3px; }
+  #modul-report .thin-scroll::-webkit-scrollbar-thumb { background: var(--pink-lt); border-radius: 3px; }
+
+  /* ─── Badge pill ─────────────────────────────────────────── */
+  #modul-report .badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.5rem;
+    font-weight: 800;
+    padding: 0.125rem 0.4375rem;
+    border-radius: 999px;
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── Divider ─────────────────────────────────────────────  */
+  #modul-report .rpt-divider {
+    height: 1px;
+    background: var(--slate-1);
+    margin: 0.875rem 0;
+  }
+
+  /* ─── Saldo mask ──────────────────────────────────────────  */
+  .rpt-mask { color: transparent !important; text-shadow: 0 0 10px rgba(255,255,255,.6); user-select: none; }
 </style>
 
-<section id="modul-report" class="block pb-24 relative w-full overflow-x-hidden">
 
-  <!-- ═══════════════════════════════════════════════════════
-       BARIS 1: FILTER PERIODE
-  ═══════════════════════════════════════════════════════ -->
-  <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-3 mb-3">
-    <div class="flex items-center gap-2 mb-2">
-      <i class="fa-solid fa-calendar-days text-pink-500 text-xs"></i>
-      <span class="text-[10px] font-bold text-gray-400 tracking-widest">PERIODE</span>
-    </div>
-    <div id="chip-periode-container"
-         class="flex gap-2 overflow-x-auto no-scrollbar pb-1"
-         style="-webkit-overflow-scrolling: touch;">
-      <div class="skeleton h-7 w-24 flex-shrink-0 rounded-full"></div>
-      <div class="skeleton h-7 w-24 flex-shrink-0 rounded-full"></div>
-      <div class="skeleton h-7 w-24 flex-shrink-0 rounded-full"></div>
+<!-- ══════════════════════════════════════════════════════════
+     SECTION: Root
+══════════════════════════════════════════════════════════ -->
+<section id="modul-report" class="block w-full pb-24" style="background:#f8fafc; min-height:100%; padding: 0 0.75rem;">
+
+  <!-- ── Sticky Period Bar ── -->
+  <div id="rpt-period-bar">
+    <span class="period-label">Periode</span>
+    <div id="rpt-period-chips">
+      <div class="rpt-skel" style="height:26px; width:80px; border-radius:999px; flex-shrink:0;"></div>
+      <div class="rpt-skel" style="height:26px; width:80px; border-radius:999px; flex-shrink:0;"></div>
+      <div class="rpt-skel" style="height:26px; width:80px; border-radius:999px; flex-shrink:0;"></div>
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════════════════════════
-       BARIS 2: TAB NAVIGASI
-  ═══════════════════════════════════════════════════════ -->
-  <div class="flex bg-white rounded-2xl shadow-sm border border-pink-100 p-1.5 mb-4 gap-1">
-    <button onclick="switchTabReport('kas')" id="tab-report-kas"
-            class="flex-1 py-2.5 px-1 text-[11px] font-bold rounded-xl tab-aktif transition-all text-center">
-      <i class="fa-solid fa-wallet mr-1"></i>Kas
-      <span id="badge-kas" class="badge-count">0</span>
-    </button>
-    <button onclick="switchTabReport('klinik')" id="tab-report-klinik"
-            class="flex-1 py-2.5 px-1 text-[11px] font-bold rounded-xl tab-nonaktif transition-all text-center">
-      <i class="fa-solid fa-user-doctor mr-1"></i>Klinik
-      <span id="badge-klinik" class="badge-count-dark">0</span>
-    </button>
-    <button onclick="switchTabReport('aset')" id="tab-report-aset"
-            class="flex-1 py-2.5 px-1 text-[11px] font-bold rounded-xl tab-nonaktif transition-all text-center">
-      <i class="fa-solid fa-chart-line mr-1"></i>Aset
-      <span id="badge-aset" class="badge-count-dark">0</span>
-    </button>
-    <button onclick="switchTabReport('recent')" id="tab-report-recent"
-            class="flex-1 py-2.5 px-1 text-[11px] font-bold rounded-xl tab-nonaktif transition-all text-center">
-      <i class="fa-solid fa-clock-rotate-left mr-1"></i>Terbaru
-    </button>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════════
-       CONTAINER KAS
-  ═══════════════════════════════════════════════════════ -->
-  <div id="container-report-kas" class="block w-full fade-in-up">
-
-    <!-- Saldo Meter -->
-    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
-      <div class="flex items-center gap-4">
-        <div class="relative flex-shrink-0" style="width:96px;height:60px;">
-          <svg viewBox="0 0 100 60" width="96" height="60">
-            <path d="M10,55 A45,45 0 0,1 90,55" fill="none" stroke="#fce7f3" stroke-width="10" stroke-linecap="round"/>
-            <path id="arc-fill-kas" d="M10,55 A45,45 0 0,1 90,55"
-                  fill="none" stroke="#db2777" stroke-width="10" stroke-linecap="round"
-                  stroke-dasharray="141" stroke-dashoffset="141"/>
+  <!-- ── HERO: Ringkasan Keuangan ── -->
+  <div style="margin-top: 0.875rem;">
+    <div id="rpt-hero">
+      <div class="hero-top">
+        <div>
+          <p class="hero-label">Saldo Bersih</p>
+          <p id="hero-saldo" class="hero-saldo">Rp 0</p>
+          <p class="hero-period" id="hero-period-label">Memuat data…</p>
+        </div>
+        <button class="hero-toggle" onclick="rptToggleSaldo()">
+          <i id="hero-eye-icon" class="fa-solid fa-eye" style="font-size:0.75rem;"></i>
+        </button>
+      </div>
+      <div class="gauge-wrap">
+        <!-- Gauge ring: 80px diameter, r=37 → circumference ≈ 232.5 -->
+        <div class="gauge-ring">
+          <svg width="76" height="76" viewBox="0 0 76 76">
+            <circle cx="38" cy="38" r="30" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="8"/>
+            <circle id="ring-arc" cx="38" cy="38" r="30" fill="none"
+                    stroke="rgba(255,255,255,.85)" stroke-width="8"
+                    stroke-linecap="round"
+                    stroke-dasharray="188.5"
+                    stroke-dashoffset="188.5"
+                    transform="rotate(-90 38 38)"/>
+            <text x="38" y="35" text-anchor="middle" fill="white"
+                  font-size="9" font-weight="800" font-family="system-ui">
+              <tspan id="ring-pct-text">--%</tspan>
+            </text>
+            <text x="38" y="47" text-anchor="middle" fill="rgba(255,255,255,.6)"
+                  font-size="6" font-family="system-ui">terpakai</text>
           </svg>
-          <div class="absolute inset-0 flex flex-col items-center justify-end pb-1">
-            <span id="arc-pct-kas" class="text-[11px] font-bold text-rose-900">--%</span>
-            <span class="text-[8px] text-gray-400">terpakai</span>
+        </div>
+        <div class="gauge-stats">
+          <div class="gauge-row">
+            <span class="gauge-dot" style="background:#86efac;"></span>
+            <span class="gauge-lbl">Uang Masuk</span>
+            <span class="gauge-val" id="hero-masuk">Rp 0</span>
           </div>
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-1.5 mb-0.5">
-            <p class="text-[9px] font-bold text-gray-400 tracking-widest">SALDO BERSIH</p>
-            <button id="btn-toggle-saldo" onclick="toggleSaldo()" title="Sembunyikan / tampilkan saldo">
-              <i id="icon-toggle-saldo" class="fa-solid fa-eye" style="font-size:9px;"></i>
-            </button>
+          <div class="gauge-row">
+            <span class="gauge-dot" style="background:#fca5a5;"></span>
+            <span class="gauge-lbl">Uang Keluar</span>
+            <span class="gauge-val" id="hero-keluar">Rp 0</span>
           </div>
-          <p id="rep-kas-saldo" class="text-xl font-bold text-rose-900 truncate">Rp 0</p>
-          <p id="label-periode-kas" class="text-[10px] text-pink-500 mt-0.5">Semua periode</p>
-        </div>
-      </div>
-      <div class="border-t border-pink-50 mt-3 pt-3 grid grid-cols-2 gap-2 text-center">
-        <div>
-          <p class="text-[9px] text-gray-400 font-bold mb-0.5">TOTAL MASUK</p>
-          <p id="rep-kas-masuk" class="text-sm font-bold text-green-600 truncate">Rp 0</p>
-        </div>
-        <div>
-          <p class="text-[9px] text-gray-400 font-bold mb-0.5">TOTAL KELUAR</p>
-          <p id="rep-kas-keluar" class="text-sm font-bold text-red-500 truncate">Rp 0</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Trend bulanan -->
-    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
-      <p class="text-[10px] font-bold text-rose-900 mb-3">
-        <i class="fa-solid fa-chart-column text-pink-500 mr-1"></i>TREN BULANAN
-      </p>
-      <div class="relative w-full" style="height:140px;">
-        <canvas id="grafikTrendKas"></canvas>
-      </div>
-    </div>
-
-    <!-- Donat komposisi pengeluaran -->
-    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
-      <p class="text-[10px] font-bold text-rose-900 mb-3">
-        <i class="fa-solid fa-chart-pie text-pink-500 mr-1"></i>KOMPOSISI PENGELUARAN
-      </p>
-      <div class="flex items-center gap-3">
-        <div class="relative flex-shrink-0" style="width:110px;height:110px;">
-          <canvas id="grafikKas"></canvas>
-        </div>
-        <div id="legend-kas" class="flex-1 min-w-0 space-y-1.5"></div>
-      </div>
-    </div>
-
-    <!-- Buku Besar -->
-    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
-      <div class="flex items-center justify-between mb-3">
-        <p class="text-[10px] font-bold text-rose-900">
-          <i class="fa-solid fa-book text-pink-500 mr-1"></i>BUKU BESAR
-        </p>
-        <div class="flex gap-1">
-          <button onclick="filterBukuBesar('semua')" id="bb-filter-semua"
-                  class="text-[9px] font-bold px-2 py-1 rounded-full bg-pink-600 text-white transition-colors">Semua</button>
-          <button onclick="filterBukuBesar('keluar')" id="bb-filter-keluar"
-                  class="text-[9px] font-bold px-2 py-1 rounded-full bg-pink-50 text-pink-600 transition-colors">Keluar</button>
-          <button onclick="filterBukuBesar('masuk')" id="bb-filter-masuk"
-                  class="text-[9px] font-bold px-2 py-1 rounded-full bg-pink-50 text-pink-600 transition-colors">Masuk</button>
-        </div>
-      </div>
-      <div id="list-buku-besar" class="space-y-2">
-        <div class="skeleton h-14 w-full rounded-xl"></div>
-        <div class="skeleton h-14 w-full rounded-xl"></div>
-        <div class="skeleton h-14 w-full rounded-xl"></div>
-      </div>
-    </div>
-
-    <!-- Ekspor Laporan -->
-    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
-      <div class="flex items-center justify-between mb-3">
-        <div>
-          <p class="text-[10px] font-bold text-rose-900">
-            <i class="fa-solid fa-file-pdf text-pink-500 mr-1"></i>EKSPOR LAPORAN
-          </p>
-          <p class="text-[9px] text-gray-400 mt-0.5">Trial Balance + Detail Transaksi</p>
-        </div>
-        <div class="flex gap-2">
-          <button onclick="exportPDF('ringkas')" id="btn-export-ringkas"
-                  class="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 border border-pink-200 text-pink-700 font-bold px-3 py-2.5 rounded-xl text-[11px] transition-colors">
-            <i class="fa-solid fa-list-ul text-xs"></i><span>Ringkasan</span>
-          </button>
-          <button onclick="exportPDF('lengkap')" id="btn-export-pdf"
-                  class="flex items-center gap-1.5 bg-pink-600 hover:bg-pink-700 text-white font-bold px-3 py-2.5 rounded-xl text-[11px] shadow-md transition-colors">
-            <i class="fa-solid fa-file-arrow-down text-xs"></i><span>Export PDF</span>
-          </button>
-        </div>
-      </div>
-      <div class="bg-rose-50 rounded-xl p-3 border border-pink-100">
-        <div class="flex items-start gap-2">
-          <i class="fa-solid fa-circle-info text-pink-400 text-xs mt-0.5 flex-shrink-0"></i>
-          <div>
-            <p class="text-[10px] font-bold text-pink-700">Laporan yang diekspor:</p>
-            <ul class="text-[9px] text-pink-600 mt-1 space-y-0.5 list-disc list-inside">
-              <li>Halaman Cover + Ringkasan Eksekutif</li>
-              <li>Trial Balance (Neraca Saldo) per Akun</li>
-              <li>Detail Transaksi lengkap dengan tanggal & catatan</li>
-              <li>Analisis Komposisi Pengeluaran</li>
-            </ul>
-            <p class="text-[9px] text-gray-400 mt-1.5">
-              Periode: <span id="label-export-periode" class="font-bold text-pink-600">Semua</span>
-            </p>
+          <div style="height:1px; background:rgba(255,255,255,.12); margin:0.375rem 0;"></div>
+          <div class="gauge-row">
+            <span class="gauge-dot" style="background:#f9a8d4;"></span>
+            <span class="gauge-lbl">Fee Klinik</span>
+            <span class="gauge-val" id="hero-klinik">Rp 0</span>
           </div>
         </div>
       </div>
-    </div>
-
-  </div><!-- /container-report-kas -->
-
-
-  <!-- ═══════════════════════════════════════════════════════
-       CONTAINER KLINIK
-  ═══════════════════════════════════════════════════════ -->
-  <div id="container-report-klinik" class="hidden w-full fade-in-up">
-
-    <div class="grid grid-cols-3 gap-2 mb-3">
-      <div class="bg-white rounded-2xl border border-pink-100 p-3 text-center shadow-sm">
-        <div class="w-8 h-8 bg-pink-100 rounded-xl flex items-center justify-center mx-auto mb-1.5">
-          <i class="fa-solid fa-receipt text-pink-600 text-xs"></i>
-        </div>
-        <p class="text-[8px] text-gray-400 font-bold">OMSET</p>
-        <p class="text-xs font-bold text-rose-900 truncate" id="rep-klinik-omset">Rp 0</p>
-      </div>
-      <div class="bg-white rounded-2xl border border-pink-100 p-3 text-center shadow-sm">
-        <div class="w-8 h-8 bg-rose-100 rounded-xl flex items-center justify-center mx-auto mb-1.5">
-          <i class="fa-solid fa-percent text-rose-600 text-xs"></i>
-        </div>
-        <p class="text-[8px] text-gray-400 font-bold">KOMISI</p>
-        <p class="text-xs font-bold text-rose-900 truncate" id="rep-klinik-komisi">Rp 0</p>
-      </div>
-      <div class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-3 text-center shadow-sm">
-        <div class="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-1.5">
-          <i class="fa-solid fa-sack-dollar text-white text-xs"></i>
-        </div>
-        <p class="text-[8px] text-white/80 font-bold">LABA</p>
-        <p class="text-xs font-bold text-white truncate" id="rep-klinik-laba">Rp 0</p>
-      </div>
-    </div>
-
-    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
-      <p class="text-[10px] font-bold text-rose-900 mb-3">
-        <i class="fa-solid fa-hospital text-pink-500 mr-1"></i>KONTRIBUSI PER LOKASI
-      </p>
-      <div class="flex items-center gap-3">
-        <div class="relative flex-shrink-0" style="width:110px;height:110px;">
-          <canvas id="grafikKlinik"></canvas>
-        </div>
-        <div id="legend-klinik" class="flex-1 min-w-0 space-y-1.5"></div>
-      </div>
-    </div>
-
-    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
-      <p class="text-[10px] font-bold text-rose-900 mb-3">
-        <i class="fa-solid fa-ranking-star text-pink-500 mr-1"></i>RANKING KLINIK
-      </p>
-      <div id="list-klinik" class="space-y-2">
-        <div class="skeleton h-14 w-full rounded-xl"></div>
-        <div class="skeleton h-14 w-full rounded-xl"></div>
-      </div>
-    </div>
-
-    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
-      <div class="flex items-center justify-between mb-3">
-        <p class="text-[10px] font-bold text-rose-900">
-          <i class="fa-solid fa-list text-pink-500 mr-1"></i>RIWAYAT PASIEN
-        </p>
-        <input type="text" id="cari-pasien" oninput="cariRiwayatPasien()"
-               placeholder="Cari nama..."
-               class="text-[11px] bg-rose-50 border border-pink-200 rounded-lg px-2 py-1 outline-none w-28">
-      </div>
-      <div id="list-pasien" class="space-y-1.5 max-h-64 overflow-y-auto thin-scroll">
-        <div class="skeleton h-10 w-full rounded-xl"></div>
-        <div class="skeleton h-10 w-full rounded-xl"></div>
-      </div>
-    </div>
-
-  </div><!-- /container-report-klinik -->
-
-
-  <!-- ═══════════════════════════════════════════════════════
-       CONTAINER ASET
-  ═══════════════════════════════════════════════════════ -->
-  <div id="container-report-aset" class="hidden w-full fade-in-up">
-
-    <div class="grid grid-cols-2 gap-2 mb-3">
-      <div class="bg-white rounded-2xl border border-pink-100 p-3 shadow-sm">
-        <p class="text-[8px] text-gray-400 font-bold mb-1">MODAL BELI</p>
-        <p class="text-sm font-bold text-rose-900 truncate" id="rep-total-beli">Rp 0</p>
-        <p class="text-[8px] text-gray-400 mt-0.5">Total investasi keluar</p>
-      </div>
-      <div class="bg-white rounded-2xl border border-pink-100 p-3 shadow-sm">
-        <p class="text-[8px] text-gray-400 font-bold mb-1">TOTAL JUAL</p>
-        <p class="text-sm font-bold text-green-600 truncate" id="rep-total-jual">Rp 0</p>
-        <p class="text-[8px] text-gray-400 mt-0.5">Dana dicairkan</p>
-      </div>
-    </div>
-
-    <div id="pnl-banner" class="bg-gradient-to-r from-pink-600 to-rose-700 rounded-2xl p-4 mb-3 shadow-md">
-      <div class="flex items-center justify-between">
-        <div>
-          <p class="text-[9px] text-white/70 font-bold mb-1">REALISASI PNL</p>
-          <p class="text-2xl font-bold text-white" id="rep-pnl">Rp 0</p>
-        </div>
-        <div id="pnl-icon" class="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
-          <i class="fa-solid fa-arrow-trend-up text-white text-xl"></i>
-        </div>
-      </div>
-    </div>
-
-    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
-      <p class="text-[10px] font-bold text-rose-900 mb-3">
-        <i class="fa-solid fa-chart-bar text-pink-500 mr-1"></i>MODAL vs REALISASI
-      </p>
-      <div class="relative w-full" style="height:160px;">
-        <canvas id="grafikAset"></canvas>
-      </div>
-    </div>
-
-    <!-- ▼ PERBAIKAN: list-aset — diisi oleh renderCardAset() yang sudah ditambahkan ▼ -->
-    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
-      <p class="text-[10px] font-bold text-rose-900 mb-3">
-        <i class="fa-solid fa-boxes-stacked text-pink-500 mr-1"></i>PORTOFOLIO DETAIL
-      </p>
-      <div id="list-aset" class="space-y-2">
-        <div class="skeleton h-16 w-full rounded-xl"></div>
-        <div class="skeleton h-16 w-full rounded-xl"></div>
-      </div>
-    </div>
-
-  </div><!-- /container-report-aset -->
-
-
-  <!-- ═══════════════════════════════════════════════════════
-       CONTAINER RECENT
-  ═══════════════════════════════════════════════════════ -->
-  <div id="container-report-recent" class="hidden w-full fade-in-up">
-
-    <div class="bg-white rounded-2xl shadow-sm border border-pink-100 p-4 mb-3">
-      <div class="flex items-center justify-between mb-4">
-        <div>
-          <p class="text-[10px] font-bold text-rose-900">
-            <i class="fa-solid fa-clock-rotate-left text-pink-500 mr-1"></i>TRANSAKSI TERAKHIR
-          </p>
-          <p class="text-[9px] text-gray-400 mt-0.5">10 transaksi terbaru dari semua modul</p>
-        </div>
-        <div class="flex gap-1">
-          <button onclick="filterRecentTrx('semua')"  id="recent-filter-semua"
-                  class="text-[9px] font-bold px-2 py-1 rounded-full bg-pink-600 text-white transition-colors">Semua</button>
-          <button onclick="filterRecentTrx('kas')"    id="recent-filter-kas"
-                  class="text-[9px] font-bold px-2 py-1 rounded-full bg-pink-50 text-pink-600 transition-colors">Kas</button>
-          <button onclick="filterRecentTrx('klinik')" id="recent-filter-klinik"
-                  class="text-[9px] font-bold px-2 py-1 rounded-full bg-pink-50 text-pink-600 transition-colors">Klinik</button>
-          <button onclick="filterRecentTrx('aset')"   id="recent-filter-aset"
-                  class="text-[9px] font-bold px-2 py-1 rounded-full bg-pink-50 text-pink-600 transition-colors">Aset</button>
-        </div>
-      </div>
-      <div id="list-recent-trx" class="space-y-2">
-        <div class="skeleton h-16 w-full rounded-xl"></div>
-        <div class="skeleton h-16 w-full rounded-xl"></div>
-        <div class="skeleton h-16 w-full rounded-xl"></div>
-      </div>
-    </div>
-
-  </div><!-- /container-report-recent -->
-
-
-  <!-- ═══════════════════════════════════════════════════════
-       MODAL DETAIL KAS
-  ═══════════════════════════════════════════════════════ -->
-  <div id="modal-detail-kas"
-       class="hidden fixed inset-0 bg-gray-900/60 z-[60] flex items-end justify-center backdrop-blur-sm">
-    <div class="bg-white rounded-t-3xl w-full max-w-lg flex flex-col shadow-2xl overflow-hidden"
-         style="max-height: 92dvh; max-height: 92vh;">
-
-      <div class="bg-gradient-to-r from-pink-600 to-rose-700 p-4 flex-shrink-0">
-        <div class="flex items-start justify-between mb-3">
-          <div class="min-w-0 flex-1 mr-2">
-            <p class="text-[9px] text-white/70 font-bold tracking-widest">DETAIL TRANSAKSI</p>
-            <h3 class="text-sm font-bold text-white truncate mt-0.5" id="title-modal-kas">—</h3>
-            <p class="text-[10px] text-white/70 mt-0.5">Periode: <span id="label-modal-periode">Semua</span></p>
-          </div>
-          <button onclick="tutupDetailKas()"
-                  class="text-white/80 hover:text-white text-xl flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/20 transition-colors">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-        <div class="grid grid-cols-3 gap-2">
-          <div class="bg-white/15 rounded-xl p-2 text-center">
-            <p class="text-[8px] text-white/70">MASUK</p>
-            <p class="text-xs font-bold text-white" id="modal-sum-masuk">Rp 0</p>
-          </div>
-          <div class="bg-white/15 rounded-xl p-2 text-center">
-            <p class="text-[8px] text-white/70">KELUAR</p>
-            <p class="text-xs font-bold text-white" id="modal-sum-keluar">Rp 0</p>
-          </div>
-          <div class="bg-white/15 rounded-xl p-2 text-center">
-            <p class="text-[8px] text-white/70">TRX</p>
-            <p class="text-xs font-bold text-white" id="modal-sum-count">0</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="p-3 bg-rose-50 border-b border-pink-100 flex-shrink-0">
-        <div class="relative">
-          <i class="fa-solid fa-search absolute left-3 top-2.5 text-gray-400 text-xs"></i>
-          <input type="text" id="input-cari-detail-kas" oninput="cariDetailKas()"
-                 class="w-full bg-white border border-pink-200 py-2 pl-8 pr-3 rounded-xl outline-none text-xs focus:ring-2 focus:ring-pink-500"
-                 placeholder="Cari tanggal, catatan...">
-        </div>
-      </div>
-
-      <div class="overflow-y-auto flex-1 thin-scroll p-3 space-y-2" id="list-detail-kas"></div>
-
     </div>
   </div>
 
-  <!-- Modal Preview PDF -->
-  <div id="modal-preview-pdf"
-       class="hidden fixed inset-0 bg-gray-900/70 z-[70] flex items-center justify-center p-4 backdrop-blur-sm">
-    <div class="bg-white rounded-2xl w-full max-w-lg flex flex-col shadow-2xl overflow-hidden"
-         style="max-height: 90dvh; max-height: 90vh;">
-      <div class="bg-gradient-to-r from-pink-600 to-rose-700 p-4 flex items-center justify-between flex-shrink-0">
-        <div>
-          <p class="text-[9px] text-white/70 font-bold tracking-widest">PREVIEW LAPORAN</p>
-          <h3 class="text-sm font-bold text-white mt-0.5">Ringkasan Sebelum Export</h3>
+  <!-- ── Quick Stats Grid ── -->
+  <div class="rpt-stat-grid">
+    <div class="rpt-stat-cell" onclick="rptScrollTo('section-klinik')">
+      <div class="cell-icon" style="background:#dcfce7;">
+        <i class="fa-solid fa-user-doctor" style="color:#16a34a; font-size:0.75rem;"></i>
+      </div>
+      <span class="cell-val" id="stat-pasien">0</span>
+      <span class="cell-lbl">Pasien</span>
+    </div>
+    <div class="rpt-stat-cell" onclick="rptScrollTo('section-kas')">
+      <div class="cell-icon" style="background:#fce7f3;">
+        <i class="fa-solid fa-arrow-right-arrow-left" style="color:#db2777; font-size:0.75rem;"></i>
+      </div>
+      <span class="cell-val" id="stat-trx">0</span>
+      <span class="cell-lbl">Transaksi</span>
+    </div>
+    <div class="rpt-stat-cell" onclick="rptScrollTo('section-aset')">
+      <div class="cell-icon" style="background:#e0e7ff;">
+        <i class="fa-solid fa-chart-line" style="color:#4338ca; font-size:0.75rem;"></i>
+      </div>
+      <span class="cell-val" id="stat-aset">0</span>
+      <span class="cell-lbl">Aset</span>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       SECTION: Tren Bulanan
+  ══════════════════════════════════════════════════════ -->
+  <div class="rpt-section" id="section-trend">
+    <div class="rpt-section-title">
+      <div class="icon-pill" style="background:#fce7f3;">
+        <i class="fa-solid fa-chart-bar" style="color:#db2777; font-size:0.625rem;"></i>
+      </div>
+      <h2>Tren 6 Bulan Terakhir</h2>
+    </div>
+    <div class="rpt-card rpt-card-p">
+      <div class="chart-wrap">
+        <canvas id="rpt-chart-trend"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       SECTION: Arus Kas
+  ══════════════════════════════════════════════════════ -->
+  <div class="rpt-section" id="section-kas">
+    <div class="rpt-section-title">
+      <div class="icon-pill" style="background:#fce7f3;">
+        <i class="fa-solid fa-wallet" style="color:#db2777; font-size:0.625rem;"></i>
+      </div>
+      <h2>Arus Kas</h2>
+    </div>
+
+    <!-- Pengeluaran -->
+    <div class="rpt-card" style="margin-bottom:0.625rem;">
+      <div class="rpt-card-p" style="padding-bottom:0.5rem;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.625rem;">
+          <div style="display:flex; align-items:center; gap:0.375rem;">
+            <span style="width:0.625rem;height:0.625rem;background:var(--red);border-radius:50%;display:inline-block;"></span>
+            <span style="font-size:0.6875rem; font-weight:800; color:var(--slate-7);">Uang Keluar</span>
+          </div>
+          <span id="kas-total-keluar-label" style="font-size:0.8125rem; font-weight:900; color:var(--red);">Rp 0</span>
         </div>
-        <button onclick="document.getElementById('modal-preview-pdf').classList.add('hidden')"
-                class="text-white/80 hover:text-white w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/20 transition-colors">
+        <!-- Donut keluar -->
+        <div class="donut-wrap" id="kas-donut-wrap-keluar">
+          <canvas id="rpt-chart-keluar" class="donut-canvas"></canvas>
+          <div id="rpt-legend-keluar" class="donut-legend">
+            <div class="rpt-skel" style="height:10px; width:80%; margin-bottom:6px;"></div>
+            <div class="rpt-skel" style="height:10px; width:60%; margin-bottom:6px;"></div>
+          </div>
+        </div>
+        <!-- Flow list pengeluaran -->
+        <div id="list-kas-keluar" style="margin-top:0.25rem;"></div>
+      </div>
+      <button class="rpt-collapse-toggle" id="btn-toggle-keluar" onclick="rptToggleKeluar()">
+        <i class="fa-solid fa-chevron-down" style="font-size:0.5rem;" id="icon-toggle-keluar"></i>
+        Lihat semua pengeluaran
+      </button>
+    </div>
+
+    <!-- Pemasukan -->
+    <div class="rpt-card">
+      <div class="rpt-card-p" style="padding-bottom:0.5rem;">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.625rem;">
+          <div style="display:flex; align-items:center; gap:0.375rem;">
+            <span style="width:0.625rem;height:0.625rem;background:var(--green);border-radius:50%;display:inline-block;"></span>
+            <span style="font-size:0.6875rem; font-weight:800; color:var(--slate-7);">Uang Masuk</span>
+          </div>
+          <span id="kas-total-masuk-label" style="font-size:0.8125rem; font-weight:900; color:var(--green);">Rp 0</span>
+        </div>
+        <div id="list-kas-masuk" style="margin-top:0.25rem;"></div>
+      </div>
+      <button class="rpt-collapse-toggle" id="btn-toggle-masuk" onclick="rptToggleMasuk()">
+        <i class="fa-solid fa-chevron-down" style="font-size:0.5rem;" id="icon-toggle-masuk"></i>
+        Lihat semua pemasukan
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       SECTION: Klinik
+  ══════════════════════════════════════════════════════ -->
+  <div class="rpt-section" id="section-klinik">
+    <div class="rpt-section-title">
+      <div class="icon-pill" style="background:#dcfce7;">
+        <i class="fa-solid fa-user-doctor" style="color:#16a34a; font-size:0.625rem;"></i>
+      </div>
+      <h2>Fee Klinik</h2>
+    </div>
+
+    <!-- Summary row -->
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem; margin-bottom:0.625rem;">
+      <div class="rpt-card" style="padding:0.75rem 0.5rem; text-align:center; border-radius:var(--radius-md);">
+        <span style="font-size:0.5rem; font-weight:800; color:var(--slate-4); text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:0.25rem;">Omset</span>
+        <span id="klinik-omset" style="font-size:0.75rem; font-weight:800; color:var(--slate-9);">Rp 0</span>
+      </div>
+      <div class="rpt-card" style="padding:0.75rem 0.5rem; text-align:center; border-radius:var(--radius-md);">
+        <span style="font-size:0.5rem; font-weight:800; color:var(--slate-4); text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:0.25rem;">Komisi</span>
+        <span id="klinik-komisi" style="font-size:0.75rem; font-weight:800; color:var(--pink);">Rp 0</span>
+      </div>
+      <div class="rpt-card" style="padding:0.75rem 0.5rem; text-align:center; border-radius:var(--radius-md); background:var(--green-xs); border-color:#bbf7d0;">
+        <span style="font-size:0.5rem; font-weight:800; color:#16a34a; text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:0.25rem;">Laba</span>
+        <span id="klinik-laba" style="font-size:0.75rem; font-weight:800; color:var(--green);">Rp 0</span>
+      </div>
+    </div>
+
+    <!-- Lokasi ranking -->
+    <div class="rpt-card rpt-card-p" style="margin-bottom:0.625rem;">
+      <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
+        <span style="font-size:0.625rem; font-weight:800; color:var(--slate-4); text-transform:uppercase; letter-spacing:.06em;">Pendapatan per Klinik</span>
+      </div>
+      <div id="list-klinik-ranking"></div>
+    </div>
+
+    <!-- Pasien terbaru -->
+    <div class="rpt-card rpt-card-p">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.625rem;">
+        <span style="font-size:0.625rem; font-weight:800; color:var(--slate-4); text-transform:uppercase; letter-spacing:.06em;">Pasien Terbaru</span>
+        <div style="position:relative;">
+          <i class="fa-solid fa-search" style="position:absolute; left:0.5rem; top:50%; transform:translateY(-50%); color:var(--slate-3); font-size:0.5625rem;"></i>
+          <input type="text" id="rpt-cari-pasien" oninput="rptCariPasien()"
+                 placeholder="Cari nama..."
+                 style="background:var(--slate-1); border:1.5px solid var(--slate-2); border-radius:0.5rem; padding:0.3125rem 0.5rem 0.3125rem 1.5rem; font-size:0.625rem; font-weight:600; color:var(--slate-7); outline:none; width:7rem;">
+        </div>
+      </div>
+      <div id="list-pasien" class="thin-scroll" style="max-height:14rem; overflow-y:auto;"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       SECTION: Portofolio Aset
+  ══════════════════════════════════════════════════════ -->
+  <div class="rpt-section" id="section-aset">
+    <div class="rpt-section-title">
+      <div class="icon-pill" style="background:#e0e7ff;">
+        <i class="fa-solid fa-chart-line" style="color:#4338ca; font-size:0.625rem;"></i>
+      </div>
+      <h2>Portofolio Investasi</h2>
+    </div>
+
+    <!-- PNL banner -->
+    <div id="rpt-pnl-banner" style="background:linear-gradient(135deg,#be185d,#db2777); color:white;">
+      <div class="pnl-left">
+        <p class="pnl-lbl">Keuntungan / Rugi Terealisasi</p>
+        <p class="pnl-val" id="pnl-nilai">Rp 0</p>
+        <p class="pnl-sub">Dari aset yang sudah dijual</p>
+      </div>
+      <div class="pnl-icon" id="pnl-icon-wrap">📈</div>
+    </div>
+
+    <!-- Modal vs Realisasi -->
+    <div class="rpt-card rpt-card-p" style="margin-bottom:0.625rem;">
+      <div style="font-size:0.625rem; font-weight:800; color:var(--slate-4); text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.75rem;">Modal vs Dana Dicairkan</div>
+      <div class="chart-wrap" style="height:150px;">
+        <canvas id="rpt-chart-aset"></canvas>
+      </div>
+    </div>
+
+    <!-- Asset cards -->
+    <div id="list-aset-cards"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       SECTION: Ekspor Laporan
+  ══════════════════════════════════════════════════════ -->
+  <div class="rpt-section">
+    <div class="rpt-section-title">
+      <div class="icon-pill" style="background:#fce7f3;">
+        <i class="fa-solid fa-file-pdf" style="color:#db2777; font-size:0.625rem;"></i>
+      </div>
+      <h2>Ekspor Laporan</h2>
+    </div>
+    <div class="rpt-card rpt-card-p">
+      <div style="background:var(--slate-1); border-radius:var(--radius-sm); padding:0.75rem; margin-bottom:0.875rem; display:flex; align-items:flex-start; gap:0.625rem;">
+        <i class="fa-solid fa-circle-info" style="color:var(--pink); font-size:0.75rem; margin-top:0.125rem; flex-shrink:0;"></i>
+        <div>
+          <p style="font-size:0.6875rem; font-weight:700; color:var(--slate-7); margin:0 0 0.25rem;">Periode yang akan diekspor</p>
+          <p id="label-export-periode" style="font-size:0.75rem; font-weight:800; color:var(--pink); margin:0;">Semua Periode</p>
+        </div>
+      </div>
+      <div class="export-row">
+        <button class="btn-export-secondary" onclick="exportPDF('ringkas')">
+          <i class="fa-solid fa-list-ul" style="font-size:0.75rem;"></i> Ringkasan
+        </button>
+        <button class="btn-export-primary" onclick="exportPDF('lengkap')">
+          <i class="fa-solid fa-file-arrow-down" style="font-size:0.75rem;"></i> Download PDF
+        </button>
+      </div>
+    </div>
+  </div>
+
+</section><!-- /modul-report -->
+
+
+<!-- ══════════════════════════════════════════════════════════
+     MODAL: Detail Transaksi per Akun
+══════════════════════════════════════════════════════════ -->
+<div id="rpt-modal-detail"
+     class="hidden fixed inset-0 z-[60] flex items-end justify-center"
+     style="background:rgba(15,23,42,.55); backdrop-filter:blur(4px);"
+     onclick="if(event.target===this) rptTutupModal()">
+  <div style="background:white; border-radius:1.5rem 1.5rem 0 0; width:100%; max-width:32rem; display:flex; flex-direction:column; max-height:88dvh; max-height:88vh; overflow:hidden; box-shadow:0 -8px 32px rgba(0,0,0,.15);">
+
+    <!-- Modal header -->
+    <div style="background:linear-gradient(135deg,#9d174d,#db2777); padding:1rem; flex-shrink:0;">
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:0.75rem;">
+        <div style="flex:1; min-width:0; margin-right:0.75rem;">
+          <p style="font-size:0.5625rem; font-weight:800; letter-spacing:.1em; color:rgba(255,255,255,.6); text-transform:uppercase; margin:0 0 0.25rem;">Detail Transaksi</p>
+          <h3 id="modal-detail-title" style="font-size:0.875rem; font-weight:800; color:white; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</h3>
+        </div>
+        <button onclick="rptTutupModal()"
+                style="background:rgba(255,255,255,.15); border:none; width:2rem; height:2rem; border-radius:0.625rem; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
-      <div class="overflow-y-auto flex-1 p-4 space-y-3" id="preview-pdf-content"></div>
-      <div class="p-4 border-t border-pink-100 flex gap-2 flex-shrink-0">
-        <button onclick="document.getElementById('modal-preview-pdf').classList.add('hidden')"
-                class="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl text-sm transition-colors">
-          Tutup
-        </button>
-        <button onclick="jalankanExportPDF()" id="btn-konfirmasi-export"
-                class="flex-1 bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-xl text-sm shadow-md transition-colors flex items-center justify-center gap-2">
-          <i class="fa-solid fa-file-arrow-down"></i> Download PDF
-        </button>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem;">
+        <div style="background:rgba(255,255,255,.12); border-radius:0.625rem; padding:0.5rem; text-align:center;">
+          <p style="font-size:0.5rem; color:rgba(255,255,255,.6); font-weight:700; margin:0 0 0.25rem;">MASUK</p>
+          <p id="modal-sum-masuk" style="font-size:0.75rem; font-weight:800; color:white; margin:0;">Rp 0</p>
+        </div>
+        <div style="background:rgba(255,255,255,.12); border-radius:0.625rem; padding:0.5rem; text-align:center;">
+          <p style="font-size:0.5rem; color:rgba(255,255,255,.6); font-weight:700; margin:0 0 0.25rem;">KELUAR</p>
+          <p id="modal-sum-keluar" style="font-size:0.75rem; font-weight:800; color:white; margin:0;">Rp 0</p>
+        </div>
+        <div style="background:rgba(255,255,255,.12); border-radius:0.625rem; padding:0.5rem; text-align:center;">
+          <p style="font-size:0.5rem; color:rgba(255,255,255,.6); font-weight:700; margin:0 0 0.25rem;">TOTAL TRX</p>
+          <p id="modal-sum-count" style="font-size:0.75rem; font-weight:800; color:white; margin:0;">0</p>
+        </div>
       </div>
     </div>
+
+    <!-- Search -->
+    <div style="padding:0.625rem 0.875rem; background:#fdf2f8; border-bottom:1px solid #fce7f3; flex-shrink:0;">
+      <div style="position:relative;">
+        <i class="fa-solid fa-search" style="position:absolute;left:0.625rem;top:50%;transform:translateY(-50%);color:#f9a8d4;font-size:0.625rem;"></i>
+        <input type="text" id="rpt-cari-detail" oninput="rptCariDetail()"
+               placeholder="Cari tanggal atau catatan..."
+               style="width:100%;background:white;border:1.5px solid #fce7f3;border-radius:0.625rem;padding:0.5rem 0.625rem 0.5rem 1.875rem;font-size:0.75rem;outline:none;color:var(--slate-7);">
+      </div>
+    </div>
+
+    <!-- List -->
+    <div id="rpt-modal-list" class="thin-scroll" style="overflow-y:auto; flex:1; padding:0.75rem;"></div>
   </div>
+</div>
 
-</section>
+<!-- Modal PDF Preview -->
+<div id="rpt-modal-pdf"
+     class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4"
+     style="background:rgba(15,23,42,.65); backdrop-filter:blur(6px);">
+  <div style="background:white; border-radius:1.375rem; width:100%; max-width:28rem; display:flex; flex-direction:column; max-height:88dvh; max-height:88vh; overflow:hidden; box-shadow:0 16px 48px rgba(0,0,0,.2);">
+    <div style="background:linear-gradient(135deg,#9d174d,#db2777); padding:1rem; flex-shrink:0; display:flex; align-items:center; justify-content:space-between;">
+      <div>
+        <p style="font-size:0.5625rem; font-weight:800; letter-spacing:.1em; color:rgba(255,255,255,.6); text-transform:uppercase; margin:0 0 0.25rem;">Konfirmasi Ekspor</p>
+        <h3 style="font-size:0.875rem; font-weight:800; color:white; margin:0;">Ringkasan Laporan</h3>
+      </div>
+      <button onclick="document.getElementById('rpt-modal-pdf').classList.add('hidden')"
+              style="background:rgba(255,255,255,.15); border:none; width:2rem; height:2rem; border-radius:0.625rem; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div id="rpt-pdf-preview-content" class="thin-scroll" style="overflow-y:auto; flex:1; padding:1rem; display:flex; flex-direction:column; gap:0.625rem;"></div>
+    <div style="padding:0.875rem; border-top:1px solid #f1f5f9; display:flex; gap:0.5rem; flex-shrink:0;">
+      <button onclick="document.getElementById('rpt-modal-pdf').classList.add('hidden')"
+              style="flex:1; background:#f1f5f9; border:none; border-radius:0.625rem; padding:0.875rem; font-size:0.8125rem; font-weight:700; color:var(--slate-7); cursor:pointer;">
+        Batal
+      </button>
+      <button onclick="rptJalankanExportPDF()"
+              style="flex:2; background:linear-gradient(135deg,#9d174d,#db2777); border:none; border-radius:0.625rem; padding:0.875rem; font-size:0.8125rem; font-weight:800; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.375rem; box-shadow:0 4px 12px rgba(190,24,93,.3);">
+        <i class="fa-solid fa-file-arrow-down"></i> Download PDF
+      </button>
+    </div>
+  </div>
+</div>
 
 
+<!-- ══════════════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════════════ -->
 <script>
-/* ═══════════════════════════════════════════════════════════
-   STATE & CACHE
-═══════════════════════════════════════════════════════════ */
-let chartTrendKas = null;
-let chartKas      = null;
-let chartKlinik   = null;
-let chartAset     = null;
+/* ─── State ─────────────────────────────────────────────── */
+var _rptData = { kas: [], klinik: [], aset: [] };
+var _rptPeriode = 'ALL';
+var _rptSaldo = { masuk:0, keluar:0, saldo:0 };
+var _rptKeluar = {}; // cached pengeluaran map
+var _rptMasuk  = {}; // cached pemasukan map
+var _rptPasien = [];
+var _rptSaldoHidden = false;
+var _rptKeluarExpanded = false;
+var _rptMasukExpanded  = false;
 
-let masterDataLaporan = { aset: [], klinik: [], kas: [] };
-let periodeTerpilih   = 'ALL';
-let tabAktif          = 'kas';
-let cacheBukuBesar    = {};
-let filterBBMode      = 'semua';
-let cacheListPasien   = [];
+// Chart instances
+var _chartTrend  = null;
+var _chartKeluar = null;
+var _chartAset   = null;
 
-const WARNA_GRAFIK = [
-  '#db2777','#e11d48','#f59e0b','#10b981',
-  '#3b82f6','#8b5cf6','#ec4899','#f97316','#06b6d4'
-];
+// WARNA
+var RPT_COLORS = ['#db2777','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#06b6d4','#f97316','#84cc16','#ec4899'];
+var NAMA_BULAN = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
-/* ═══════════════════════════════════════════════════════════
-   TOGGLE SALDO
-═══════════════════════════════════════════════════════════ */
-let saldoTersembunyi = false;
-const SALDO_MASK = '••••••';
-
-function toggleSaldo() {
-  saldoTersembunyi = !saldoTersembunyi;
-  const icon = document.getElementById('icon-toggle-saldo');
-  if (icon) icon.className = saldoTersembunyi ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
-  _applySaldoMask();
+/* ─── Helpers ───────────────────────────────────────────── */
+function rptFmt(n) {
+  n = parseFloat(n) || 0;
+  var abs = Math.abs(n), s = n < 0 ? '-' : '';
+  if (abs >= 1e9) return s + 'Rp ' + (abs/1e9).toFixed(1) + ' M';
+  if (abs >= 1e6) return s + 'Rp ' + (abs/1e6).toFixed(1) + ' jt';
+  return (n < 0 ? '-' : '') + 'Rp ' + Math.abs(n).toLocaleString('id-ID');
+}
+function rptFmtFull(n) {
+  n = parseFloat(n) || 0;
+  return new Intl.NumberFormat('id-ID', { style:'currency', currency:'IDR', minimumFractionDigits:0 }).format(n);
+}
+function rptNormPeriode(v) {
+  if (!v) return '';
+  if (v instanceof Date) return NAMA_BULAN[v.getMonth()] + ' ' + v.getFullYear();
+  var s = String(v).trim();
+  if (/^[A-Za-z]/.test(s)) return s.split(' ').map(function(p,i) { return i===0 ? (p.charAt(0).toUpperCase()+p.slice(1).toLowerCase()) : p; }).join(' ');
+  var p = s.split('-');
+  if (p.length === 3) return NAMA_BULAN[parseInt(p[1],10)-1] + ' ' + p[0];
+  return s;
+}
+function rptUrutPeriode(a, b) {
+  var pa = String(a).split(' '), pb = String(b).split(' ');
+  var ta = parseInt(pa[pa.length-1]) || 0, tb = parseInt(pb[pb.length-1]) || 0;
+  if (ta !== tb) return ta - tb;
+  return NAMA_BULAN.indexOf(pa[0]) - NAMA_BULAN.indexOf(pb[0]);
+}
+function rptPeriodeSkrg() {
+  var d = new Date(), bln = d.getMonth(), thn = d.getFullYear();
+  if (d.getDate() >= 28) { bln++; if (bln > 11) { bln = 0; thn++; } }
+  return NAMA_BULAN[bln] + ' ' + thn;
+}
+function rptEsc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function rptScrollTo(id) {
+  var el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function rptInitials(name) {
+  return String(name).trim().split(' ').slice(0,2).map(function(w){ return w[0]||''; }).join('').toUpperCase() || '?';
 }
 
-function _applySaldoMask() {
-  ['rep-kas-saldo','rep-kas-masuk','rep-kas-keluar'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    if (saldoTersembunyi) {
-      if (el.innerText !== SALDO_MASK) el._valAsli = el.innerText;
-      el.innerText = SALDO_MASK;
-      el.classList.add('saldo-mask');
-    } else {
-      if (el._valAsli !== undefined) el.innerText = el._valAsli;
-      el.classList.remove('saldo-mask');
-    }
-  });
-  var arc = document.getElementById('arc-pct-kas');
-  if (arc) {
-    if (saldoTersembunyi) { if (arc.innerText !== '--') arc._valAsli = arc.innerText; arc.innerText = '--'; }
-    else { if (arc._valAsli !== undefined) arc.innerText = arc._valAsli; }
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════
-   INIT
-═══════════════════════════════════════════════════════════ */
+/* ─── INIT ──────────────────────────────────────────────── */
 function initModulReport() {
-  tampilSkeleton();
+  _rptData = { kas:[], klinik:[], aset:[] };
+  _rptPeriode = 'ALL';
   google.script.run
     .withSuccessHandler(function(data) {
-      masterDataLaporan.aset   = data.aset   || [];
-      masterDataLaporan.klinik = data.klinik || [];
-      masterDataLaporan.kas    = data.kas    || [];
-      updateBadgeTab();
-      buatChipPeriode();
-      terapkanFilter(periodeTerpilih);
+      _rptData.kas    = data.kas    || [];
+      _rptData.klinik = data.klinik || [];
+      _rptData.aset   = data.aset   || [];
+      rptBuatChipPeriode();
+      rptTerapkan(_rptPeriode);
     })
     .withFailureHandler(function(err) {
-      Swal.fire('Error Backend', err.message, 'error');
+      Swal.fire('Gagal memuat data', err.message, 'error');
     })
     .getDataLaporan();
 }
 
-function tampilSkeleton() {
-  ['list-buku-besar','list-klinik','list-pasien','list-aset'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.innerHTML = '<div class="skeleton h-14 w-full rounded-xl"></div><div class="skeleton h-14 w-full rounded-xl mt-2"></div>';
-  });
-}
+/* ─── PERIOD CHIPS ──────────────────────────────────────── */
+function rptBuatChipPeriode() {
+  var set = new Set();
+  _rptData.kas.forEach(function(r) { if (r[2]) set.add(rptNormPeriode(r[2])); });
+  _rptData.klinik.forEach(function(r) { if (r[2]) set.add(rptNormPeriode(r[2])); });
+  _rptData.aset.forEach(function(r) { if (r[1]) set.add(rptNormPeriode(r[1])); });
 
-/* ═══════════════════════════════════════════════════════════
-   HELPER NORMALISASI PERIODE
-   Backend sudah mengirim "NamaBulan TAHUN" sebagai string,
-   tapi fungsi ini tetap robust untuk handle edge case.
-═══════════════════════════════════════════════════════════ */
-const NAMA_BULAN = ["Januari","Februari","Maret","April","Mei","Juni",
-                    "Juli","Agustus","September","Oktober","November","Desember"];
+  var ps = rptPeriodeSkrg();
+  set.add(ps);
+  var daftar = Array.from(set).filter(Boolean).sort(rptUrutPeriode);
 
-function normPeriode(val) {
-  if (!val) return "";
-  // Jika Date object (tidak seharusnya dari backend baru, tapi jaga-jaga)
-  if (val instanceof Date) {
-    return NAMA_BULAN[val.getMonth()] + " " + val.getFullYear();
-  }
-  var str = String(val).trim();
-  if (!str) return "";
-  // Sudah dalam format "NamaBulan TAHUN"
-  var parts = str.split(" ");
-  if (parts.length >= 2 && isNaN(parseInt(parts[0]))) {
-    return parts[0].charAt(0).toUpperCase() + parts[0].slice(1).toLowerCase() + " " + parts[1];
-  }
-  // Format "YYYY-MM-DD" dari backend
-  var dateParts = str.split("-");
-  if (dateParts.length === 3) {
-    var bln = parseInt(dateParts[1], 10) - 1;
-    if (bln >= 0 && bln <= 11) return NAMA_BULAN[bln] + " " + dateParts[0];
-  }
-  return str;
-}
+  // Default to current period if available, else ALL
+  if (_rptPeriode === 'ALL' && daftar.indexOf(ps) >= 0) _rptPeriode = ps;
 
-function urutPeriode(a, b) {
-  var pa = String(a).split(" "), pb = String(b).split(" ");
-  var ta = parseInt(pa[1]) || 0, tb = parseInt(pb[1]) || 0;
-  if (ta !== tb) return ta - tb;
-  return NAMA_BULAN.indexOf(pa[0]) - NAMA_BULAN.indexOf(pb[0]);
-}
-
-function periodeSkrg() {
-  var now = new Date();
-  var bln = now.getMonth(), thn = now.getFullYear();
-  if (now.getDate() >= 28) { bln++; if (bln > 11) { bln = 0; thn++; } }
-  return NAMA_BULAN[bln] + " " + thn;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   CHIP PERIODE
-═══════════════════════════════════════════════════════════ */
-function buatChipPeriode() {
-  var setPeriode = new Set();
-  masterDataLaporan.kas.forEach(function(r)    { if (r[2]) setPeriode.add(normPeriode(r[2])); });
-  masterDataLaporan.aset.forEach(function(r)   { if (r[1]) setPeriode.add(normPeriode(r[1])); }); // Aset pakai tanggal
-  masterDataLaporan.klinik.forEach(function(r) { if (r[2]) setPeriode.add(normPeriode(r[2])); });
-
-  var ps = periodeSkrg();
-  setPeriode.add(ps);
-
-  var daftar = Array.from(setPeriode).filter(Boolean).sort(urutPeriode);
-  if (periodeTerpilih === 'ALL' && daftar.includes(ps)) periodeTerpilih = ps;
-
-  var html = '<button onclick="pilihChipPeriode(\'ALL\')" id="chip-ALL" class="flex-shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border transition-colors ' + (periodeTerpilih === 'ALL' ? 'chip-aktif' : 'chip-nonaktif') + '">Semua</button>';
+  var html = '<button class="rpt-chip' + (_rptPeriode==='ALL'?' active':'') + '" onclick="rptPilihPeriode(\'ALL\')">Semua</button>';
   daftar.forEach(function(p) {
-    var aktif = p === periodeTerpilih;
-    var id = 'chip-' + p.replace(/ /g, '_');
-    html += '<button onclick="pilihChipPeriode(\'' + p + '\')" id="' + id + '" class="flex-shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border transition-colors ' + (aktif ? 'chip-aktif' : 'chip-nonaktif') + '">' + p + '</button>';
+    var id = 'chip-' + p.replace(/\s/g,'_');
+    html += '<button class="rpt-chip' + (p===_rptPeriode?' active':'') + '" id="' + id + '" onclick="rptPilihPeriode(\'' + rptEsc(p) + '\')">' + p + '</button>';
   });
-  document.getElementById('chip-periode-container').innerHTML = html;
+  document.getElementById('rpt-period-chips').innerHTML = html;
 
+  // Scroll active chip into view
   setTimeout(function() {
-    var aktifEl = document.getElementById('chip-' + periodeTerpilih.replace(/ /g, '_'));
-    if (aktifEl) aktifEl.scrollIntoView({ inline: 'center', behavior: 'smooth', block: 'nearest' });
+    var el = document.getElementById('chip-' + _rptPeriode.replace(/\s/g,'_'));
+    if (el) el.scrollIntoView({ inline:'center', behavior:'smooth', block:'nearest' });
   }, 100);
 }
 
-function pilihChipPeriode(p) {
-  periodeTerpilih = p;
-  document.querySelectorAll('[id^="chip-"]').forEach(function(el) {
-    el.classList.remove('chip-aktif'); el.classList.add('chip-nonaktif');
+function rptPilihPeriode(p) {
+  _rptPeriode = p;
+  document.querySelectorAll('.rpt-chip').forEach(function(el) { el.classList.remove('active'); });
+  var aktif = p === 'ALL'
+    ? document.querySelector('.rpt-chip')
+    : document.getElementById('chip-' + p.replace(/\s/g,'_'));
+  if (aktif) aktif.classList.add('active');
+  rptTerapkan(p);
+}
+
+/* ─── TERAPKAN FILTER ───────────────────────────────────── */
+function rptTerapkan(periode) {
+  var kasF    = periode === 'ALL' ? _rptData.kas    : _rptData.kas.filter(function(r)    { return rptNormPeriode(r[2]).toLowerCase() === periode.toLowerCase(); });
+  var klinikF = periode === 'ALL' ? _rptData.klinik : _rptData.klinik.filter(function(r) { return rptNormPeriode(r[2]).toLowerCase() === periode.toLowerCase(); });
+  var asetF   = periode === 'ALL' ? _rptData.aset   : _rptData.aset.filter(function(r)   { return rptNormPeriode(r[1]).toLowerCase() === periode.toLowerCase(); });
+
+  rptRenderHero(kasF, klinikF);
+  rptRenderStatGrid(kasF, klinikF, asetF);
+  rptRenderTrend();
+  rptRenderKas(kasF);
+  rptRenderKlinik(klinikF);
+  rptRenderAset(asetF);
+  rptUpdateExportLabel();
+}
+
+/* ─── HERO ──────────────────────────────────────────────── */
+function rptRenderHero(kasData, klinikData) {
+  var masuk = 0, keluar = 0;
+  kasData.forEach(function(r) {
+    masuk  += parseFloat(r[6]) || 0;
+    keluar += parseFloat(r[7]) || 0;
   });
-  var aktifEl = document.getElementById('chip-' + p.replace(/ /g, '_'));
-  if (aktifEl) { aktifEl.classList.add('chip-aktif'); aktifEl.classList.remove('chip-nonaktif'); }
-  terapkanFilter(p);
-  updateLabelExportPeriode();
+  var feeKlinik = 0;
+  klinikData.forEach(function(r) { feeKlinik += parseFloat(r[8]) || 0; });
+  var saldo = masuk - keluar;
+  var pct   = masuk > 0 ? Math.min(keluar/masuk*100, 100) : 0;
+
+  _rptSaldo = { masuk:masuk, keluar:keluar, saldo:saldo };
+
+  var lab = _rptPeriode === 'ALL' ? 'Semua periode' : _rptPeriode;
+  document.getElementById('hero-period-label').innerText = lab;
+  document.getElementById('hero-saldo').innerText = rptFmtFull(saldo);
+  document.getElementById('hero-masuk').innerText  = rptFmt(masuk);
+  document.getElementById('hero-keluar').innerText = rptFmt(keluar);
+  document.getElementById('hero-klinik').innerText = rptFmt(feeKlinik);
+
+  // Hero saldo color
+  var heroSaldo = document.getElementById('hero-saldo');
+  heroSaldo.style.color = saldo < 0 ? '#fca5a5' : '#ffffff';
+
+  // Ring gauge
+  var circumference = 188.5;
+  var dashOffset = circumference - (circumference * pct / 100);
+  var ring = document.getElementById('ring-arc');
+  var ringText = document.getElementById('ring-pct-text');
+  ring.style.strokeDashoffset = dashOffset;
+  ring.style.stroke = pct > 90 ? '#fca5a5' : pct > 70 ? '#fde68a' : '#86efac';
+  ringText.textContent = Math.round(pct) + '%';
+
+  if (_rptSaldoHidden) rptApplyMask();
+  document.getElementById('label-export-periode').innerText = _rptPeriode === 'ALL' ? 'Semua Periode' : _rptPeriode;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   FILTER & DISPATCH
-   Kas   → filter by row[2] (Periode)
-   Klinik→ filter by row[2] (Periode_Komisi)
-   Aset  → filter by row[1] (Tanggal) → normPeriode
-═══════════════════════════════════════════════════════════ */
-function terapkanFilter(periode) {
-  periodeTerpilih = periode;
-
-  var kasData    = periode === 'ALL' ? masterDataLaporan.kas    : masterDataLaporan.kas.filter(function(r)    { return normPeriode(r[2]).toLowerCase() === periode.toLowerCase(); });
-  var klinikData = periode === 'ALL' ? masterDataLaporan.klinik : masterDataLaporan.klinik.filter(function(r) { return normPeriode(r[2]).toLowerCase() === periode.toLowerCase(); });
-  var asetData   = periode === 'ALL' ? masterDataLaporan.aset   : masterDataLaporan.aset.filter(function(r)   { return normPeriode(r[1]).toLowerCase() === periode.toLowerCase(); });
-
-  document.getElementById('label-periode-kas').innerText = periode === 'ALL' ? 'Semua periode' : periode;
-
-  kalkulasiKas(kasData);
-  kalkulasiKlinik(klinikData);
-  kalkulasiAset(asetData);
-  updateLabelExportPeriode();
+/* ─── TOGGLE SALDO ──────────────────────────────────────── */
+function rptToggleSaldo() {
+  _rptSaldoHidden = !_rptSaldoHidden;
+  var icon = document.getElementById('hero-eye-icon');
+  icon.className = _rptSaldoHidden ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+  rptApplyMask();
 }
-
-/* ═══════════════════════════════════════════════════════════
-   BADGE TAB
-═══════════════════════════════════════════════════════════ */
-function updateBadgeTab() {
-  document.getElementById('badge-kas').innerText    = masterDataLaporan.kas.length;
-  document.getElementById('badge-klinik').innerText = masterDataLaporan.klinik.length;
-  document.getElementById('badge-aset').innerText   = masterDataLaporan.aset.length;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   TAB SWITCH
-═══════════════════════════════════════════════════════════ */
-function switchTabReport(tab) {
-  tabAktif = tab;
-  ['kas','klinik','aset','recent'].forEach(function(t) {
-    var btn = document.getElementById('tab-report-' + t);
-    var box = document.getElementById('container-report-' + t);
-    if (!btn || !box) return;
-    if (t === tab) {
-      btn.classList.add('tab-aktif'); btn.classList.remove('tab-nonaktif');
-      var badge = btn.querySelector('.badge-count, .badge-count-dark');
-      if (badge) badge.className = 'badge-count';
-      box.classList.remove('hidden'); box.classList.add('fade-in-up');
+function rptApplyMask() {
+  var els = [
+    document.getElementById('hero-saldo'),
+    document.getElementById('hero-masuk'),
+    document.getElementById('hero-keluar'),
+    document.getElementById('hero-klinik'),
+  ];
+  els.forEach(function(el) {
+    if (!el) return;
+    if (_rptSaldoHidden) {
+      if (!el._val) el._val = el.innerText;
+      el.innerText = '••••••';
+      el.classList.add('rpt-mask');
     } else {
-      btn.classList.remove('tab-aktif'); btn.classList.add('tab-nonaktif');
-      var badge2 = btn.querySelector('.badge-count, .badge-count-dark');
-      if (badge2) badge2.className = 'badge-count-dark';
-      box.classList.add('hidden');
+      if (el._val) el.innerText = el._val;
+      el.classList.remove('rpt-mask');
     }
   });
-  if (tab === 'recent') renderRecentTransactions('semua');
 }
 
-/* ═══════════════════════════════════════════════════════════
-   FORMAT HELPER
-═══════════════════════════════════════════════════════════ */
-function fRp(n) {
-  n = parseFloat(n) || 0;
-  if (Math.abs(n) >= 1e9)  return 'Rp ' + (n/1e9).toFixed(1) + ' M';
-  if (Math.abs(n) >= 1e6)  return 'Rp ' + (n/1e6).toFixed(1) + ' jt';
-  return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(n);
+/* ─── STAT GRID ──────────────────────────────────────────── */
+function rptRenderStatGrid(kasData, klinikData, asetData) {
+  var jmlPasien = klinikData.length;
+  var jmlTrx    = kasData.length;
+  var jmlAset   = (function() {
+    var set = {};
+    asetData.forEach(function(r) { if (r[4]) set[r[4]] = 1; });
+    return Object.keys(set).length;
+  })();
+  document.getElementById('stat-pasien').innerText = jmlPasien;
+  document.getElementById('stat-trx').innerText    = jmlTrx;
+  document.getElementById('stat-aset').innerText   = jmlAset;
 }
-function fRpFull(n) {
-  n = parseFloat(n) || 0;
-  return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(n);
-}
 
-/* ═══════════════════════════════════════════════════════════
-   ███ KALKULASI KAS ███
-   row: [0]=ID [1]=Tgl [2]=Periode [3]=Tipe [4]=Akun [5]=Catatan [6]=Debit [7]=Kredit
-═══════════════════════════════════════════════════════════ */
-function kalkulasiKas(data) {
-  var totMasuk = 0, totKeluar = 0;
-  var bukuBesar = {}, rekapKat = {}, trendBulan = {};
-
-  data.forEach(function(row) {
-    var item    = row[4] || '-';
-    var debit   = parseFloat(row[6]) || 0;  // sudah number dari backend
-    var kredit  = parseFloat(row[7]) || 0;  // sudah number dari backend
-    var periode = normPeriode(row[2]);
-
-    totMasuk  += debit;
-    totKeluar += kredit;
-
-    if (!bukuBesar[item]) bukuBesar[item] = { debit:0, kredit:0, rows:[] };
-    bukuBesar[item].debit  += debit;
-    bukuBesar[item].kredit += kredit;
-    bukuBesar[item].rows.push(row);
-
-    if (kredit > 0) {
-      var kat = String(item).includes(':') ? String(item).split(':')[0].trim() : item;
-      rekapKat[kat] = (rekapKat[kat] || 0) + kredit;
-    }
-
-    if (periode) {
-      if (!trendBulan[periode]) trendBulan[periode] = { masuk:0, keluar:0 };
-      trendBulan[periode].masuk  += debit;
-      trendBulan[periode].keluar += kredit;
-    }
+/* ─── TREND CHART ───────────────────────────────────────── */
+function rptRenderTrend() {
+  var trendMap = {};
+  _rptData.kas.forEach(function(r) {
+    var p = rptNormPeriode(r[2]);
+    if (!p) return;
+    if (!trendMap[p]) trendMap[p] = { masuk:0, keluar:0 };
+    trendMap[p].masuk  += parseFloat(r[6]) || 0;
+    trendMap[p].keluar += parseFloat(r[7]) || 0;
   });
+  var periods = Object.keys(trendMap).sort(rptUrutPeriode).slice(-6);
+  var labels  = periods.map(function(p) { var pt = p.split(' '); return (pt[0]||'').substring(0,3)+' '+(pt[1]||''); });
+  var masukD  = periods.map(function(p) { return trendMap[p].masuk; });
+  var keluarD = periods.map(function(p) { return trendMap[p].keluar; });
 
-  cacheBukuBesar = bukuBesar;
-
-  var saldo = totMasuk - totKeluar;
-  var pct   = totMasuk > 0 ? Math.min(totKeluar / totMasuk * 100, 100) : 0;
-
-  document.getElementById('rep-kas-saldo').innerText  = fRpFull(saldo);
-  document.getElementById('rep-kas-masuk').innerText  = fRp(totMasuk);
-  document.getElementById('rep-kas-keluar').innerText = fRp(totKeluar);
-
-  var elSaldo = document.getElementById('rep-kas-saldo');
-  elSaldo.className = 'text-xl font-bold truncate ' + (saldo < 0 ? 'text-red-600' : 'text-rose-900');
-
-  updateArcKas(pct);
-  renderTrendKas(trendBulan);
-  renderDonatKas(rekapKat);
-  renderBukuBesar(bukuBesar, filterBBMode);
-
-  if (saldoTersembunyi) _applySaldoMask();
-}
-
-function updateArcKas(pct) {
-  var arc    = document.getElementById('arc-fill-kas');
-  var label  = document.getElementById('arc-pct-kas');
-  var maxD   = 141;
-  var offset = maxD - (maxD * pct / 100);
-  arc.style.strokeDashoffset = offset;
-  arc.style.stroke = pct > 90 ? '#dc2626' : pct > 70 ? '#f59e0b' : '#16a34a';
-  label.innerText  = Math.round(pct) + '%';
-}
-
-function renderTrendKas(trendBulan) {
-  var periodeUrut = Object.keys(trendBulan).sort(urutPeriode).slice(-6);
-  var labelChart  = periodeUrut.map(function(p) {
-    var parts = p.split(' ');
-    return (parts[0]||'').substring(0,3) + ' ' + (parts[1]||'');
-  });
-  var dataMasuk  = periodeUrut.map(function(p) { return trendBulan[p].masuk; });
-  var dataKeluar = periodeUrut.map(function(p) { return trendBulan[p].keluar; });
-
-  var ctx = document.getElementById('grafikTrendKas').getContext('2d');
-  if (chartTrendKas) chartTrendKas.destroy();
-  chartTrendKas = new Chart(ctx, {
+  var ctx = document.getElementById('rpt-chart-trend').getContext('2d');
+  if (_chartTrend) _chartTrend.destroy();
+  _chartTrend = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: labelChart,
+      labels: labels,
       datasets: [
-        { label:'Masuk',  data:dataMasuk,  backgroundColor:'#bbf7d0', borderColor:'#16a34a', borderWidth:1.5, borderRadius:6 },
-        { label:'Keluar', data:dataKeluar, backgroundColor:'#fecdd3', borderColor:'#e11d48', borderWidth:1.5, borderRadius:6 }
+        { label:'Masuk',  data:masukD,  backgroundColor:'#bbf7d0', borderColor:'#16a34a', borderWidth:1.5, borderRadius:5 },
+        { label:'Keluar', data:keluarD, backgroundColor:'#fecdd3', borderColor:'#dc2626', borderWidth:1.5, borderRadius:5 }
       ]
     },
     options: {
       responsive:true, maintainAspectRatio:false,
       plugins: {
-        legend: { position:'bottom', labels:{ boxWidth:8, font:{size:9}, padding:8 } },
-        tooltip: { callbacks: { label: function(c) { return c.dataset.label + ': ' + fRpFull(c.raw); } } }
+        legend: { position:'bottom', labels:{ boxWidth:8, font:{size:9}, padding:10 } },
+        tooltip: { callbacks:{ label: function(c){ return c.dataset.label+': '+rptFmtFull(c.raw); } } }
       },
       scales: {
-        x: { grid:{ display:false }, ticks:{ font:{size:9}, maxRotation:20 } },
+        x: { grid:{ display:false }, ticks:{ font:{size:8}, maxRotation:20 } },
         y: { display:false }
       }
     }
   });
 }
 
-function renderDonatKas(rekapKat) {
-  var entries = Object.entries(rekapKat).sort(function(a,b){ return b[1]-a[1]; }).slice(0,8);
-  var labels  = entries.map(function(e) { return e[0]; });
-  var values  = entries.map(function(e) { return e[1]; });
-  var total   = values.reduce(function(s,v) { return s+v; }, 0);
+/* ─── ARUS KAS ───────────────────────────────────────────── */
+function rptRenderKas(kasData) {
+  var keluar = {}, masuk = {};
+  var totMasuk = 0, totKeluar = 0;
 
-  var ctx = document.getElementById('grafikKas').getContext('2d');
-  if (chartKas) chartKas.destroy();
-
-  if (labels.length === 0) {
-    chartKas = new Chart(ctx, {
-      type:'doughnut',
-      data:{ labels:['Kosong'], datasets:[{ data:[1], backgroundColor:['#fce7f3'] }] },
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{enabled:false} }, cutout:'72%' }
-    });
-    document.getElementById('legend-kas').innerHTML = '<p class="text-[10px] text-gray-400">Belum ada data</p>';
-    return;
-  }
-
-  chartKas = new Chart(ctx, {
-    type:'doughnut',
-    data:{ labels, datasets:[{ data:values, backgroundColor:WARNA_GRAFIK, borderWidth:2, borderColor:'#fff' }] },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins: { legend:{ display:false }, tooltip: { callbacks: { label: function(c) { return c.label + ': ' + fRpFull(c.raw); } } } },
-      cutout:'72%'
+  kasData.forEach(function(r) {
+    var item   = r[4] || '-';
+    var debit  = parseFloat(r[6]) || 0;
+    var kredit = parseFloat(r[7]) || 0;
+    if (kredit > 0) {
+      if (!keluar[item]) keluar[item] = { total:0, rows:[] };
+      keluar[item].total += kredit;
+      keluar[item].rows.push(r);
+      totKeluar += kredit;
+    }
+    if (debit > 0) {
+      if (!masuk[item]) masuk[item] = { total:0, rows:[] };
+      masuk[item].total += debit;
+      masuk[item].rows.push(r);
+      totMasuk += debit;
     }
   });
 
-  var legendHtml = '';
-  entries.forEach(function(entry, i) {
-    var pct = total > 0 ? (entry[1]/total*100).toFixed(0) : 0;
-    legendHtml += '<div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:' + WARNA_GRAFIK[i%WARNA_GRAFIK.length] + '"></span><span class="text-[9px] text-gray-600 truncate flex-1">' + entry[0] + '</span><span class="text-[9px] font-bold text-gray-500">' + pct + '%</span></div>';
-  });
-  document.getElementById('legend-kas').innerHTML = legendHtml;
+  _rptKeluar = keluar;
+  _rptMasuk  = masuk;
+
+  document.getElementById('kas-total-keluar-label').innerText = rptFmt(totKeluar);
+  document.getElementById('kas-total-masuk-label').innerText  = rptFmt(totMasuk);
+
+  var keluarEntries = Object.entries(keluar).sort(function(a,b){ return b[1].total - a[1].total; });
+  var masukEntries  = Object.entries(masuk).sort(function(a,b){ return b[1].total - a[1].total; });
+
+  var maxKeluar = keluarEntries.length ? keluarEntries[0][1].total : 1;
+  var maxMasuk  = masukEntries.length  ? masukEntries[0][1].total  : 1;
+
+  // Render pengeluaran list (top 5 by default)
+  rptRenderFlowList('list-kas-keluar', keluarEntries, maxKeluar, 'keluar', _rptKeluarExpanded);
+  // Render pemasukan list
+  rptRenderFlowList('list-kas-masuk', masukEntries, maxMasuk, 'masuk', _rptMasukExpanded);
+
+  // Donut keluar
+  rptRenderDonut('rpt-chart-keluar', 'rpt-legend-keluar', keluarEntries.slice(0,8), totKeluar, 'keluar');
 }
 
-function renderBukuBesar(bb, mode) {
-  var container = document.getElementById('list-buku-besar');
-
-  ['semua','keluar','masuk'].forEach(function(m) {
-    var btn = document.getElementById('bb-filter-' + m);
-    if (!btn) return;
-    btn.className = m === mode
-      ? 'text-[9px] font-bold px-2 py-1 rounded-full bg-pink-600 text-white transition-colors'
-      : 'text-[9px] font-bold px-2 py-1 rounded-full bg-pink-50 text-pink-600 transition-colors';
-  });
-
-  var entries = Object.entries(bb)
-    .filter(function(e) {
-      if (mode === 'keluar') return e[1].kredit > 0;
-      if (mode === 'masuk')  return e[1].debit  > 0;
-      return true;
-    })
-    .sort(function(a,b) { return (b[1].kredit+b[1].debit) - (a[1].kredit+a[1].debit); });
-
+function rptRenderFlowList(containerId, entries, maxVal, tipe, expanded) {
+  var container = document.getElementById(containerId);
   if (entries.length === 0) {
-    container.innerHTML = renderEmptyState('Tidak ada transaksi', 'Belum ada data untuk ditampilkan.');
+    container.innerHTML = '<div class="rpt-empty"><span class="empty-icon">📂</span><p>Belum ada data</p></div>';
     return;
   }
-
-  var maxNominal = Math.max.apply(null, entries.map(function(e) { return e[1].debit + e[1].kredit; }));
-
+  var shown = expanded ? entries : entries.slice(0, 5);
+  var color = tipe === 'keluar' ? 'var(--red)' : 'var(--green)';
   var html = '';
-  entries.forEach(function(entry) {
+  shown.forEach(function(entry, i) {
     var nama    = entry[0];
-    var val     = entry[1];
-    var isKeluar = val.kredit > 0 && val.debit === 0;
-    var isMasuk  = val.debit  > 0 && val.kredit === 0;
-    var pctBar   = maxNominal > 0 ? ((val.kredit || val.debit) / maxNominal * 100) : 0;
-    var warna    = isKeluar ? '#e11d48' : '#16a34a';
-    var bgBar    = isKeluar ? '#fecdd3' : '#bbf7d0';
-    var nominal  = isKeluar ? val.kredit : isMasuk ? val.debit : (val.debit - val.kredit);
-    var sign     = isKeluar ? '-' : '+';
-    var signCls  = isKeluar ? 'text-red-600' : 'text-green-600';
-    var encNama  = encodeURIComponent(nama);
-
-    html += '<div class="item-card bg-rose-50/50 border border-pink-100 rounded-xl p-3 cursor-pointer" onclick="bukaDetailKas(\'' + encNama + '\')">'
-          + '<div class="flex items-center gap-2 mb-1.5">'
-          + '<div class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style="background:' + bgBar + '">'
-          + '<i class="fa-solid fa-' + (isKeluar?'arrow-up':'arrow-down') + ' text-[10px]" style="color:' + warna + '"></i></div>'
-          + '<div class="flex-1 min-w-0"><p class="text-[11px] font-bold text-slate-700 truncate">' + nama + '</p>'
-          + '<p class="text-[9px] text-gray-400">' + val.rows.length + ' transaksi</p></div>'
-          + '<p class="text-xs font-bold ' + signCls + ' flex-shrink-0">' + sign + fRp(Math.abs(nominal)) + '</p></div>'
-          + '<div class="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">'
-          + '<div class="h-full rounded-full progress-bar-inner" style="width:' + pctBar.toFixed(1) + '%; background:' + warna + '"></div>'
-          + '</div></div>';
+    var val     = entry[1].total;
+    var jml     = entry[1].rows.length;
+    var pct     = maxVal > 0 ? (val/maxVal*100) : 0;
+    var dotColor= RPT_COLORS[i % RPT_COLORS.length];
+    var encNama = encodeURIComponent(nama);
+    html += '<div class="flow-item" onclick="rptBukaDetail(\'' + rptEsc(encNama) + '\',\'' + tipe + '\')">'
+          + '<span class="flow-dot" style="background:' + dotColor + ';"></span>'
+          + '<div class="flow-name"><p>' + rptEsc(nama) + '</p><span>' + jml + ' transaksi</span></div>'
+          + '<div class="flow-bar-wrap"><div class="flow-bar-track"><div class="flow-bar-fill" style="width:' + pct.toFixed(1) + '%;background:' + color + ';"></div></div></div>'
+          + '<span class="flow-amount" style="color:' + color + ';">' + rptFmt(val) + '</span>'
+          + '<i class="fa-solid fa-chevron-right flow-chevron"></i>'
+          + '</div>';
   });
   container.innerHTML = html;
 }
 
-function filterBukuBesar(mode) {
-  filterBBMode = mode;
-  renderBukuBesar(cacheBukuBesar, mode);
-}
-
-/* ═══════════════════════════════════════════════════════════
-   ███ KALKULASI KLINIK ███
-   row: [0]=ID [1]=Tgl [2]=Periode [3]=Klinik [4]=Pasien
-        [5]=Tindakan [6]=Omset [7]=KomisiPersen [8]=NominalKomisi [9]=LabaBersih
-═══════════════════════════════════════════════════════════ */
-function kalkulasiKlinik(data) {
-  var totOmset = 0, totKomisi = 0, totLaba = 0;
-  var rekapLokasi = {}, listPasien = [];
-
-  data.forEach(function(row) {
-    var klinik = row[3]; if (!klinik) return;
-    var omset  = parseFloat(row[6]) || 0;
-    var komisi = parseFloat(row[8]) || 0;
-    var laba   = parseFloat(row[9]) || 0;
-    var pasien = row[4] || '-';
-    var tgl    = row[1] || '-';
-
-    totOmset  += omset;
-    totKomisi += komisi;
-    totLaba   += laba;
-
-    if (!rekapLokasi[klinik]) rekapLokasi[klinik] = { pasien:0, omset:0, komisi:0, laba:0 };
-    rekapLokasi[klinik].pasien++;
-    rekapLokasi[klinik].omset  += omset;
-    rekapLokasi[klinik].komisi += komisi;
-    rekapLokasi[klinik].laba   += laba;
-
-    listPasien.push({ tgl, klinik, pasien, omset, laba });
-  });
-
-  cacheListPasien = listPasien.reverse();
-
-  document.getElementById('rep-klinik-omset').innerText  = fRp(totOmset);
-  document.getElementById('rep-klinik-komisi').innerText = fRp(totKomisi);
-  document.getElementById('rep-klinik-laba').innerText   = fRp(totLaba);
-
-  renderDonatKlinik(rekapLokasi);
-  renderLeaderboardKlinik(rekapLokasi);
-  renderListPasien(cacheListPasien);
-}
-
-function renderDonatKlinik(rekapLokasi) {
-  var entries = Object.entries(rekapLokasi).sort(function(a,b) { return b[1].laba - a[1].laba; });
-  var labels  = entries.map(function(e) { return e[0]; });
-  var values  = entries.map(function(e) { return e[1].laba; });
-
-  var ctx = document.getElementById('grafikKlinik').getContext('2d');
-  if (chartKlinik) chartKlinik.destroy();
-
-  if (labels.length === 0) {
-    chartKlinik = new Chart(ctx, {
-      type:'doughnut',
-      data:{ labels:['Kosong'], datasets:[{ data:[1], backgroundColor:['#fce7f3'] }] },
-      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{enabled:false} }, cutout:'72%' }
-    });
-    document.getElementById('legend-klinik').innerHTML = '<p class="text-[10px] text-gray-400">Belum ada data</p>';
-    return;
-  }
-
-  var warna = ['#16a34a','#db2777','#2563eb','#f59e0b','#9333ea','#06b6d4'];
-  chartKlinik = new Chart(ctx, {
-    type:'doughnut',
-    data:{ labels, datasets:[{ data:values, backgroundColor:warna, borderWidth:2, borderColor:'#fff' }] },
-    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:function(c){ return c.label+': '+fRpFull(c.raw); } } } }, cutout:'72%' }
-  });
-
-  var total = values.reduce(function(s,v) { return s+v; }, 0);
-  var html = '';
-  entries.forEach(function(entry, i) {
-    var pct = total > 0 ? (entry[1].laba/total*100).toFixed(0) : 0;
-    html += '<div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:' + warna[i%warna.length] + '"></span><span class="text-[9px] text-gray-600 truncate flex-1">' + entry[0] + '</span><span class="text-[9px] font-bold text-gray-500">' + pct + '%</span></div>';
-  });
-  document.getElementById('legend-klinik').innerHTML = html;
-}
-
-function renderLeaderboardKlinik(rekapLokasi) {
-  var entries   = Object.entries(rekapLokasi).sort(function(a,b) { return b[1].laba - a[1].laba; });
-  var container = document.getElementById('list-klinik');
+function rptRenderDonut(canvasId, legendId, entries, total, tipe) {
+  var canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
 
   if (entries.length === 0) {
-    container.innerHTML = renderEmptyState('Belum ada data klinik', 'Catat transaksi fee klinik terlebih dahulu.');
+    document.getElementById(legendId).innerHTML = '<p style="font-size:.625rem; color:var(--slate-4);">Belum ada data</p>';
     return;
   }
+  var labels = entries.map(function(e){ return e[0]; });
+  var values = entries.map(function(e){ return e[1].total; });
+  var colors = entries.map(function(_, i){ return RPT_COLORS[i % RPT_COLORS.length]; });
 
-  var maxLaba = Math.max.apply(null, entries.map(function(e) { return e[1].laba; }));
-  var medali  = ['🥇','🥈','🥉'];
+  // Destroy existing
+  if (canvas._chart) canvas._chart.destroy();
+  canvas._chart = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels:labels, datasets:[{ data:values, backgroundColor:colors, borderWidth:2, borderColor:'#fff' }] },
+    options: {
+      responsive:false, maintainAspectRatio:false,
+      plugins: {
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label:function(c){ return c.label+': '+rptFmtFull(c.raw); } } }
+      },
+      cutout: '72%'
+    }
+  });
+
   var html = '';
   entries.forEach(function(entry, i) {
-    var pct = maxLaba > 0 ? (entry[1].laba / maxLaba * 100) : 0;
-    html += '<div class="item-card bg-white border border-pink-100 rounded-xl p-3">'
-          + '<div class="flex items-center gap-2 mb-1.5">'
-          + '<span class="text-lg flex-shrink-0 w-7 text-center">' + (medali[i] || (i+1)) + '</span>'
-          + '<div class="flex-1 min-w-0"><p class="text-[11px] font-bold text-slate-700 truncate">' + entry[0] + '</p>'
-          + '<p class="text-[9px] text-gray-400">' + entry[1].pasien + ' pasien · omset ' + fRp(entry[1].omset) + '</p></div>'
-          + '<p class="text-xs font-bold text-green-600 flex-shrink-0">' + fRp(entry[1].laba) + '</p></div>'
-          + '<div class="w-full bg-green-50 rounded-full h-1.5 overflow-hidden">'
-          + '<div class="h-full bg-green-500 rounded-full progress-bar-inner" style="width:' + pct.toFixed(1) + '%"></div>'
-          + '</div></div>';
+    var pct = total > 0 ? (entry[1].total/total*100).toFixed(0) : 0;
+    var shortName = entry[0].length > 20 ? entry[0].substring(0,18)+'…' : entry[0];
+    html += '<div class="legend-row"><span class="legend-dot" style="background:' + colors[i] + ';"></span>'
+          + '<span class="legend-name">' + rptEsc(shortName) + '</span>'
+          + '<span class="legend-pct">' + pct + '%</span></div>';
   });
-  container.innerHTML = html;
+  document.getElementById(legendId).innerHTML = html;
 }
 
-function renderListPasien(list) {
-  var container = document.getElementById('list-pasien');
-  if (list.length === 0) { container.innerHTML = renderEmptyState('Belum ada pasien', ''); return; }
+function rptToggleKeluar() {
+  _rptKeluarExpanded = !_rptKeluarExpanded;
+  var entries = Object.entries(_rptKeluar).sort(function(a,b){ return b[1].total-a[1].total; });
+  var max = entries.length ? entries[0][1].total : 1;
+  rptRenderFlowList('list-kas-keluar', entries, max, 'keluar', _rptKeluarExpanded);
+  var icon = document.getElementById('icon-toggle-keluar');
+  var btn  = document.getElementById('btn-toggle-keluar');
+  icon.style.transform = _rptKeluarExpanded ? 'rotate(180deg)' : '';
+  btn.innerHTML = '<i class="fa-solid fa-chevron-' + (_rptKeluarExpanded?'up':'down') + '" style="font-size:0.5rem;" id="icon-toggle-keluar"></i> ' + (_rptKeluarExpanded ? 'Tutup' : 'Lihat semua pengeluaran');
+  btn.onclick = rptToggleKeluar;
+}
+
+function rptToggleMasuk() {
+  _rptMasukExpanded = !_rptMasukExpanded;
+  var entries = Object.entries(_rptMasuk).sort(function(a,b){ return b[1].total-a[1].total; });
+  var max = entries.length ? entries[0][1].total : 1;
+  rptRenderFlowList('list-kas-masuk', entries, max, 'masuk', _rptMasukExpanded);
+  var btn = document.getElementById('btn-toggle-masuk');
+  btn.innerHTML = '<i class="fa-solid fa-chevron-' + (_rptMasukExpanded?'up':'down') + '" style="font-size:0.5rem;" id="icon-toggle-masuk"></i> ' + (_rptMasukExpanded ? 'Tutup' : 'Lihat semua pemasukan');
+  btn.onclick = rptToggleMasuk;
+}
+
+/* ─── KLINIK ─────────────────────────────────────────────── */
+function rptRenderKlinik(klinikData) {
+  var totOmset = 0, totKomisi = 0, totLaba = 0;
+  var lokasiMap = {};
+  var pasienList = [];
+
+  klinikData.forEach(function(r) {
+    var klinik = r[3] || '-';
+    var omset  = parseFloat(r[6]) || 0;
+    var komisi = parseFloat(r[8]) || 0;
+    var laba   = parseFloat(r[9]) || 0;
+    totOmset  += omset; totKomisi += komisi; totLaba += laba;
+    if (!lokasiMap[klinik]) lokasiMap[klinik] = { pasien:0, omset:0, komisi:0, laba:0 };
+    lokasiMap[klinik].pasien++;
+    lokasiMap[klinik].omset  += omset;
+    lokasiMap[klinik].komisi += komisi;
+    lokasiMap[klinik].laba   += laba;
+    pasienList.push({ tgl:r[1], klinik:klinik, pasien:r[4]||'-', laba:laba, tindakan:r[5]||'-' });
+  });
+
+  _rptPasien = pasienList.slice().reverse();
+
+  document.getElementById('klinik-omset').innerText  = rptFmt(totOmset);
+  document.getElementById('klinik-komisi').innerText = rptFmt(totKomisi);
+  document.getElementById('klinik-laba').innerText   = rptFmt(totLaba);
+
+  // Ranking
+  var ranked = Object.entries(lokasiMap).sort(function(a,b){ return b[1].laba-a[1].laba; });
+  var maxLaba = ranked.length ? ranked[0][1].laba : 1;
+  var medali = ['🥇','🥈','🥉'];
   var html = '';
-  list.forEach(function(p) {
-    html += '<div class="pasien-row flex items-center gap-2 py-2 border-b border-pink-50 last:border-0">'
-          + '<div class="w-6 h-6 bg-pink-100 rounded-full flex items-center justify-center flex-shrink-0">'
-          + '<i class="fa-solid fa-user text-pink-500" style="font-size:8px;"></i></div>'
-          + '<div class="flex-1 min-w-0"><p class="text-[11px] font-bold text-slate-700 truncate">' + p.pasien + '</p>'
-          + '<p class="text-[9px] text-gray-400">' + p.tgl + ' · ' + p.klinik + '</p></div>'
-          + '<p class="text-[10px] font-bold text-green-600 flex-shrink-0">' + fRp(p.laba) + '</p></div>';
+  ranked.forEach(function(entry, i) {
+    var pct = maxLaba > 0 ? (entry[1].laba/maxLaba*100).toFixed(1) : 0;
+    html += '<div class="klinik-card">'
+          + '<div class="klinik-rank">' + (medali[i] || (i+1)) + '</div>'
+          + '<div class="klinik-info">'
+          + '<div class="name">' + rptEsc(entry[0]) + '</div>'
+          + '<div class="sub">' + entry[1].pasien + ' pasien · omset ' + rptFmt(entry[1].omset) + '</div>'
+          + '<div style="margin-top:0.375rem; background:var(--green-lt); border-radius:999px; height:0.3125rem; overflow:hidden;">'
+          + '<div style="height:100%; background:var(--green); border-radius:999px; width:' + pct + '%; transition:width .8s cubic-bezier(.4,0,.2,1);"></div>'
+          + '</div></div>'
+          + '<div class="klinik-amount">' + rptFmt(entry[1].laba) + '</div>'
+          + '</div>';
   });
-  container.innerHTML = html;
+  if (!html) html = '<div class="rpt-empty"><span class="empty-icon">🏥</span><p>Belum ada data klinik</p></div>';
+  document.getElementById('list-klinik-ranking').innerHTML = html;
+
+  rptRenderPasien(_rptPasien);
 }
 
-function cariRiwayatPasien() {
-  var q = document.getElementById('cari-pasien').value.toLowerCase();
-  var filtered = cacheListPasien.filter(function(p) {
+function rptRenderPasien(list) {
+  var container = document.getElementById('list-pasien');
+  if (list.length === 0) {
+    container.innerHTML = '<div class="rpt-empty"><span class="empty-icon">👤</span><p>Belum ada pasien</p></div>';
+    return;
+  }
+  container.innerHTML = list.map(function(p) {
+    return '<div class="pasien-row">'
+      + '<div class="pasien-avatar">' + rptInitials(p.pasien) + '</div>'
+      + '<div class="pasien-info">'
+      + '<div class="name">' + rptEsc(p.pasien) + '</div>'
+      + '<div class="sub">' + (p.tgl||'-') + ' · ' + rptEsc(p.klinik) + (p.tindakan&&p.tindakan!=='-'?' · '+rptEsc(p.tindakan):'') + '</div>'
+      + '</div>'
+      + '<span class="pasien-fee">' + rptFmt(p.laba) + '</span>'
+      + '</div>';
+  }).join('');
+}
+
+function rptCariPasien() {
+  var q = document.getElementById('rpt-cari-pasien').value.toLowerCase();
+  var filtered = _rptPasien.filter(function(p) {
     return p.pasien.toLowerCase().includes(q) || p.klinik.toLowerCase().includes(q);
   });
-  renderListPasien(filtered);
+  rptRenderPasien(filtered);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   ███ KALKULASI ASET ███
-   row: [0]=ID [1]=Tgl [2]=Platform [3]=Kategori [4]=Item
-        [5]=Tipe [6]=Qty [7]=Harga [8]=Total [9]=IdRef
-═══════════════════════════════════════════════════════════ */
-function kalkulasiAset(data) {
-  var totalBeli = 0, totalJual = 0, realizedPNL = 0;
+/* ─── ASET ────────────────────────────────────────────────── */
+function rptRenderAset(asetData) {
+  var beliMap = {};
   var rekapItem = {};
-  var beliMap   = {};
+  var totBeli = 0, totJual = 0, pnlTotal = 0;
 
-  // Pass 1: bangun beliMap
-  data.forEach(function(row) {
-    var id   = String(row[0]).trim();
-    var tipe = String(row[5]).trim();
+  asetData.forEach(function(r) {
+    var id = String(r[0]).trim(), tipe = String(r[5]).trim();
     if (tipe === 'BELI' && id) {
-      beliMap[id] = {
-        harga: parseFloat(row[7]) || 0,
-        qty:   parseFloat(row[6]) || 0,
-        total: parseFloat(row[8]) || 0
-      };
+      beliMap[id] = { harga: parseFloat(r[7])||0, qty: parseFloat(r[6])||0, total: parseFloat(r[8])||0 };
     }
   });
 
-  // Pass 2: kalkulasi
-  data.forEach(function(row) {
-    var item     = String(row[4]).trim(); if (!item) return;
-    var tipe     = String(row[5]).trim();
-    var kategori = String(row[3]).trim();
-    var platform = String(row[2]).trim();
-    var qty      = parseFloat(row[6]) || 0;
-    var harga    = parseFloat(row[7]) || 0;
-    var total    = parseFloat(row[8]) || 0;
-    var idRef    = String(row[9]).trim();
+  asetData.forEach(function(r) {
+    var item     = String(r[4]).trim(); if (!item) return;
+    var tipe     = String(r[5]).trim();
+    var kategori = String(r[3]).trim();
+    var platform = String(r[2]).trim();
+    var qty      = parseFloat(r[6]) || 0;
+    var total    = parseFloat(r[8]) || 0;
+    var idRef    = String(r[9]).trim();
 
-    if (!rekapItem[item]) {
-      rekapItem[item] = { qtyBeli:0, nilaiBeli:0, qtyJual:0, nilaiJual:0, hargaPokokJual:0, kategori, platform };
-    }
+    if (!rekapItem[item]) rekapItem[item] = { qtyBeli:0, nilaiBeli:0, qtyJual:0, nilaiJual:0, hargaPokokJual:0, kategori:kategori, platform:platform };
 
     if (tipe === 'BELI') {
-      totalBeli += total;
+      totBeli += total;
       rekapItem[item].qtyBeli   += qty;
       rekapItem[item].nilaiBeli += total;
     } else if (tipe === 'JUAL') {
-      totalJual += total;
+      totJual += total;
       rekapItem[item].qtyJual   += qty;
       rekapItem[item].nilaiJual += total;
-
-      var hargaBeli  = 0;
-      if (idRef && idRef !== '-' && beliMap[idRef]) hargaBeli = beliMap[idRef].harga;
-      var hargaPokok = hargaBeli * qty;
-      rekapItem[item].hargaPokokJual += hargaPokok;
-      realizedPNL += (total - hargaPokok);
+      var hBeli = (idRef && idRef!=='-' && beliMap[idRef]) ? beliMap[idRef].harga : 0;
+      var hPokok = hBeli * qty;
+      rekapItem[item].hargaPokokJual += hPokok;
+      pnlTotal += (total - hPokok);
     }
   });
 
-  document.getElementById('rep-total-beli').innerText = fRp(totalBeli);
-  document.getElementById('rep-total-jual').innerText = fRp(totalJual);
-  document.getElementById('rep-pnl').innerText        = fRpFull(realizedPNL);
-
-  var banner  = document.getElementById('pnl-banner');
-  var pnlIcon = document.getElementById('pnl-icon');
-  if (realizedPNL < 0) {
-    banner.style.background = 'linear-gradient(to right, #ef4444, #b91c1c)';
-    pnlIcon.innerHTML = '<i class="fa-solid fa-arrow-trend-down text-white text-xl"></i>';
-  } else if (realizedPNL > 0) {
-    banner.style.background = 'linear-gradient(to right, #db2777, #be185d)';
-    pnlIcon.innerHTML = '<i class="fa-solid fa-arrow-trend-up text-white text-xl"></i>';
+  // PNL banner
+  var banner = document.getElementById('rpt-pnl-banner');
+  var icon   = document.getElementById('pnl-icon-wrap');
+  document.getElementById('pnl-nilai').innerText = rptFmtFull(pnlTotal);
+  if (pnlTotal > 0) {
+    banner.style.background = 'linear-gradient(135deg,#be185d,#db2777)';
+    icon.innerHTML = '📈';
+  } else if (pnlTotal < 0) {
+    banner.style.background = 'linear-gradient(135deg,#b91c1c,#dc2626)';
+    icon.innerHTML = '📉';
   } else {
-    banner.style.background = 'linear-gradient(to right, #9333ea, #7c3aed)';
-    pnlIcon.innerHTML = '<i class="fa-solid fa-minus text-white text-xl"></i>';
+    banner.style.background = 'linear-gradient(135deg,#4338ca,#6366f1)';
+    icon.innerHTML = '📊';
   }
+  var pnlColor = pnlTotal >= 0 ? 'white' : '#fecaca';
+  document.getElementById('pnl-nilai').style.color = pnlColor;
 
-  renderGrafikAset(rekapItem);
-  renderCardAset(rekapItem);   // ← PERBAIKAN: fungsi ini sekarang ada
+  // Chart aset
+  rptRenderAsetChart(rekapItem);
+
+  // Asset cards
+  rptRenderAsetCards(rekapItem);
 }
 
-function renderGrafikAset(rekapItem) {
-  var entries  = Object.entries(rekapItem);
-  var labels   = entries.map(function(e) { return e[0].length > 12 ? e[0].substring(0,10)+'…' : e[0]; });
-  var dataBeli = entries.map(function(e) { return e[1].nilaiBeli; });
-  var dataJual = entries.map(function(e) { return e[1].nilaiJual; });
+function rptRenderAsetChart(rekapItem) {
+  var entries = Object.entries(rekapItem);
+  if (!entries.length) return;
+  var labels   = entries.map(function(e){ return e[0].length>12?e[0].substring(0,10)+'…':e[0]; });
+  var dataBeli = entries.map(function(e){ return e[1].nilaiBeli; });
+  var dataJual = entries.map(function(e){ return e[1].nilaiJual; });
 
-  var ctx = document.getElementById('grafikAset').getContext('2d');
-  if (chartAset) chartAset.destroy();
-  if (entries.length === 0) return;
-
-  chartAset = new Chart(ctx, {
-    type:'bar',
-    data:{
-      labels,
-      datasets:[
-        { label:'Modal', data:dataBeli, backgroundColor:'#fbcfe8', borderColor:'#db2777', borderWidth:1.5, borderRadius:6, borderSkipped:false },
-        { label:'Jual',  data:dataJual, backgroundColor:'#bbf7d0', borderColor:'#16a34a', borderWidth:1.5, borderRadius:6, borderSkipped:false }
+  var ctx = document.getElementById('rpt-chart-aset').getContext('2d');
+  if (_chartAset) _chartAset.destroy();
+  _chartAset = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label:'Modal', data:dataBeli, backgroundColor:'#fbcfe8', borderColor:'#db2777', borderWidth:1.5, borderRadius:5 },
+        { label:'Dicairkan', data:dataJual, backgroundColor:'#bbf7d0', borderColor:'#16a34a', borderWidth:1.5, borderRadius:5 }
       ]
     },
-    options:{
+    options: {
       responsive:true, maintainAspectRatio:false,
-      plugins:{
-        legend:{ position:'bottom', labels:{ boxWidth:8, font:{size:9}, padding:8 } },
-        tooltip:{ callbacks:{ label: function(c) { return c.dataset.label+': '+fRpFull(c.raw); } } }
+      plugins: {
+        legend:{ position:'bottom', labels:{ boxWidth:8, font:{size:9}, padding:10 } },
+        tooltip:{ callbacks:{ label:function(c){ return c.dataset.label+': '+rptFmtFull(c.raw); } } }
       },
-      scales:{ x:{ grid:{display:false}, ticks:{ font:{size:9}, maxRotation:20 } }, y:{ display:false } }
+      scales: { x:{ grid:{display:false}, ticks:{ font:{size:8}, maxRotation:20 } }, y:{display:false} }
     }
   });
 }
 
-/**
- * ▼ PERBAIKAN UTAMA: renderCardAset() — sebelumnya tidak ada sama sekali.
- * Menampilkan portofolio detail di #list-aset.
- * rekapItem: { namaItem: { qtyBeli, nilaiBeli, qtyJual, nilaiJual, hargaPokokJual, kategori, platform } }
- */
-function renderCardAset(rekapItem) {
-  var container = document.getElementById('list-aset');
-  var entries   = Object.entries(rekapItem);
-
-  if (entries.length === 0) {
-    container.innerHTML = renderEmptyState('Belum ada data aset', 'Catat transaksi pembelian aset terlebih dahulu.');
+function rptRenderAsetCards(rekapItem) {
+  var container = document.getElementById('list-aset-cards');
+  var entries = Object.entries(rekapItem).sort(function(a,b){ return b[1].nilaiBeli-a[1].nilaiBeli; });
+  if (!entries.length) {
+    container.innerHTML = '<div class="rpt-empty"><span class="empty-icon">💼</span><p>Belum ada data aset</p><span>Catat pembelian aset di menu Transaksi</span></div>';
     return;
   }
 
-  // Urutkan: nilai beli terbesar di atas
-  entries.sort(function(a, b) { return b[1].nilaiBeli - a[1].nilaiBeli; });
+  var emojiMap = { emas:'🪙', gold:'🪙', perak:'🥈', silver:'🥈', reksa:'📊', reksadana:'📊', saham:'📈', crypto:'💎', bitcoin:'💎', deposito:'🏦', obligasi:'📜' };
+  function getEmoji(kat) {
+    var k = (kat||'').toLowerCase();
+    for (var key in emojiMap) { if (k.includes(key)) return emojiMap[key]; }
+    return '💰';
+  }
 
-  var html = '';
-  entries.forEach(function(entry) {
+  container.innerHTML = entries.map(function(entry) {
     var nama  = entry[0];
     var d     = entry[1];
-
-    // Hitung nilai sisa (belum dijual)
-    var sisaNilai = d.nilaiBeli - d.nilaiJual;
-    // Realized PNL item ini
-    var pnl       = d.nilaiJual - d.hargaPokokJual;
-    var hasDijual = d.qtyJual > 0 || d.nilaiJual > 0;
-
-    var pnlClass  = pnl > 0 ? 'text-green-600' : pnl < 0 ? 'text-red-500' : 'text-gray-400';
+    var sisa  = d.nilaiBeli - d.nilaiJual;
+    var pnl   = d.nilaiJual - d.hargaPokokJual;
+    var hasDijual = d.nilaiJual > 0;
+    var pnlColor  = pnl > 0 ? 'var(--green)' : pnl < 0 ? 'var(--red)' : 'var(--slate-4)';
     var pnlSign   = pnl >= 0 ? '+' : '';
-    var pnlLabel  = hasDijual ? (pnlSign + fRp(pnl)) : '—';
+    var jualPct   = d.nilaiBeli > 0 ? Math.min(d.nilaiJual/d.nilaiBeli*100,100).toFixed(1) : 0;
 
-    var katIcon   = '';
-    var katLower  = (d.kategori || '').toLowerCase();
-    if (katLower.includes('emas') || katLower.includes('gold')) katIcon = '🪙';
-    else if (katLower.includes('perak') || katLower.includes('silver')) katIcon = '🥈';
-    else if (katLower.includes('reksa') || katLower.includes('reksadana')) katIcon = '📊';
-    else if (katLower.includes('saham')) katIcon = '📈';
-    else if (katLower.includes('crypto') || katLower.includes('bitcoin')) katIcon = '💎';
-    else katIcon = '💰';
-
-    html += '<div class="item-card bg-white border border-pink-100 rounded-xl p-3">'
-          + '<div class="flex items-start gap-2.5 mb-2">'
-          + '<div class="w-9 h-9 bg-indigo-50 rounded-xl flex items-center justify-center flex-shrink-0 text-base">' + katIcon + '</div>'
-          + '<div class="flex-1 min-w-0">'
-          + '<p class="text-[11px] font-bold text-slate-800 truncate">' + nama + '</p>'
-          + '<p class="text-[9px] text-gray-400 truncate">' + (d.platform || '-') + ' · ' + (d.kategori || '-') + '</p>'
-          + '</div>'
-          + '<div class="text-right flex-shrink-0">'
-          + '<p class="text-[9px] text-gray-400">Modal</p>'
-          + '<p class="text-xs font-bold text-rose-900">' + fRp(d.nilaiBeli) + '</p>'
-          + '</div></div>'
-
-          // Progress bar sisa vs terjual
-          + '<div class="w-full bg-pink-50 rounded-full h-1.5 overflow-hidden mb-2">'
-          + '<div class="h-full bg-pink-500 rounded-full progress-bar-inner" style="width:' + (d.nilaiBeli > 0 ? Math.min(d.nilaiJual/d.nilaiBeli*100,100).toFixed(1) : 0) + '%"></div>'
-          + '</div>'
-
-          // Stats row
-          + '<div class="grid grid-cols-3 gap-1 text-center">'
-          + '<div><p class="text-[8px] text-gray-400">SISA</p><p class="text-[10px] font-bold text-indigo-600">' + fRp(Math.max(sisaNilai, 0)) + '</p></div>'
-          + '<div><p class="text-[8px] text-gray-400">DICAIRKAN</p><p class="text-[10px] font-bold text-emerald-600">' + fRp(d.nilaiJual) + '</p></div>'
-          + '<div><p class="text-[8px] text-gray-400">PNL</p><p class="text-[10px] font-bold ' + pnlClass + '">' + pnlLabel + '</p></div>'
-          + '</div></div>';
-  });
-  container.innerHTML = html;
+    return '<div class="aset-card">'
+      + '<div class="aset-card-header">'
+      + '<div class="aset-icon">' + getEmoji(d.kategori) + '</div>'
+      + '<div class="aset-card-info">'
+      + '<div class="name">' + rptEsc(nama) + '</div>'
+      + '<div class="sub">' + rptEsc(d.platform||'-') + ' · ' + rptEsc(d.kategori||'-') + '</div>'
+      // Jual progress
+      + '<div style="margin-top:0.375rem; background:var(--slate-1); border-radius:999px; height:0.25rem; overflow:hidden; width:100%;">'
+      + '<div style="height:100%; background:var(--pink); border-radius:999px; width:' + jualPct + '%; transition:width .8s;"></div>'
+      + '</div>'
+      + '</div>'
+      + '<div class="aset-card-pnl">'
+      + '<div class="val" style="color:' + (hasDijual ? pnlColor : 'var(--slate-3)') + ';">' + (hasDijual ? pnlSign + rptFmt(pnl) : '—') + '</div>'
+      + '<div class="lbl">' + (hasDijual ? 'PNL' : 'Belum dijual') + '</div>'
+      + '</div></div>'
+      + '<div class="aset-card-body">'
+      + '<div class="aset-stat"><span class="val" style="color:var(--pink);">' + rptFmt(d.nilaiBeli) + '</span><span class="lbl">Modal</span></div>'
+      + '<div class="aset-stat"><span class="val" style="color:var(--indigo);">' + rptFmt(Math.max(sisa,0)) + '</span><span class="lbl">Sisa</span></div>'
+      + '<div class="aset-stat"><span class="val" style="color:var(--green);">' + rptFmt(d.nilaiJual) + '</span><span class="lbl">Dicairkan</span></div>'
+      + '</div></div>';
+  }).join('');
 }
 
-/* ═══════════════════════════════════════════════════════════
-   MODAL DETAIL KAS
-═══════════════════════════════════════════════════════════ */
-function bukaDetailKas(encodedNama) {
+/* ─── MODAL DETAIL TRANSAKSI ─────────────────────────────── */
+var _rptModalRows = [];
+
+function rptBukaDetail(encodedNama, tipe) {
   var nama    = decodeURIComponent(encodedNama);
-  var periode = periodeTerpilih;
+  var sumber  = tipe === 'keluar' ? _rptKeluar[nama] : _rptMasuk[nama];
+  if (!sumber) return;
 
-  document.getElementById('title-modal-kas').innerText     = nama;
-  document.getElementById('label-modal-periode').innerText = periode === 'ALL' ? 'Semua Periode' : periode;
-  document.getElementById('input-cari-detail-kas').value   = '';
+  document.getElementById('modal-detail-title').innerText = nama;
+  document.getElementById('rpt-cari-detail').value = '';
 
-  var detailData = masterDataLaporan.kas.filter(function(row) { return row[4] === nama; });
-  if (periode !== 'ALL') {
-    detailData = detailData.filter(function(row) { return normPeriode(row[2]).toLowerCase() === periode.toLowerCase(); });
-  }
-  detailData = detailData.slice().reverse();
+  var rows = sumber.rows.slice().sort(function(a,b){ return String(a[1]).localeCompare(String(b[1])); }).reverse();
+  _rptModalRows = rows;
 
   var sumMasuk = 0, sumKeluar = 0;
-  detailData.forEach(function(r) { sumMasuk += parseFloat(r[6])||0; sumKeluar += parseFloat(r[7])||0; });
-  document.getElementById('modal-sum-masuk').innerText  = fRp(sumMasuk);
-  document.getElementById('modal-sum-keluar').innerText = fRp(sumKeluar);
-  document.getElementById('modal-sum-count').innerText  = detailData.length;
+  rows.forEach(function(r) { sumMasuk += parseFloat(r[6])||0; sumKeluar += parseFloat(r[7])||0; });
+  document.getElementById('modal-sum-masuk').innerText  = rptFmt(sumMasuk);
+  document.getElementById('modal-sum-keluar').innerText = rptFmt(sumKeluar);
+  document.getElementById('modal-sum-count').innerText  = rows.length;
 
-  renderListDetailKas(detailData);
-  document.getElementById('modal-detail-kas').classList.remove('hidden');
+  rptRenderModalList(rows);
+  document.getElementById('rpt-modal-detail').classList.remove('hidden');
 }
 
-function tutupDetailKas() {
-  document.getElementById('modal-detail-kas').classList.add('hidden');
+function rptRenderModalList(rows) {
+  var container = document.getElementById('rpt-modal-list');
+  if (!rows.length) {
+    container.innerHTML = '<div class="rpt-empty"><span class="empty-icon">📭</span><p>Tidak ada transaksi</p></div>';
+    return;
+  }
+  container.innerHTML = rows.map(function(r) {
+    var debit  = parseFloat(r[6]) || 0;
+    var kredit = parseFloat(r[7]) || 0;
+    var isIn   = debit > 0;
+    var nom    = isIn ? debit : kredit;
+    var catatan = r[5] || '-';
+    return '<div class="detail-row" style="display:flex; align-items:center; gap:0.625rem; padding:0.625rem; background:white; border:1px solid var(--slate-1); border-radius:0.625rem; margin-bottom:0.375rem;">'
+      + '<div style="width:2rem;height:2rem;border-radius:0.625rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:' + (isIn?'var(--green-lt)':'var(--red-lt)') + ';">'
+      + '<i class="fa-solid fa-' + (isIn?'arrow-down':'arrow-up') + '" style="font-size:0.625rem; color:' + (isIn?'var(--green)':'var(--red)') + ';"></i></div>'
+      + '<div style="flex:1;min-width:0;">'
+      + '<p style="font-size:0.6875rem;font-weight:700;color:var(--slate-7);margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + rptEsc(catatan) + '</p>'
+      + '<p style="font-size:0.5625rem;color:var(--slate-4);margin:0.125rem 0 0;">' + (r[1]||'-') + '</p>'
+      + '</div>'
+      + '<span style="font-size:0.75rem;font-weight:800;color:' + (isIn?'var(--green)':'var(--red)') + ';flex-shrink:0;">' + (isIn?'+':'-') + rptFmt(nom) + '</span>'
+      + '</div>';
+  }).join('');
 }
 
-function renderListDetailKas(data) {
-  var container = document.getElementById('list-detail-kas');
-  if (data.length === 0) { container.innerHTML = renderEmptyState('Tidak ada transaksi', ''); return; }
-  var html = '';
-  data.forEach(function(row) {
-    var debit   = parseFloat(row[6]) || 0;
-    var kredit  = parseFloat(row[7]) || 0;
-    var isDebit = debit > 0;
-    var nominal = isDebit ? debit : kredit;
-    html += '<div class="detail-row flex items-center gap-2 bg-white border border-pink-50 rounded-xl p-2.5 item-card">'
-          + '<div class="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ' + (isDebit?'bg-green-50':'bg-red-50') + '">'
-          + '<i class="fa-solid fa-' + (isDebit?'arrow-down text-green-600':'arrow-up text-red-500') + '" style="font-size:11px;"></i></div>'
-          + '<div class="flex-1 min-w-0">'
-          + '<p class="text-[10px] font-bold text-slate-700 truncate">' + (row[5] || '-') + '</p>'
-          + '<p class="text-[9px] text-gray-400">' + row[1] + '</p></div>'
-          + '<p class="text-[11px] font-bold flex-shrink-0 ' + (isDebit?'text-green-600':'text-red-500') + '">'
-          + (isDebit?'+':'-') + fRp(nominal) + '</p></div>';
+function rptCariDetail() {
+  var q = document.getElementById('rpt-cari-detail').value.toLowerCase();
+  var filtered = _rptModalRows.filter(function(r) {
+    return String(r[1]||'').toLowerCase().includes(q) || String(r[5]||'').toLowerCase().includes(q);
   });
-  container.innerHTML = html;
+  rptRenderModalList(filtered);
 }
 
-function cariDetailKas() {
-  var q    = document.getElementById('input-cari-detail-kas').value.toLowerCase();
-  var rows = document.getElementById('list-detail-kas').querySelectorAll('.detail-row');
-  rows.forEach(function(r) { r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+function rptTutupModal() {
+  document.getElementById('rpt-modal-detail').classList.add('hidden');
 }
 
-function renderEmptyState(title, sub) {
-  return '<div class="py-8 text-center"><div class="w-14 h-14 bg-pink-50 rounded-full flex items-center justify-center mx-auto mb-3"><i class="fa-solid fa-inbox text-pink-300 text-2xl"></i></div><p class="text-xs font-bold text-gray-400">' + title + '</p>' + (sub ? '<p class="text-[10px] text-gray-300 mt-1">' + sub + '</p>' : '') + '</div>';
-}
-
-/* ═══════════════════════════════════════════════════════════
-   EXPORT PDF ENGINE
-   (tidak diubah dari versi sebelumnya — sudah benar)
-═══════════════════════════════════════════════════════════ */
-var exportMode = 'lengkap';
-
-function updateLabelExportPeriode() {
+/* ─── EXPORT LABEL ───────────────────────────────────────── */
+function rptUpdateExportLabel() {
   var el = document.getElementById('label-export-periode');
-  if (el) el.innerText = periodeTerpilih === 'ALL' ? 'Semua Periode' : periodeTerpilih;
+  if (el) el.innerText = _rptPeriode === 'ALL' ? 'Semua Periode' : _rptPeriode;
 }
+
+/* ─── EXPORT PDF ─────────────────────────────────────────── */
+var _rptExportMode = 'lengkap';
 
 function exportPDF(mode) {
-  exportMode = mode || 'lengkap';
-  if (mode === 'ringkas') tampilPreviewPDF();
-  else jalankanExportPDF();
+  _rptExportMode = mode || 'lengkap';
+  if (mode === 'ringkas') { rptTampilPreviewPDF(); }
+  else { rptJalankanExportPDF(); }
 }
 
-function tampilPreviewPDF() {
-  var periode  = periodeTerpilih;
-  var kasData  = periode === 'ALL' ? masterDataLaporan.kas : masterDataLaporan.kas.filter(function(r) { return normPeriode(r[2]).toLowerCase() === periode.toLowerCase(); });
-
-  var totMasuk = 0, totKeluar = 0, jmlTrx = 0;
-  var akunMap  = {};
-  kasData.forEach(function(row) {
-    var debit  = parseFloat(row[6]) || 0;
-    var kredit = parseFloat(row[7]) || 0;
-    var item   = row[4] || '-';
-    totMasuk  += debit; totKeluar += kredit; jmlTrx++;
-    if (!akunMap[item]) akunMap[item] = { debit:0, kredit:0 };
-    akunMap[item].debit  += debit;
-    akunMap[item].kredit += kredit;
-  });
-
-  var saldo    = totMasuk - totKeluar;
-  var jmlAkun  = Object.keys(akunMap).length;
+function rptTampilPreviewPDF() {
+  var periode = _rptPeriode;
+  var filterFn = function(r) { return periode === 'ALL' || rptNormPeriode(r[2]).toLowerCase() === periode.toLowerCase(); };
+  var kasData = _rptData.kas.filter(filterFn);
+  var totMasuk=0, totKeluar=0;
+  kasData.forEach(function(r){ totMasuk+=parseFloat(r[6])||0; totKeluar+=parseFloat(r[7])||0; });
+  var saldo = totMasuk - totKeluar;
   var labelPer = periode === 'ALL' ? 'Semua Periode' : periode;
 
-  var content = document.getElementById('preview-pdf-content');
-  content.innerHTML = '<div class="bg-rose-50 border border-pink-200 rounded-xl p-3"><p class="text-[9px] font-bold text-gray-400 tracking-widest mb-1">PERIODE LAPORAN</p><p class="text-sm font-bold text-rose-900">' + labelPer + '</p></div>'
-    + '<div class="grid grid-cols-2 gap-2">'
-    + '<div class="bg-white border border-pink-100 rounded-xl p-3 text-center"><p class="text-[8px] text-gray-400 font-bold mb-1">TOTAL TRANSAKSI</p><p class="text-lg font-bold text-rose-900">' + jmlTrx + '</p></div>'
-    + '<div class="bg-white border border-pink-100 rounded-xl p-3 text-center"><p class="text-[8px] text-gray-400 font-bold mb-1">TOTAL AKUN</p><p class="text-lg font-bold text-rose-900">' + jmlAkun + '</p></div>'
-    + '<div class="bg-green-50 border border-green-200 rounded-xl p-3 text-center"><p class="text-[8px] text-gray-400 font-bold mb-1">TOTAL MASUK</p><p class="text-sm font-bold text-green-600">' + fRpFull(totMasuk) + '</p></div>'
-    + '<div class="bg-red-50 border border-red-200 rounded-xl p-3 text-center"><p class="text-[8px] text-gray-400 font-bold mb-1">TOTAL KELUAR</p><p class="text-sm font-bold text-red-500">' + fRpFull(totKeluar) + '</p></div>'
+  document.getElementById('rpt-pdf-preview-content').innerHTML =
+    '<div style="background:var(--slate-1);border-radius:var(--radius-sm);padding:0.875rem;">'
+    + '<p style="font-size:0.5625rem;font-weight:800;color:var(--slate-4);text-transform:uppercase;margin:0 0 0.25rem;">Periode</p>'
+    + '<p style="font-size:0.9375rem;font-weight:800;color:var(--slate-9);margin:0;">' + labelPer + '</p>'
     + '</div>'
-    + '<div class="rounded-xl p-3 text-center ' + (saldo >= 0 ? 'bg-gradient-to-r from-pink-600 to-rose-700' : 'bg-gradient-to-r from-red-600 to-red-700') + '"><p class="text-[9px] text-white/70 font-bold mb-1">SALDO BERSIH</p><p class="text-xl font-bold text-white">' + fRpFull(saldo) + '</p></div>';
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">'
+    + '<div style="background:var(--green-xs);border:1px solid var(--green-lt);border-radius:var(--radius-sm);padding:0.75rem;text-align:center;"><p style="font-size:0.5rem;color:var(--slate-4);font-weight:800;text-transform:uppercase;margin:0 0 0.25rem;">Total Masuk</p><p style="font-size:0.875rem;font-weight:800;color:var(--green);margin:0;">' + rptFmtFull(totMasuk) + '</p></div>'
+    + '<div style="background:var(--red-xs);border:1px solid var(--red-lt);border-radius:var(--radius-sm);padding:0.75rem;text-align:center;"><p style="font-size:0.5rem;color:var(--slate-4);font-weight:800;text-transform:uppercase;margin:0 0 0.25rem;">Total Keluar</p><p style="font-size:0.875rem;font-weight:800;color:var(--red);margin:0;">' + rptFmtFull(totKeluar) + '</p></div>'
+    + '</div>'
+    + '<div style="background:linear-gradient(135deg,#9d174d,#db2777);border-radius:var(--radius-sm);padding:1rem;text-align:center;">'
+    + '<p style="font-size:0.5rem;color:rgba(255,255,255,.65);font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin:0 0 0.375rem;">Saldo Bersih</p>'
+    + '<p style="font-size:1.5rem;font-weight:900;color:white;margin:0;">' + rptFmtFull(saldo) + '</p>'
+    + '</div>'
+    + '<div style="background:var(--slate-1);border-radius:var(--radius-sm);padding:0.75rem;text-align:center;">'
+    + '<p style="font-size:0.5rem;color:var(--slate-4);font-weight:800;text-transform:uppercase;margin:0 0 0.25rem;">Jumlah Transaksi</p>'
+    + '<p style="font-size:1.125rem;font-weight:800;color:var(--slate-9);margin:0;">' + kasData.length + ' transaksi</p>'
+    + '</div>';
 
-  document.getElementById('modal-preview-pdf').classList.remove('hidden');
+  document.getElementById('rpt-modal-pdf').classList.remove('hidden');
 }
 
-async function jalankanExportPDF() {
-  document.getElementById('modal-preview-pdf').classList.add('hidden');
-  Swal.fire({ title:'Membuat PDF...', html:'<i class="fa-solid fa-spinner fa-spin text-pink-500 text-2xl"></i><br><p class="text-sm text-gray-500 mt-2">Mohon tunggu sebentar</p>', allowOutsideClick:false, showConfirmButton:false });
+async function rptJalankanExportPDF() {
+  document.getElementById('rpt-modal-pdf').classList.add('hidden');
+  Swal.fire({ title:'Membuat PDF…', html:'<i class="fa-solid fa-spinner fa-spin" style="font-size:2rem;color:#db2777;"></i>', allowOutsideClick:false, showConfirmButton:false });
 
   try {
-    if (typeof window.jspdf === 'undefined') throw new Error('Library jsPDF belum dimuat. Pastikan CDN jsPDF sudah ditambahkan di Index.html');
-
+    if (typeof window.jspdf === 'undefined') throw new Error('Library jsPDF belum dimuat. Pastikan CDN jsPDF ada di Index.html');
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-    const W = 210, H = 297, ML = 15, MR = 15, MT = 15, CW = W - ML - MR;
-    const PINK = [219,39,119], DPINK = [190,24,93], LIGHT = [252,231,243];
-    const GRAY = [107,114,128], LGRAY = [243,244,246], BLACK = [17,24,39];
-    const GREEN = [22,163,74], RED = [220,38,38], WHITE = [255,255,255];
+    const W=210, H=297, ML=15, MR=15, CW=W-ML-MR;
+    const PINK=[219,39,119], DPINK=[190,24,93], PINK_LT=[252,231,243];
+    const GREEN=[22,163,74], RED=[220,38,38];
+    const GRAY=[107,114,128], LGRAY=[243,244,246], BLACK=[17,24,39], WHITE=[255,255,255];
 
-    const periode      = periodeTerpilih;
-    const filterFn     = r => periode === 'ALL' || normPeriode(r[2]).toLowerCase() === periode.toLowerCase();
-    const kasData      = masterDataLaporan.kas.filter(filterFn);
-    const labelPeriode = periode === 'ALL' ? 'Semua Periode' : periode;
-    const tglCetak     = new Date().toLocaleDateString('id-ID',{ day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    const periode    = _rptPeriode;
+    const filterFn   = function(r) { return periode==='ALL' || rptNormPeriode(r[2]).toLowerCase()===periode.toLowerCase(); };
+    const kasData    = _rptData.kas.filter(filterFn);
+    const klinikData = _rptData.klinik.filter(function(r){ return periode==='ALL' || rptNormPeriode(r[2]).toLowerCase()===periode.toLowerCase(); });
+    const labelPer   = periode==='ALL' ? 'Semua Periode' : periode;
+    const tglCetak   = new Date().toLocaleDateString('id-ID',{ day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
 
-    let totMasuk = 0, totKeluar = 0;
-    const akunMap = {}, trxPerAkun = {};
-    kasData.forEach(row => {
-      const item  = row[4] || '-';
-      const debit = parseFloat(row[6]) || 0;
-      const kredit = parseFloat(row[7]) || 0;
-      totMasuk  += debit; totKeluar += kredit;
-      if (!akunMap[item]) akunMap[item] = { debit:0, kredit:0, jml:0 };
-      akunMap[item].debit  += debit; akunMap[item].kredit += kredit; akunMap[item].jml++;
-      if (!trxPerAkun[item]) trxPerAkun[item] = [];
-      trxPerAkun[item].push({ tgl:row[1], per:row[2], tipe:row[3], catat:row[5], debit, kredit });
+    let totMasuk=0, totKeluar=0;
+    const akunMap={}, trxPerAkun={};
+    kasData.forEach(function(row) {
+      const item=row[4]||'-', debit=parseFloat(row[6])||0, kredit=parseFloat(row[7])||0;
+      totMasuk+=debit; totKeluar+=kredit;
+      if (!akunMap[item]) akunMap[item]={debit:0,kredit:0,jml:0};
+      akunMap[item].debit+=debit; akunMap[item].kredit+=kredit; akunMap[item].jml++;
+      if (!trxPerAkun[item]) trxPerAkun[item]=[];
+      trxPerAkun[item].push({tgl:row[1],per:row[2],tipe:row[3],catat:row[5],debit,kredit});
     });
+    const saldo=totMasuk-totKeluar;
+    const sortedAkun=Object.entries(akunMap).sort(function(a,b){ return (b[1].kredit+b[1].debit)-(a[1].kredit+a[1].debit); });
+    const fmtRp=function(n){const a=Math.abs(n),s=n<0?'-':'';if(a>=1e9)return s+'Rp '+(a/1e9).toFixed(2)+' M';if(a>=1e6)return s+'Rp '+(a/1e6).toFixed(2)+' jt';return s+'Rp '+a.toLocaleString('id-ID');};
 
-    const saldo      = totMasuk - totKeluar;
-    const sortedAkun = Object.entries(akunMap).sort((a,b) => (b[1].kredit+b[1].debit)-(a[1].kredit+a[1].debit));
-    const fmtRp = n => { const a=Math.abs(n), s=n<0?'-':''; if(a>=1e9) return s+'Rp '+(a/1e9).toFixed(2)+' M'; if(a>=1e6) return s+'Rp '+(a/1e6).toFixed(2)+' jt'; return s+'Rp '+a.toLocaleString('id-ID'); };
+    let currentY=ML, pageNum=1;
+    const addFooter=()=>{doc.setFontSize(6);doc.setTextColor(...GRAY);doc.setFont('helvetica','italic');doc.text('Dicetak: '+tglCetak+' | Laporan Keuangan Pribadi | Konfidensial',W/2,H-6,{align:'center'});};
+    const addHeader=function(label){doc.setFillColor(...LGRAY);doc.rect(0,0,W,10,'F');doc.setFontSize(7);doc.setTextColor(...GRAY);doc.setFont('helvetica','normal');doc.text('LAPORAN KEUANGAN — '+labelPer.toUpperCase(),ML,6.5);doc.text(label,W/2,6.5,{align:'center'});doc.text('Hal. '+pageNum,W-MR,6.5,{align:'right'});doc.setDrawColor(...PINK);doc.setLineWidth(0.4);doc.line(0,10,W,10);return 15;};
+    const newPage=function(label){addFooter();doc.addPage();pageNum++;currentY=addHeader(label);};
+    const checkBreak=function(h,label){if(currentY+h>H-18){newPage(label);return true;}return false;};
 
-    let currentY = MT, pageNum = 1;
-    const addPageHeader = label => { doc.setFillColor(...LGRAY); doc.rect(0,0,W,10,'F'); doc.setFontSize(7); doc.setTextColor(...GRAY); doc.setFont('helvetica','normal'); doc.text('LAPORAN ARUS KAS — '+labelPeriode.toUpperCase(),ML,6.5); doc.text(label,W/2,6.5,{align:'center'}); doc.text('Hal. '+pageNum,W-MR,6.5,{align:'right'}); doc.setDrawColor(...PINK); doc.setLineWidth(0.5); doc.line(0,10,W,10); return 15; };
-    const addPageFooter = () => { doc.setFontSize(6); doc.setTextColor(...GRAY); doc.setFont('helvetica','italic'); doc.text('Dicetak: '+tglCetak+'  |  Laporan Keuangan Pribadi  |  Bersifat Konfidensial',W/2,H-6,{align:'center'}); doc.setDrawColor(...LIGHT); doc.setLineWidth(0.3); doc.line(ML,H-10,W-MR,H-10); };
-    const newPage = label => { addPageFooter(); doc.addPage(); pageNum++; currentY = addPageHeader(label); };
-    const checkPageBreak = (neededH, label) => { if (currentY+neededH > H-18) { newPage(label); return true; } return false; };
-
-    // Cover
-    doc.setFillColor(...DPINK); doc.rect(0,0,W,H*0.45,'F');
-    doc.setFillColor(...PINK); doc.circle(W+10,-10,60,'F');
-    doc.setFillColor(...WHITE); doc.roundedRect(W/2-20,H*0.08,40,40,5,5,'F');
-    doc.setFontSize(22); doc.text('💰',W/2,H*0.08+26,{align:'center'});
-    doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(20);
-    doc.text('LAPORAN ARUS KAS',W/2,H*0.08+60,{align:'center'});
-    doc.setFont('helvetica','normal'); doc.setFontSize(11);
-    doc.text('Cash Flow Statement',W/2,H*0.08+70,{align:'center'});
-    doc.setFontSize(13); doc.setFont('helvetica','bold');
-    doc.text(labelPeriode,W/2,H*0.08+84,{align:'center'});
-    doc.setFillColor(...WHITE); doc.roundedRect(ML,H*0.50,CW,H*0.36,4,4,'F');
-    const infoY = H*0.50+10;
+    // COVER
+    doc.setFillColor(...DPINK); doc.rect(0,0,W,H*0.42,'F');
+    doc.setFillColor(...PINK); doc.circle(W+8,-8,55,'F');
+    doc.setFillColor(157,23,77); doc.circle(-15,H*0.42+15,40,'F');
+    doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.text('LAPORAN KEUANGAN PRIBADI',W/2,45,{align:'center'});
+    doc.setFontSize(22);
+    doc.text('Ringkasan Finansial',W/2,60,{align:'center'});
+    doc.setFont('helvetica','normal'); doc.setFontSize(12);
+    doc.text(labelPer, W/2, 72, {align:'center'});
+    // Summary card
+    doc.setFillColor(...WHITE); doc.roundedRect(ML, H*0.46, CW, H*0.38, 4, 4, 'F');
+    const iy=H*0.46+10;
     doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...DPINK);
-    doc.text('RINGKASAN EKSEKUTIF',ML+CW/2,infoY,{align:'center'});
-    const gridItems = [
-      {label:'TOTAL MASUK (DEBIT)',   value:fmtRp(totMasuk),  color:GREEN},
-      {label:'TOTAL KELUAR (KREDIT)', value:fmtRp(totKeluar), color:RED},
-      {label:'SALDO BERSIH',          value:fmtRp(saldo),     color:saldo>=0?DPINK:RED},
-      {label:'TOTAL TRANSAKSI',       value:kasData.length+' transaksi', color:DPINK},
+    doc.text('RINGKASAN EKSEKUTIF', W/2, iy, {align:'center'});
+    const items=[
+      {label:'TOTAL MASUK',  value:fmtRp(totMasuk),  color:GREEN},
+      {label:'TOTAL KELUAR', value:fmtRp(totKeluar), color:RED},
+      {label:'SALDO BERSIH', value:fmtRp(saldo),     color:saldo>=0?DPINK:RED},
+      {label:'TRX KAS',      value:kasData.length+' trx', color:DPINK},
     ];
-    const gCols=[ML+5,ML+CW/2+5], gRows=[infoY+14,infoY+36];
-    gridItems.forEach((item,i)=>{ const col=gCols[i%2],row=gRows[Math.floor(i/2)],bw=CW/2-10; doc.setFillColor(...LGRAY); doc.roundedRect(col,row-5,bw,18,2,2,'F'); doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY); doc.text(item.label,col+bw/2,row+1,{align:'center'}); doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...item.color); doc.text(item.value,col+bw/2,row+9,{align:'center'}); });
+    const gC=[ML+5,ML+CW/2+5], gR=[iy+12,iy+34];
+    items.forEach(function(item,i){
+      const col=gC[i%2], row=gR[Math.floor(i/2)], bw=CW/2-10;
+      doc.setFillColor(...LGRAY); doc.roundedRect(col,row-4,bw,18,2,2,'F');
+      doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
+      doc.text(item.label, col+bw/2, row+2, {align:'center'});
+      doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...item.color);
+      doc.text(item.value, col+bw/2, row+10, {align:'center'});
+    });
     doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(...GRAY);
-    doc.text('Dicetak: '+tglCetak,W/2,H-15,{align:'center'});
-    doc.text('Bersifat Konfidensial — Hanya Untuk Penggunaan Pribadi',W/2,H-10,{align:'center'});
-    addPageFooter();
+    doc.text('Dicetak: '+tglCetak, W/2, H-12, {align:'center'});
+    doc.text('Dokumen ini bersifat konfidensial', W/2, H-7, {align:'center'});
+    addFooter();
 
-    // Trial Balance
+    // PAGE 2: TRIAL BALANCE
     doc.addPage(); pageNum++;
-    currentY = addPageHeader('TRIAL BALANCE');
+    currentY = addHeader('NERACA SALDO');
     doc.setFillColor(...DPINK); doc.roundedRect(ML,currentY,CW,10,2,2,'F');
-    doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(9);
-    doc.text('⚖  TRIAL BALANCE — NERACA SALDO',ML+5,currentY+7);
-    doc.text(labelPeriode,ML+CW-5,currentY+7,{align:'right'});
+    doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+    doc.text('NERACA SALDO (TRIAL BALANCE) — ' + labelPer.toUpperCase(), ML+5, currentY+7);
     currentY += 14;
 
     if (sortedAkun.length > 0) {
-      let runD=0, runK=0;
-      const tbData = [];
-      sortedAkun.forEach(([nama,v],i)=>{ runD+=v.debit; runK+=v.kredit; const net=v.debit-v.kredit; tbData.push([(i+1).toString(),nama.length>35?nama.substring(0,33)+'…':nama,v.jml.toString(),v.debit>0?fmtRp(v.debit):'-',v.kredit>0?fmtRp(v.kredit):'-',fmtRp(net)]); });
-      tbData.push(['','JUMLAH TOTAL',kasData.length.toString(),fmtRp(totMasuk),fmtRp(totKeluar),fmtRp(saldo)]);
+      const tbData=[];
+      sortedAkun.forEach(function([nama,v],i){
+        const net=v.debit-v.kredit;
+        tbData.push([(i+1).toString(),nama.length>40?nama.substring(0,38)+'…':nama,v.jml.toString(),v.debit>0?fmtRp(v.debit):'-',v.kredit>0?fmtRp(v.kredit):'-',fmtRp(net)]);
+      });
+      tbData.push(['','TOTAL',kasData.length.toString(),fmtRp(totMasuk),fmtRp(totKeluar),fmtRp(saldo)]);
       doc.autoTable({
-        startY:currentY, head:[['#','NAMA AKUN / COA','TRX','DEBIT (MASUK)','KREDIT (KELUAR)','SALDO']], body:tbData,
+        startY:currentY, head:[['#','NAMA AKUN','TRX','MASUK','KELUAR','SALDO']], body:tbData,
         theme:'grid', margin:{left:ML,right:MR},
         headStyles:{fillColor:DPINK,textColor:WHITE,fontStyle:'bold',fontSize:7,cellPadding:3},
         bodyStyles:{fontSize:6.5,cellPadding:{top:2.5,bottom:2.5,left:2,right:2},textColor:BLACK},
-        columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:65,halign:'left'},2:{cellWidth:10,halign:'center'},3:{cellWidth:30,halign:'right'},4:{cellWidth:30,halign:'right'},5:{cellWidth:30,halign:'right'}},
+        columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:65},2:{cellWidth:10,halign:'center'},3:{cellWidth:29,halign:'right'},4:{cellWidth:29,halign:'right'},5:{cellWidth:29,halign:'right'}},
         alternateRowStyles:{fillColor:[252,231,243,0.3]},
-        didParseCell:(data)=>{ if(data.row.index===tbData.length-1){data.cell.styles.fillColor=LIGHT;data.cell.styles.fontStyle='bold';data.cell.styles.fontSize=7;} if(data.column.index===5&&data.section==='body'){ const net=sortedAkun[data.row.index]; if(net){const val=net[1].debit-net[1].kredit;data.cell.styles.textColor=val<0?RED:(val>0?GREEN:BLACK);}} if(data.column.index===5&&data.row.index===tbData.length-1){data.cell.styles.textColor=saldo<0?RED:(saldo>0?DPINK:BLACK);}},
-        didDrawPage:()=>{addPageFooter();pageNum++;addPageHeader('TRIAL BALANCE');}
+        didParseCell:function(data){
+          if(data.row.index===tbData.length-1){data.cell.styles.fillColor=PINK_LT;data.cell.styles.fontStyle='bold';}
+          if(data.column.index===5&&data.section==='body'&&data.row.index<sortedAkun.length){
+            const net=sortedAkun[data.row.index][1].debit-sortedAkun[data.row.index][1].kredit;
+            data.cell.styles.textColor=net<0?RED:(net>0?GREEN:BLACK);
+          }
+        },
+        didDrawPage:function(){addFooter();pageNum++;addHeader('NERACA SALDO');}
       });
-      currentY = doc.lastAutoTable.finalY + 8;
+      currentY=doc.lastAutoTable.finalY+8;
     }
 
-    // Buku Besar (mode lengkap)
-    if (exportMode === 'lengkap') {
-      const sortedAkunBB = [...sortedAkun].sort((a,b)=>{ const am=a[1].debit>0&&a[1].kredit===0, bm=b[1].debit>0&&b[1].kredit===0; if(am&&!bm)return -1; if(!am&&bm)return 1; return (b[1].kredit+b[1].debit)-(a[1].kredit+a[1].debit); });
-      newPage('BUKU BESAR — DETAIL TRANSAKSI');
+    // PAGE 3+: DETAIL (jika mode lengkap)
+    if (_rptExportMode === 'lengkap') {
+      const sortedBB = [...sortedAkun].sort(function(a,b){
+        const am=a[1].debit>0&&a[1].kredit===0, bm=b[1].debit>0&&b[1].kredit===0;
+        if(am&&!bm)return -1; if(!am&&bm)return 1;
+        return (b[1].kredit+b[1].debit)-(a[1].kredit+a[1].debit);
+      });
+      newPage('DETAIL TRANSAKSI PER AKUN');
       doc.setFillColor(...DPINK); doc.roundedRect(ML,currentY,CW,10,2,2,'F');
-      doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(9);
-      doc.text('📋  BUKU BESAR — DETAIL TRANSAKSI PER AKUN',ML+5,currentY+7);
-      currentY += 14;
+      doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(8);
+      doc.text('DETAIL TRANSAKSI PER AKUN — '+labelPer.toUpperCase(), ML+5, currentY+7);
+      currentY+=14;
 
-      sortedAkunBB.forEach(([namaAkun, akunData])=>{
-        const trxList = trxPerAkun[namaAkun]||[];
-        if (!trxList.length) return;
-        const isKeluar=akunData.kredit>0&&akunData.debit===0, isMasuk=akunData.debit>0&&akunData.kredit===0;
+      sortedBB.forEach(function([namaAkun, akunData]){
+        const trxList=trxPerAkun[namaAkun]||[];
+        if(!trxList.length) return;
+        const isKeluar=akunData.kredit>0&&akunData.debit===0;
         const akunColor=isKeluar?RED:GREEN, akunBg=isKeluar?[254,226,226]:[220,252,231];
-        const net=akunData.debit-akunData.kredit;
-        checkPageBreak(28,'BUKU BESAR — DETAIL TRANSAKSI');
+        checkBreak(28,'DETAIL TRANSAKSI PER AKUN');
         doc.setFillColor(...akunBg); doc.roundedRect(ML,currentY,CW,12,2,2,'F');
-        doc.setDrawColor(...akunColor); doc.setLineWidth(0.3); doc.roundedRect(ML,currentY,CW,12,2,2,'S');
-        doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...akunColor);
-        doc.text(isKeluar?'▲':'▼',ML+4,currentY+8.5);
-        doc.setFontSize(7.5); doc.setTextColor(...BLACK); doc.setFont('helvetica','bold');
-        const shortA=namaAkun.length>45?namaAkun.substring(0,43)+'…':namaAkun;
-        doc.text(shortA,ML+10,currentY+8.5);
-        doc.setFontSize(6.5); doc.setFont('helvetica','normal'); doc.setTextColor(...GRAY);
-        doc.text(akunData.jml+' trx',ML+CW-55,currentY+4.5,{align:'right'});
         doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...akunColor);
-        const netLbl=isKeluar?'Total Keluar: ':isMasuk?'Total Masuk: ':'Net: ';
-        doc.text(netLbl+fmtRp(Math.abs(net)),ML+CW-5,currentY+4.5,{align:'right'});
-        currentY += 15;
-        const trxTableData=trxList.slice().sort((a,b)=>String(a.tgl).localeCompare(String(b.tgl))).map((t,i)=>[(i+1).toString(),String(t.tgl),String(t.per||'-'),(t.catat||'-').length>32?(t.catat||'-').substring(0,30)+'…':(t.catat||'-'),t.debit>0?fmtRp(t.debit):'-',t.kredit>0?fmtRp(t.kredit):'-']);
-        doc.autoTable({
-          startY:currentY, head:[['#','TANGGAL','PERIODE','CATATAN','DEBIT','KREDIT']], body:trxTableData,
-          theme:'striped', margin:{left:ML,right:MR},
-          headStyles:{fillColor:isKeluar?[220,38,38]:[22,163,74],textColor:WHITE,fontStyle:'bold',fontSize:6.5,cellPadding:2.5},
-          bodyStyles:{fontSize:6,cellPadding:{top:2,bottom:2,left:2,right:2},textColor:BLACK},
-          alternateRowStyles:{fillColor:isKeluar?[254,242,242]:[240,253,244]},
-          columnStyles:{0:{cellWidth:7,halign:'center'},1:{cellWidth:22,halign:'center'},2:{cellWidth:25,halign:'center'},3:{cellWidth:65,halign:'left'},4:{cellWidth:25,halign:'right',textColor:GREEN},5:{cellWidth:25,halign:'right',textColor:RED}},
-          didDrawPage:()=>{addPageFooter();pageNum++;addPageHeader('BUKU BESAR — DETAIL TRANSAKSI');}
+        doc.text(isKeluar?'▲':'▼', ML+4, currentY+8.5);
+        doc.setTextColor(...BLACK);
+        const shortA=namaAkun.length>50?namaAkun.substring(0,48)+'…':namaAkun;
+        doc.text(shortA, ML+10, currentY+8.5);
+        doc.setFontSize(6.5); doc.setFont('helvetica','normal'); doc.setTextColor(...GRAY);
+        doc.text(akunData.jml+' transaksi', ML+CW-60, currentY+4.5, {align:'right'});
+        doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...akunColor);
+        doc.text(fmtRp(Math.abs(akunData.debit-akunData.kredit)), ML+CW-5, currentY+4.5, {align:'right'});
+        currentY+=15;
+        const trxTableData=trxList.slice().sort(function(a,b){return String(a.tgl).localeCompare(String(b.tgl));}).map(function(t,i){
+          return [(i+1).toString(),String(t.tgl),(t.catat||'-').length>35?(t.catat||'-').substring(0,33)+'…':(t.catat||'-'),t.debit>0?fmtRp(t.debit):'-',t.kredit>0?fmtRp(t.kredit):'-'];
         });
-        currentY = doc.lastAutoTable.finalY + 8;
+        doc.autoTable({
+          startY:currentY, head:[['#','TANGGAL','CATATAN','MASUK','KELUAR']], body:trxTableData,
+          theme:'striped', margin:{left:ML,right:MR},
+          headStyles:{fillColor:isKeluar?RED:GREEN,textColor:WHITE,fontStyle:'bold',fontSize:6.5,cellPadding:2.5},
+          bodyStyles:{fontSize:6,cellPadding:{top:2,bottom:2,left:2,right:2},textColor:BLACK},
+          columnStyles:{0:{cellWidth:7,halign:'center'},1:{cellWidth:22,halign:'center'},2:{cellWidth:80},3:{cellWidth:28,halign:'right',textColor:GREEN},4:{cellWidth:28,halign:'right',textColor:RED}},
+          didDrawPage:function(){addFooter();pageNum++;addHeader('DETAIL TRANSAKSI PER AKUN');}
+        });
+        currentY=doc.lastAutoTable.finalY+8;
       });
     }
 
-    addPageFooter();
-    doc.setProperties({ title:'Laporan Arus Kas - '+labelPeriode, subject:'Cash Flow Statement', author:'ERP Finansial Pribadi', creator:'ERP Finansial Pribadi' });
-    const safePer  = labelPeriode.replace(/\s+/g,'_');
-    const filename = 'Laporan_Arus_Kas_'+safePer+'_'+new Date().toISOString().split('T')[0]+'.pdf';
+    addFooter();
+    doc.setProperties({ title:'Laporan Keuangan - '+labelPer, subject:'Cash Flow Statement', author:'ERP Finansial Pribadi' });
+    const fn='Laporan_Keuangan_'+labelPer.replace(/\s+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.pdf';
     Swal.close();
-    doc.save(filename);
-    setTimeout(()=>{ Swal.fire({ icon:'success', title:'PDF Berhasil Dibuat!', html:'<p class="text-sm text-gray-600">File <b>'+filename+'</b> berhasil didownload.</p><p class="text-xs text-gray-400 mt-2">'+pageNum+' halaman · '+kasData.length+' transaksi</p>', confirmButtonColor:'#db2777', timer:4000, timerProgressBar:true }); }, 200);
+    doc.save(fn);
+    setTimeout(function(){
+      Swal.fire({ icon:'success', title:'PDF Berhasil!', html:'<p style="font-size:.875rem;color:#64748b;">File <b>'+fn+'</b> sudah didownload.<br>'+pageNum+' halaman · '+kasData.length+' transaksi kas.</p>', confirmButtonColor:'#db2777', timer:4000, timerProgressBar:true });
+    }, 200);
 
   } catch(err) {
     Swal.close();
-    console.error('Export PDF Error:', err);
-    Swal.fire({ icon:'error', title:'Gagal Membuat PDF', html:'<p class="text-sm text-gray-600">'+err.message+'</p>', confirmButtonColor:'#db2777' });
+    Swal.fire({ icon:'error', title:'Gagal membuat PDF', html:'<p style="font-size:.875rem;">'+err.message+'</p>', confirmButtonColor:'#db2777' });
   }
 }
 
-/* ═══════════════════════════════════════════════════════════
-   RECENT TRANSACTIONS
-═══════════════════════════════════════════════════════════ */
-var recentFilterMode = 'semua';
-
-function filterRecentTrx(mode) {
-  recentFilterMode = mode;
-  ['semua','kas','klinik','aset'].forEach(function(m) {
-    var btn = document.getElementById('recent-filter-' + m);
-    if (!btn) return;
-    btn.className = m === mode
-      ? 'text-[9px] font-bold px-2 py-1 rounded-full bg-pink-600 text-white transition-colors'
-      : 'text-[9px] font-bold px-2 py-1 rounded-full bg-pink-50 text-pink-600 transition-colors';
-  });
-  renderRecentTransactions(mode);
-}
-
-function renderRecentTransactions(mode) {
-  var container = document.getElementById('list-recent-trx');
-  if (!container) return;
-
-  // Backend v3 sudah mengirim tanggal sebagai "YYYY-MM-DD" — langsung parse
-  function toTimestamp(val) {
-    if (!val) return 0;
-    var str = String(val).trim();
-    if (/^\d{4}-\d{2}-\d{2}/.test(str)) return new Date(str).getTime();
-    if (/^\d{2}\/\d{2}\/\d{4}/.test(str)) {
-      var p = str.split('/');
-      return new Date(p[2]+'-'+p[1]+'-'+p[0]).getTime();
-    }
-    var ts = Date.parse(str);
-    return isNaN(ts) ? 0 : ts;
-  }
-
-  var allTrx = [];
-
-  if (mode === 'semua' || mode === 'kas') {
-    masterDataLaporan.kas.forEach(function(row, idx) {
-      var debit = parseFloat(row[6])||0, kredit = parseFloat(row[7])||0;
-      var isDebit = debit > 0;
-      allTrx.push({ sumber:'kas', tanggal:row[1], label:String(row[4]||'-'), sub:String(row[5]||'-'),
-        nominal:isDebit?debit:kredit, tipe:isDebit?'MASUK':'KELUAR', _ts:toTimestamp(row[1]), _idx:idx });
-    });
-  }
-  if (mode === 'semua' || mode === 'klinik') {
-    masterDataLaporan.klinik.forEach(function(row, idx) {
-      allTrx.push({ sumber:'klinik', tanggal:row[1], label:String(row[4]||'-'),
-        sub:String(row[3]||'-')+(row[5]&&row[5]!=='-'?' · '+row[5]:''),
-        nominal:parseFloat(row[9])||0, tipe:'LABA', _ts:toTimestamp(row[1]), _idx:idx });
-    });
-  }
-  if (mode === 'semua' || mode === 'aset') {
-    masterDataLaporan.aset.forEach(function(row, idx) {
-      allTrx.push({ sumber:'aset', tanggal:row[1], label:String(row[4]||'-'),
-        sub:String(row[2]||'-')+' · '+String(row[3]||'-'),
-        nominal:parseFloat(row[8])||0, tipe:String(row[5]||'').trim(), _ts:toTimestamp(row[1]), _idx:idx });
-    });
-  }
-
-  allTrx.sort(function(a,b) { return b._ts!==a._ts ? b._ts-a._ts : b._idx-a._idx; });
-  var top10 = allTrx.slice(0,10);
-
-  if (top10.length === 0) { container.innerHTML = renderEmptyState('Belum ada transaksi','Data akan muncul setelah ada pencatatan.'); return; }
-
-  var ikonSumber  = { kas:'wallet', klinik:'user-doctor', aset:'chart-line' };
-  var warnaSumber = { kas:{bg:'bg-pink-100',icon:'text-pink-600'}, klinik:{bg:'bg-rose-100',icon:'text-rose-600'}, aset:{bg:'bg-purple-100',icon:'text-purple-600'} };
-  var labelTipe   = { MASUK:{cls:'text-green-600',sign:'+'}, KELUAR:{cls:'text-red-500',sign:'-'}, LABA:{cls:'text-emerald-600',sign:'+'}, BELI:{cls:'text-blue-600',sign:'-'}, JUAL:{cls:'text-green-600',sign:'+'} };
-
-  var html = '';
-  top10.forEach(function(trx, idx) {
-    var w  = warnaSumber[trx.sumber] || { bg:'bg-gray-100', icon:'text-gray-600' };
-    var ik = ikonSumber[trx.sumber]  || 'circle';
-    var t  = labelTipe[trx.tipe]     || { cls:'text-gray-600', sign:'' };
-    var badgeKls = trx.sumber==='kas' ? 'bg-pink-100 text-pink-700' : trx.sumber==='klinik' ? 'bg-rose-100 text-rose-700' : 'bg-purple-100 text-purple-700';
-    var badgeLabel = trx.sumber==='kas' ? 'Arus Kas' : trx.sumber==='klinik' ? 'Klinik' : 'Aset';
-
-    html += '<div class="item-card flex items-center gap-3 bg-white border border-pink-100 rounded-xl p-3 fade-in-up" style="animation-delay:' + (idx*40) + 'ms">'
-          + '<div class="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0"><span class="text-[9px] font-bold text-gray-400">' + (idx+1) + '</span></div>'
-          + '<div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ' + w.bg + '">'
-          + '<i class="fa-solid fa-' + ik + ' text-sm ' + w.icon + '"></i></div>'
-          + '<div class="flex-1 min-w-0"><div class="flex items-center gap-1.5 mb-0.5 flex-wrap">'
-          + '<p class="text-[11px] font-bold text-slate-700 truncate max-w-[130px]">' + trx.label + '</p>'
-          + '<span class="text-[8px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ' + badgeKls + '">' + badgeLabel + '</span></div>'
-          + '<p class="text-[9px] text-gray-400 truncate">' + (trx.tanggal||'') + ' · ' + trx.sub + '</p></div>'
-          + '<div class="text-right flex-shrink-0">'
-          + '<p class="text-xs font-bold ' + t.cls + '">' + t.sign + fRp(Math.abs(trx.nominal)) + '</p>'
-          + '<p class="text-[9px] font-bold text-gray-400 mt-0.5">' + trx.tipe + '</p>'
-          + '</div></div>';
-  });
-  container.innerHTML = html;
-}
-
-/* ═══════════════════════════════════════════════════════════
-   ▼ PERBAIKAN: addEventListener dibungkus DOMContentLoaded
-   agar tidak error jika script dieksekusi sebelum DOM siap.
-═══════════════════════════════════════════════════════════ */
+/* ─── EVENT LISTENERS ────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function() {
-  updateLabelExportPeriode();
-
-  var modalKas = document.getElementById('modal-detail-kas');
-  if (modalKas) {
-    modalKas.addEventListener('click', function(e) {
-      if (e.target === this) tutupDetailKas();
-    });
-  }
+  rptUpdateExportLabel();
+  var modal = document.getElementById('rpt-modal-detail');
+  if (modal) { modal.addEventListener('click', function(e){ if(e.target===this) rptTutupModal(); }); }
 });
 </script>
