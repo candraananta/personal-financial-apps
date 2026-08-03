@@ -1,116 +1,561 @@
-<!-- KONTEN: View_ArusKas.html - UPDATE: COA Pemasukan Dropdown -->
-<section id="modul-aruskas" class="block w-full">
+<!-- ================================================================
+     KONTEN: View_ArusKas.html
+     REDESIGN: Palette indigo-violet + emerald + warm amber
+     Fungsi: Catat Pengeluaran & Pemasukan Arus Kas
+     ================================================================ -->
 
-  <!-- Pemilih Mode Pemasukan / Pengeluaran -->
-  <div class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4 flex items-center gap-3">
-    <div class="bg-pink-100 p-3 rounded-xl text-pink-600 flex-shrink-0">
-      <i class="fa-solid fa-money-bill-wave text-xl"></i>
-    </div>
-    <div class="flex-1 min-w-0">
-      <label class="block text-[10px] font-bold text-gray-400 mb-1">ARUS KAS</label>
-      <select id="pilihModeArusKas" onchange="gantiModeArusKas()"
-              class="w-full bg-rose-50 border border-pink-200 py-2 px-2 rounded-lg outline-none font-bold text-rose-900">
-        <option value="PENGELUARAN">Catat Pengeluaran</option>
-        <option value="PEMASUKAN">Catat Pemasukan (Gaji/Dll)</option>
-      </select>
+<style>
+  /* ── Custom properties untuk palet baru ── */
+  #modul-aruskas {
+    --c-indigo:    #4338ca; /* indigo-700  */
+    --c-indigo-md: #6366f1; /* indigo-500  */
+    --c-indigo-lt: #e0e7ff; /* indigo-100  */
+    --c-indigo-xs: #eef2ff; /* indigo-50   */
+    --c-violet:    #7c3aed; /* violet-700  */
+    --c-violet-lt: #ede9fe; /* violet-100  */
+    --c-emerald:   #059669; /* emerald-600 */
+    --c-emerald-lt:#d1fae5; /* emerald-100 */
+    --c-emerald-xs:#ecfdf5; /* emerald-50  */
+    --c-amber:     #d97706; /* amber-600   */
+    --c-amber-lt:  #fef3c7; /* amber-100   */
+    --c-amber-xs:  #fffbeb; /* amber-50    */
+    --c-slate-bg:  #f8fafc; /* slate-50    */
+    --c-slate-1:   #f1f5f9; /* slate-100   */
+    --c-slate-3:   #cbd5e1; /* slate-300   */
+    --c-slate-5:   #64748b; /* slate-500   */
+    --c-slate-7:   #334155; /* slate-700   */
+    --c-slate-9:   #0f172a; /* slate-900   */
+    --c-white:     #ffffff;
+
+    --radius-card: 1.25rem;
+    --radius-input: 0.875rem;
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / .08), 0 1px 2px -1px rgb(0 0 0 / .06);
+    --shadow-btn:  0 4px 14px 0 rgb(67 56 202 / .3);
+  }
+
+  /* ── Card base ── */
+  #modul-aruskas .ak-card {
+    background: var(--c-white);
+    border-radius: var(--radius-card);
+    border: 1px solid #e2e8f0;
+    box-shadow: var(--shadow-card);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  /* ── Mode selector chip ── */
+  #modul-aruskas .mode-chip {
+    display: flex;
+    background: var(--c-slate-1);
+    border-radius: 0.875rem;
+    padding: 0.25rem;
+    gap: 0.25rem;
+  }
+  #modul-aruskas .mode-chip button {
+    flex: 1;
+    padding: 0.625rem 0.5rem;
+    border-radius: 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(.4,0,.2,1);
+    color: var(--c-slate-5);
+    background: transparent;
+  }
+  #modul-aruskas .mode-chip button.active-keluar {
+    background: var(--c-indigo);
+    color: var(--c-white);
+    box-shadow: var(--shadow-btn);
+  }
+  #modul-aruskas .mode-chip button.active-masuk {
+    background: var(--c-emerald);
+    color: var(--c-white);
+    box-shadow: 0 4px 14px 0 rgb(5 150 105 / .3);
+  }
+
+  /* ── Label ── */
+  #modul-aruskas .ak-label {
+    display: block;
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--c-slate-5);
+    text-transform: uppercase;
+    margin-bottom: 0.375rem;
+  }
+
+  /* ── Input / Select base ── */
+  #modul-aruskas .ak-input,
+  #modul-aruskas .ak-select {
+    width: 100%;
+    background: var(--c-slate-1);
+    border: 1.5px solid #e2e8f0;
+    border-radius: var(--radius-input);
+    padding: 0.75rem 0.875rem;
+    font-size: 16px !important;
+    font-weight: 600;
+    color: var(--c-slate-9);
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  #modul-aruskas .ak-input::placeholder {
+    color: var(--c-slate-3);
+    font-weight: 400;
+  }
+  #modul-aruskas .ak-input:focus,
+  #modul-aruskas .ak-select:focus {
+    border-color: var(--c-indigo-md);
+    background: var(--c-white);
+    box-shadow: 0 0 0 3px var(--c-indigo-lt);
+  }
+  #modul-aruskas .ak-input.focus-emerald:focus {
+    border-color: var(--c-emerald);
+    box-shadow: 0 0 0 3px var(--c-emerald-lt);
+  }
+
+  /* Select chevron custom */
+  #modul-aruskas .ak-select-wrap {
+    position: relative;
+  }
+  #modul-aruskas .ak-select-wrap::after {
+    content: '';
+    position: absolute;
+    right: 0.875rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid var(--c-slate-5);
+    pointer-events: none;
+  }
+  #modul-aruskas .ak-select {
+    padding-right: 2.25rem;
+  }
+
+  /* ── Nominal input besar ── */
+  #modul-aruskas .ak-nominal-wrap {
+    position: relative;
+  }
+  #modul-aruskas .ak-nominal-prefix {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.875rem;
+    font-weight: 800;
+    color: var(--c-slate-5);
+    pointer-events: none;
+    user-select: none;
+  }
+  #modul-aruskas .ak-nominal-input {
+    width: 100%;
+    background: var(--c-indigo-xs);
+    border: 2px solid var(--c-indigo-lt);
+    border-radius: var(--radius-input);
+    padding: 1rem 1rem 1rem 3rem;
+    font-size: 22px !important;
+    font-weight: 800;
+    color: var(--c-indigo);
+    outline: none;
+    box-sizing: border-box;
+    text-align: left;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    -webkit-appearance: none;
+  }
+  #modul-aruskas .ak-nominal-input::placeholder {
+    color: var(--c-indigo-lt);
+  }
+  #modul-aruskas .ak-nominal-input:focus {
+    border-color: var(--c-indigo);
+    background: var(--c-white);
+    box-shadow: 0 0 0 4px var(--c-indigo-lt);
+  }
+  #modul-aruskas .ak-nominal-input.mode-masuk {
+    background: var(--c-emerald-xs);
+    border-color: var(--c-emerald-lt);
+    color: var(--c-emerald);
+  }
+  #modul-aruskas .ak-nominal-input.mode-masuk:focus {
+    border-color: var(--c-emerald);
+    background: var(--c-white);
+    box-shadow: 0 0 0 4px var(--c-emerald-lt);
+  }
+  #modul-aruskas .ak-nominal-prefix.mode-masuk {
+    color: var(--c-emerald);
+  }
+
+  /* ── Template rutin area ── */
+  #modul-aruskas .ak-template-area {
+    background: var(--c-amber-xs);
+    border: 1.5px solid #fde68a;
+    border-radius: var(--radius-input);
+    padding: 0.875rem;
+    margin-bottom: 1rem;
+  }
+  #modul-aruskas .ak-template-label {
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: var(--c-amber);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+  #modul-aruskas .ak-template-search {
+    width: 100%;
+    background: var(--c-white);
+    border: 1.5px solid #fde68a;
+    border-radius: 0.625rem;
+    padding: 0.625rem 0.75rem;
+    font-size: 16px !important;
+    color: var(--c-slate-7);
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  #modul-aruskas .ak-template-search:focus {
+    border-color: var(--c-amber);
+    box-shadow: 0 0 0 3px var(--c-amber-lt);
+  }
+  #modul-aruskas .ak-dropdown {
+    position: absolute;
+    z-index: 50;
+    width: 100%;
+    background: var(--c-white);
+    border: 1.5px solid #fde68a;
+    border-top: none;
+    border-radius: 0 0 0.75rem 0.75rem;
+    max-height: 12rem;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgb(0 0 0 / .1);
+  }
+  #modul-aruskas .ak-dropdown li {
+    padding: 0.625rem 0.875rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--c-slate-7);
+    border-bottom: 1px solid #fef3c7;
+    transition: background 0.1s;
+    list-style: none;
+  }
+  #modul-aruskas .ak-dropdown li:hover,
+  #modul-aruskas .ak-dropdown li:active {
+    background: var(--c-amber-xs);
+  }
+  #modul-aruskas .ak-dropdown li:last-child {
+    border-bottom: none;
+  }
+  #modul-aruskas .ak-dropdown .chip-nominal {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--c-amber);
+    white-space: nowrap;
+    background: var(--c-amber-lt);
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+  }
+
+  /* ── COA Pemasukan area ── */
+  #modul-aruskas .ak-coa-area {
+    background: var(--c-emerald-xs);
+    border: 1.5px solid #6ee7b7;
+    border-radius: var(--radius-input);
+    padding: 0.875rem;
+    margin-bottom: 1rem;
+  }
+  #modul-aruskas .ak-coa-label {
+    font-size: 0.625rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: var(--c-emerald);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+  #modul-aruskas .ak-coa-select {
+    width: 100%;
+    background: var(--c-white);
+    border: 1.5px solid #6ee7b7;
+    border-radius: 0.625rem;
+    padding: 0.75rem 2.25rem 0.75rem 0.875rem;
+    font-size: 16px !important;
+    font-weight: 600;
+    color: var(--c-slate-7);
+    outline: none;
+    box-sizing: border-box;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  #modul-aruskas .ak-coa-select:focus {
+    border-color: var(--c-emerald);
+    box-shadow: 0 0 0 3px var(--c-emerald-lt);
+  }
+  #modul-aruskas .ak-coa-hint {
+    font-size: 0.625rem;
+    color: var(--c-emerald);
+    margin-top: 0.5rem;
+  }
+
+  /* ── Periode badge ── */
+  #modul-aruskas .ak-periode-badge {
+    background: var(--c-violet-lt);
+    color: var(--c-violet);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    border-radius: 0.5rem;
+    padding: 0.625rem 0.875rem;
+    text-align: center;
+    letter-spacing: 0.01em;
+  }
+
+  /* ── Submit button ── */
+  #modul-aruskas .ak-btn-submit {
+    width: 100%;
+    border: none;
+    border-radius: var(--radius-input);
+    padding: 1rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: all 0.2s cubic-bezier(.4,0,.2,1);
+    position: relative;
+    overflow: hidden;
+  }
+  #modul-aruskas .ak-btn-submit::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,.15) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform 0.5s ease;
+  }
+  #modul-aruskas .ak-btn-submit:hover::after {
+    transform: translateX(100%);
+  }
+  #modul-aruskas .ak-btn-keluar {
+    background: linear-gradient(135deg, var(--c-indigo) 0%, var(--c-violet) 100%);
+    color: var(--c-white);
+    box-shadow: var(--shadow-btn);
+  }
+  #modul-aruskas .ak-btn-keluar:hover {
+    box-shadow: 0 6px 20px 0 rgb(67 56 202 / .4);
+    transform: translateY(-1px);
+  }
+  #modul-aruskas .ak-btn-keluar:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-btn);
+  }
+  #modul-aruskas .ak-btn-masuk {
+    background: linear-gradient(135deg, var(--c-emerald) 0%, #10b981 100%);
+    color: var(--c-white);
+    box-shadow: 0 4px 14px 0 rgb(5 150 105 / .3);
+  }
+  #modul-aruskas .ak-btn-masuk:hover {
+    box-shadow: 0 6px 20px 0 rgb(5 150 105 / .4);
+    transform: translateY(-1px);
+  }
+  #modul-aruskas .ak-btn-masuk:active {
+    transform: translateY(0);
+  }
+  #modul-aruskas .ak-btn-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* ── Grid tanggal + periode ── */
+  #modul-aruskas .ak-date-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  /* ── Divider ── */
+  #modul-aruskas .ak-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
+    margin: 1.25rem 0;
+  }
+
+  /* ── Header modul ── */
+  #modul-aruskas .ak-module-header {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    margin-bottom: 1rem;
+  }
+  #modul-aruskas .ak-module-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.875rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: linear-gradient(135deg, var(--c-indigo) 0%, var(--c-violet) 100%);
+    box-shadow: 0 4px 10px 0 rgb(67 56 202 / .25);
+  }
+  #modul-aruskas .ak-module-icon.icon-masuk {
+    background: linear-gradient(135deg, var(--c-emerald) 0%, #10b981 100%);
+    box-shadow: 0 4px 10px 0 rgb(5 150 105 / .25);
+  }
+  #modul-aruskas .ak-module-title {
+    font-size: 0.9375rem;
+    font-weight: 800;
+    color: var(--c-slate-9);
+    line-height: 1.2;
+  }
+  #modul-aruskas .ak-module-sub {
+    font-size: 0.6875rem;
+    color: var(--c-slate-5);
+    margin-top: 0.125rem;
+  }
+</style>
+
+<section id="modul-aruskas" class="block w-full" style="background: #f8fafc; min-height: 100%;">
+
+  <!-- ── Mode Selector ── -->
+  <div class="ak-card">
+    <div class="mode-chip">
+      <button id="btn-mode-keluar" onclick="gantiModeArusKas('PENGELUARAN')" class="active-keluar">
+        <i class="fa-solid fa-arrow-up-from-bracket mr-1.5"></i>Pengeluaran
+      </button>
+      <button id="btn-mode-masuk" onclick="gantiModeArusKas('PEMASUKAN')">
+        <i class="fa-solid fa-arrow-down-to-bracket mr-1.5"></i>Pemasukan
+      </button>
     </div>
   </div>
 
-  <div class="bg-white p-5 rounded-2xl shadow-sm border border-pink-100 mb-20 block w-full">
+  <!-- ── Form Utama ── -->
+  <div class="ak-card mb-20">
+
+    <!-- Header dinamis -->
+    <div class="ak-module-header">
+      <div class="ak-module-icon" id="ak-icon-header">
+        <i class="fa-solid fa-arrow-up-from-bracket text-white text-base"></i>
+      </div>
+      <div>
+        <p class="ak-module-title" id="ak-title-header">Catat Pengeluaran</p>
+        <p class="ak-module-sub" id="ak-sub-header">Kredit — Uang keluar dari kas</p>
+      </div>
+    </div>
+
+    <div class="ak-divider"></div>
+
     <form id="formArusKas" onsubmit="submitTrxArusKas(event)">
 
-      <!-- Tanggal & Periode -->
-      <div class="mb-4 grid grid-cols-2 gap-3">
+      <!-- Tanggal + Periode -->
+      <div class="ak-date-grid">
         <div>
-          <label class="block text-xs font-bold text-gray-500 mb-1">TANGGAL <span class="text-red-500">*</span></label>
+          <label class="ak-label">Tanggal <span style="color:#dc2626">*</span></label>
           <input type="date" id="kas-tgl" onchange="updatePeriodeUI()"
-                 class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none font-bold text-rose-900"
-                 required>
+                 class="ak-input" required>
         </div>
         <div>
-          <label class="block text-xs font-bold text-gray-500 mb-1">PERIODE</label>
-          <input type="text" id="kas-periode"
-                 class="w-full bg-pink-100 border border-pink-200 py-3 px-3 rounded-xl outline-none font-bold text-pink-700 cursor-not-allowed text-sm"
-                 readonly>
+          <label class="ak-label">Periode Buku</label>
+          <div class="ak-periode-badge" id="kas-periode">— Pilih tanggal</div>
         </div>
       </div>
 
-      <!-- ═══════════════════════════════════════
-           AREA PENGELUARAN: Template Rutin
-      ═══════════════════════════════════════ -->
-      <div id="area-template-rutin" class="mb-4 bg-yellow-50 border border-yellow-200 p-3 rounded-xl">
-        <label class="block text-xs font-bold text-yellow-700 mb-1">
-          <i class="fa-solid fa-search mr-1"></i> CARI PENGELUARAN RUTIN
-          <span class="text-[9px] font-normal text-yellow-600 ml-1">(opsional)</span>
-        </label>
+      <!-- ── AREA PENGELUARAN: Template Rutin ── -->
+      <div id="area-template-rutin" class="ak-template-area">
+        <div class="ak-template-label">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          Cari Template Tagihan
+          <span style="font-weight:400; font-size:0.5625rem; color:#92400e; letter-spacing:0;">— opsional</span>
+        </div>
         <div class="relative w-full">
           <input type="text" id="kas-template-input" autocomplete="off"
                  oninput="filterTemplateRutin()" onclick="tampilkanDropdownTemplate()"
-                 class="w-full bg-white border border-yellow-300 py-2 px-3 rounded-lg outline-none placeholder-gray-400 focus:ring-2 focus:ring-yellow-400"
+                 class="ak-template-search"
                  placeholder="Ketik nama tagihan...">
           <ul id="kas-dropdown-list"
-              class="absolute z-50 w-full bg-white border border-yellow-300 mt-1 max-h-48 overflow-y-auto rounded-lg shadow-xl hidden divide-y divide-gray-100">
-          </ul>
+              class="ak-dropdown hidden"></ul>
         </div>
       </div>
 
-      <!-- ═══════════════════════════════════════
-           AREA PEMASUKAN: COA Dropdown (BARU)
-      ═══════════════════════════════════════ -->
-      <div id="area-coa-pemasukan" class="mb-4 bg-green-50 border border-green-200 p-3 rounded-xl hidden">
-        <label class="block text-xs font-bold text-green-700 mb-1">
-          <i class="fa-solid fa-tag mr-1"></i> KATEGORI PEMASUKAN (COA)
-          <span class="text-red-500">*</span>
-        </label>
-        <select id="kas-coa-pemasukan"
-                class="w-full bg-white border border-green-300 py-3 px-3 rounded-xl outline-none font-bold text-green-900 focus:ring-2 focus:ring-green-400">
-          <option value="" disabled selected>⏳ Memuat daftar COA...</option>
-        </select>
-        <p class="text-[10px] text-green-600 mt-1.5 flex items-center gap-1">
-          <i class="fa-solid fa-circle-info"></i>
-          Tambah / kelola akun lewat menu
+      <!-- ── AREA PEMASUKAN: COA ── -->
+      <div id="area-coa-pemasukan" class="ak-coa-area hidden">
+        <div class="ak-coa-label">
+          <i class="fa-solid fa-tag"></i>
+          Kategori Pemasukan (COA)
+          <span style="color:#dc2626">*</span>
+        </div>
+        <div class="ak-select-wrap">
+          <select id="kas-coa-pemasukan" class="ak-coa-select">
+            <option value="" disabled selected>⏳ Memuat daftar COA...</option>
+          </select>
+        </div>
+        <p class="ak-coa-hint">
+          Tambah akun lewat
           <button type="button" onclick="pindahMenu('master')"
-                  class="font-bold underline text-green-700 hover:text-green-900">
+                  style="font-weight:700; text-decoration:underline; color: var(--c-emerald); background:none; border:none; cursor:pointer; font-size:inherit;">
             Master → COA Pemasukan
           </button>
         </p>
       </div>
 
       <!-- Nama Item / Sumber -->
-      <div class="mb-4">
-        <label class="block text-xs font-bold text-gray-500 mb-1">
-          <span id="label-nama-item">NAMA ITEM / SUMBER</span>
-          <span class="text-red-500">*</span>
-          <span id="hint-nama-item" class="text-[9px] font-normal text-gray-400 ml-1">(misal: Gaji Oktober 2026)</span>
+      <div style="margin-bottom: 1rem;">
+        <label class="ak-label">
+          <span id="label-nama-item">Nama Item / Keterangan</span>
+          <span style="color:#dc2626"> *</span>
         </label>
         <input type="text" id="kas-item"
-               class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none"
-               placeholder="Misal: Tagihan Listrik / Gaji Bulanan" required>
+               class="ak-input"
+               placeholder="Misal: Tagihan Listrik / Gaji Oktober 2026" required>
       </div>
 
       <!-- Nominal -->
-      <div class="mb-4">
-        <label class="block text-xs font-bold text-gray-500 mb-1">NOMINAL (RP) <span class="text-red-500">*</span></label>
-        <input type="text" id="kas-nominal-visual"
-               inputmode="numeric"
-               oninput="formatVisualAngka(this, 'kas-nominal-raw')"
-               class="w-full bg-rose-50 border border-pink-200 py-4 px-4 rounded-xl font-bold text-gray-800 outline-none text-center transition-colors"
-               placeholder="">
+      <div style="margin-bottom: 1rem;">
+        <label class="ak-label" id="label-nominal-kas">Nominal Pengeluaran</label>
+        <div class="ak-nominal-wrap">
+          <span class="ak-nominal-prefix" id="ak-nominal-prefix">Rp</span>
+          <input type="text" id="kas-nominal-visual"
+                 inputmode="numeric"
+                 oninput="formatVisualAngka(this, 'kas-nominal-raw')"
+                 class="ak-nominal-input"
+                 id="kas-nominal-visual"
+                 placeholder="0">
+        </div>
         <input type="hidden" id="kas-nominal-raw" value="0">
       </div>
 
       <!-- Catatan -->
-      <div class="mb-6">
-        <label class="block text-xs font-bold text-gray-500 mb-1">CATATAN / NO REK / KODE BAYAR</label>
+      <div style="margin-bottom: 1.5rem;">
+        <label class="ak-label">Catatan / Referensi</label>
         <input type="text" id="kas-catatan"
-               class="w-full bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl outline-none"
-               placeholder="Boleh dikosongkan">
+               class="ak-input"
+               placeholder="No. rek, kode bayar, atau catatan tambahan (opsional)">
       </div>
 
-      <!-- Tombol Submit -->
+      <!-- Submit -->
       <button type="submit" id="btn-submit-kas"
-              class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm transition-colors">
-        Simpan Pengeluaran (Kredit)
+              class="ak-btn-submit ak-btn-keluar">
+        <i class="fa-solid fa-floppy-disk"></i>
+        <span id="btn-submit-text">Simpan Pengeluaran</span>
       </button>
 
     </form>
@@ -119,10 +564,12 @@
 </section>
 
 <script>
+  /* ── State ── */
   let dataPengeluaranRutin = [];
   let dataCOAPemasukan     = [];
+  let modeArusKas          = 'PENGELUARAN';
 
-  // ── Hitung Periode dari Tanggal ──
+  /* ── Hitung Periode ── */
   function updatePeriodeUI() {
     const tglInput = document.getElementById('kas-tgl').value;
     if (!tglInput) return;
@@ -136,23 +583,20 @@
     }
     const namaBulan = ["Januari","Februari","Maret","April","Mei","Juni",
                        "Juli","Agustus","September","Oktober","November","Desember"];
-    document.getElementById('kas-periode').value = namaBulan[bln] + " " + thn;
+    document.getElementById('kas-periode').textContent = namaBulan[bln] + " " + thn;
   }
 
-  // ── Init Modul ──
+  /* ── Init ── */
   function initModulArusKas() {
-    const now    = new Date();
-    const yyyy   = now.getFullYear();
-    const mm     = String(now.getMonth() + 1).padStart(2, '0');
-    const dd     = String(now.getDate()).padStart(2, '0');
-    const localDate = `${yyyy}-${mm}-${dd}`;
-
-    document.getElementById('kas-tgl').value = localDate;
+    const now   = new Date();
+    const yyyy  = now.getFullYear();
+    const mm    = String(now.getMonth() + 1).padStart(2, '0');
+    const dd    = String(now.getDate()).padStart(2, '0');
+    document.getElementById('kas-tgl').value = `${yyyy}-${mm}-${dd}`;
     updatePeriodeUI();
     document.getElementById('kas-nominal-visual').value = '';
     document.getElementById('kas-nominal-raw').value = '0';
 
-    // Load template pengeluaran rutin
     google.script.run
       .withSuccessHandler(data => {
         dataPengeluaranRutin = data;
@@ -161,7 +605,6 @@
       .withFailureHandler(err => console.warn('Template rutin gagal:', err.message))
       .getReferensiArusKas();
 
-    // Load COA Pemasukan
     google.script.run
       .withSuccessHandler(data => {
         dataCOAPemasukan = data;
@@ -171,136 +614,175 @@
       .getReferensiCOAPemasukan();
   }
 
-  // ── Render dropdown template pengeluaran rutin ──
+  /* ── Render template pengeluaran ── */
   function renderDaftarTemplateRutin(data) {
-    let listHtml = '';
+    const list = document.getElementById('kas-dropdown-list');
+    let html = '';
     if (data.length === 0) {
-      listHtml = '<li class="px-3 py-3 text-gray-400 italic text-center text-xs">Belum ada template. Tambah di Master → Pengeluaran Rutin</li>';
+      html = '<li style="color:#92400e; font-style:italic; font-size:0.75rem; justify-content:center;">Belum ada template — tambah di Master → Pengeluaran Rutin</li>';
     } else {
       data.forEach(d => {
-        const strData = encodeURIComponent(JSON.stringify({ nama: d[1], nominal: d[2], catatan: d[3] }));
-        listHtml += `<li onclick="pilihTemplateRutin('${strData}')"
-          class="px-3 py-3 hover:bg-yellow-100 active:bg-yellow-200 cursor-pointer text-gray-700 font-medium transition-colors flex items-center justify-between gap-2">
-          <span>${d[1]}</span>
-          <span class="text-[10px] text-yellow-700 font-bold whitespace-nowrap">Rp${parseInt(d[2]||0).toLocaleString('id-ID')}</span>
+        const enc = encodeURIComponent(JSON.stringify({ nama: d[1], nominal: d[2], catatan: d[3] }));
+        html += `<li onclick="pilihTemplateRutin('${enc}')">
+          <span style="font-weight:600; color:#334155;">${d[1]}</span>
+          <span class="chip-nominal">Rp${parseInt(d[2]||0).toLocaleString('id-ID')}</span>
         </li>`;
       });
     }
-    document.getElementById('kas-dropdown-list').innerHTML = listHtml;
+    list.innerHTML = html;
   }
 
-  // ── Render select COA Pemasukan dengan optgroup ──
+  /* ── Render COA Pemasukan ── */
   function renderSelectCOAPemasukan(data) {
     const el = document.getElementById('kas-coa-pemasukan');
     if (!data || data.length === 0) {
-      el.innerHTML = '<option value="" disabled selected>⚠ Belum ada COA — tambah di Master → COA Pemasukan</option>';
+      el.innerHTML = '<option value="" disabled selected>⚠ Belum ada COA — tambah di Master</option>';
       return;
     }
-
-    // Kelompokkan per kategori
     const grouped = {};
-    const urutan  = []; // jaga urutan kategori pertama kali muncul
+    const urutan  = [];
     data.forEach(row => {
-      const kategori = String(row[2] || 'Lainnya').trim();
-      if (!grouped[kategori]) {
-        grouped[kategori] = [];
-        urutan.push(kategori);
-      }
-      grouped[kategori].push({ id: row[0], nama: String(row[1]).trim() });
+      const kat = String(row[2] || 'Lainnya').trim();
+      if (!grouped[kat]) { grouped[kat] = []; urutan.push(kat); }
+      grouped[kat].push({ nama: String(row[1]).trim() });
     });
-
-    // Ikon per kategori
     const iconMap = {
-      'Pendapatan Aktif':  '💼',
-      'Pendapatan Pasif':  '📈',
-      'Penerimaan Lain':   '🎁',
-      'Transfer Masuk':    '🔄',
+      'Pendapatan Aktif': '💼',
+      'Pendapatan Pasif': '📈',
+      'Penerimaan Lain':  '🎁',
+      'Transfer Masuk':   '🔄',
     };
-
     let html = '<option value="" disabled selected>— Pilih Kategori Pemasukan —</option>';
-    urutan.forEach(kategori => {
-      const icon = iconMap[kategori] || '📂';
-      html += `<optgroup label="${icon} ${kategori}">`;
-      grouped[kategori].forEach(item => {
+    urutan.forEach(kat => {
+      html += `<optgroup label="${iconMap[kat]||'📂'} ${kat}">`;
+      grouped[kat].forEach(item => {
         html += `<option value="${item.nama}">${item.nama}</option>`;
       });
-      html += `</optgroup>`;
+      html += '</optgroup>';
     });
     el.innerHTML = html;
   }
 
-  // ── Dropdown template rutin ──
+  /* ── Ganti Mode ── */
+  function gantiModeArusKas(mode) {
+    if (typeof mode === 'string') {
+      modeArusKas = mode;
+    } else {
+      // Dipanggil dari select lama — backwards compat
+      modeArusKas = document.getElementById('pilihModeArusKas')?.value || 'PENGELUARAN';
+    }
+
+    const isKeluar = (modeArusKas === 'PENGELUARAN');
+
+    /* Chip visual */
+    const btnKeluar = document.getElementById('btn-mode-keluar');
+    const btnMasuk  = document.getElementById('btn-mode-masuk');
+    btnKeluar.className = isKeluar ? 'active-keluar' : '';
+    btnMasuk.className  = isKeluar ? '' : 'active-masuk';
+
+    /* Header */
+    const icon   = document.getElementById('ak-icon-header');
+    const title  = document.getElementById('ak-title-header');
+    const sub    = document.getElementById('ak-sub-header');
+    if (isKeluar) {
+      icon.className  = 'ak-module-icon';
+      icon.innerHTML  = '<i class="fa-solid fa-arrow-up-from-bracket text-white text-base"></i>';
+      title.textContent = 'Catat Pengeluaran';
+      sub.textContent   = 'Kredit — Uang keluar dari kas';
+    } else {
+      icon.className  = 'ak-module-icon icon-masuk';
+      icon.innerHTML  = '<i class="fa-solid fa-arrow-down-to-bracket text-white text-base"></i>';
+      title.textContent = 'Catat Pemasukan';
+      sub.textContent   = 'Debit — Uang masuk ke kas';
+    }
+
+    /* Area template vs COA */
+    document.getElementById('area-template-rutin').style.display  = isKeluar ? '' : 'none';
+    document.getElementById('area-coa-pemasukan').style.display   = isKeluar ? 'none' : '';
+    document.getElementById('area-template-rutin').className = isKeluar
+      ? 'ak-template-area'
+      : 'ak-template-area';
+    if (!isKeluar) {
+      document.getElementById('area-coa-pemasukan').className = 'ak-coa-area';
+    }
+
+    /* Nominal input style */
+    const nominalInput  = document.getElementById('kas-nominal-visual');
+    const nominalPrefix = document.getElementById('ak-nominal-prefix');
+    const nominalLabel  = document.getElementById('label-nominal-kas');
+    if (isKeluar) {
+      nominalInput.className  = 'ak-nominal-input';
+      nominalPrefix.className = 'ak-nominal-prefix';
+      nominalLabel.textContent = 'Nominal Pengeluaran';
+    } else {
+      nominalInput.className  = 'ak-nominal-input mode-masuk';
+      nominalPrefix.className = 'ak-nominal-prefix mode-masuk';
+      nominalLabel.textContent = 'Nominal Pemasukan';
+    }
+
+    /* Placeholder & label item */
+    document.getElementById('kas-item').placeholder = isKeluar
+      ? 'Misal: Tagihan Listrik / Belanja Bulanan'
+      : 'Misal: Gaji Oktober 2026 / Dividen BBCA';
+    document.getElementById('label-nama-item').textContent = isKeluar
+      ? 'Nama Item / Keterangan'
+      : 'Deskripsi Pemasukan';
+
+    /* Tombol */
+    const btn     = document.getElementById('btn-submit-kas');
+    const btnText = document.getElementById('btn-submit-text');
+    btn.className = isKeluar
+      ? 'ak-btn-submit ak-btn-keluar'
+      : 'ak-btn-submit ak-btn-masuk';
+    btnText.textContent = isKeluar ? 'Simpan Pengeluaran' : 'Simpan Pemasukan';
+
+    /* Reset form */
+    document.getElementById('kas-item').value           = '';
+    document.getElementById('kas-nominal-visual').value = '';
+    document.getElementById('kas-nominal-raw').value    = '0';
+    document.getElementById('kas-catatan').value        = '';
+    document.getElementById('kas-template-input').value = '';
+    document.getElementById('kas-dropdown-list').classList.add('hidden');
+    if (!isKeluar) {
+      document.getElementById('kas-coa-pemasukan').value = '';
+    }
+
+    updatePeriodeUI();
+  }
+
+  /* ── Dropdown template ── */
   function tampilkanDropdownTemplate() {
     document.getElementById('kas-dropdown-list').classList.remove('hidden');
   }
 
   function filterTemplateRutin() {
     tampilkanDropdownTemplate();
-    const inputVal = document.getElementById('kas-template-input').value.toLowerCase();
-    const listItems = document.getElementById('kas-dropdown-list').getElementsByTagName('li');
-    for (let i = 0; i < listItems.length; i++) {
-      const text = listItems[i].textContent || listItems[i].innerText;
-      listItems[i].style.display = text.toLowerCase().includes(inputVal) ? "" : "none";
+    const q = document.getElementById('kas-template-input').value.toLowerCase();
+    const items = document.getElementById('kas-dropdown-list').getElementsByTagName('li');
+    for (let i = 0; i < items.length; i++) {
+      items[i].style.display = items[i].textContent.toLowerCase().includes(q) ? '' : 'none';
     }
   }
 
   function pilihTemplateRutin(encodedData) {
     const d = JSON.parse(decodeURIComponent(encodedData));
     document.getElementById('kas-template-input').value = d.nama;
-    document.getElementById('kas-item').value  = d.nama;
-    document.getElementById('kas-catatan').value = d.catatan || '';
-    document.getElementById('kas-nominal-raw').value = d.nominal;
-    const nominalAngka = parseInt(d.nominal || 0);
-    document.getElementById('kas-nominal-visual').value = nominalAngka > 0 ? nominalAngka.toLocaleString('id-ID') : '';
+    document.getElementById('kas-item').value           = d.nama;
+    document.getElementById('kas-catatan').value        = d.catatan || '';
+    document.getElementById('kas-nominal-raw').value    = d.nominal;
+    const n = parseInt(d.nominal || 0);
+    document.getElementById('kas-nominal-visual').value = n > 0 ? n.toLocaleString('id-ID') : '';
     document.getElementById('kas-dropdown-list').classList.add('hidden');
   }
 
-  // Tutup dropdown saat klik di luar
-  document.addEventListener('click', function(event) {
+  /* Tutup dropdown klik luar */
+  document.addEventListener('click', function(e) {
     const area = document.getElementById('area-template-rutin');
-    const dropdownList = document.getElementById('kas-dropdown-list');
-    if (area && !area.contains(event.target) && dropdownList) {
-      dropdownList.classList.add('hidden');
-    }
+    const list = document.getElementById('kas-dropdown-list');
+    if (area && !area.contains(e.target) && list) list.classList.add('hidden');
   });
 
-  // ── Ganti Mode (PENGELUARAN / PEMASUKAN) ──
-  function gantiModeArusKas() {
-    const mode              = document.getElementById('pilihModeArusKas').value;
-    const areaTemplate      = document.getElementById('area-template-rutin');
-    const areaCOAPemasukan  = document.getElementById('area-coa-pemasukan');
-    const btnSubmit         = document.getElementById('btn-submit-kas');
-    const hintNamaItem      = document.getElementById('hint-nama-item');
-
-    // Reset form
-    document.getElementById('formArusKas').reset();
-    document.getElementById('kas-nominal-raw').value = '0';
-    document.getElementById('kas-nominal-visual').value = '';
-    document.getElementById('kas-template-input').value = '';
-    updatePeriodeUI();
-
-    // Reset filter dropdown list
-    const listItems = document.getElementById('kas-dropdown-list').getElementsByTagName('li');
-    for (let i = 0; i < listItems.length; i++) listItems[i].style.display = "";
-
-    if (mode === 'PEMASUKAN') {
-      areaTemplate.classList.add('hidden');
-      areaCOAPemasukan.classList.remove('hidden');
-      document.getElementById('kas-item').placeholder = 'Misal: Gaji Oktober 2026 / Dividen BBCA';
-      hintNamaItem.innerText = '(keterangan tambahan, opsional)';
-      btnSubmit.innerText    = 'Simpan Pemasukan (Debit)';
-      btnSubmit.className    = 'w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm transition-colors';
-    } else {
-      areaTemplate.classList.remove('hidden');
-      areaCOAPemasukan.classList.add('hidden');
-      document.getElementById('kas-item').placeholder = 'Misal: Tagihan Listrik / Belanja Bulanan';
-      hintNamaItem.innerText = '(misal: Listrik PLN / Beli Beras)';
-      btnSubmit.innerText    = 'Simpan Pengeluaran (Kredit)';
-      btnSubmit.className    = 'w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3.5 px-4 rounded-xl shadow-md text-sm transition-colors';
-    }
-  }
-
-  // ── Format Angka Visual ──
+  /* ── Format angka ── */
   function formatVisualAngka(elVisual, idRaw) {
     let raw = elVisual.value.replace(/[^0-9]/g, '');
     if (raw === '' || raw === '0') {
@@ -312,56 +794,47 @@
     elVisual.value = parseInt(raw).toLocaleString('id-ID');
   }
 
-  // ── Submit Transaksi Arus Kas ──
+  /* ── Submit ── */
   function submitTrxArusKas(e) {
     e.preventDefault();
-    const mode = document.getElementById('pilihModeArusKas').value;
+    const mode = modeArusKas;
 
-    // Validasi COA wajib saat PEMASUKAN
     let coaVal = '';
     if (mode === 'PEMASUKAN') {
       coaVal = document.getElementById('kas-coa-pemasukan').value;
       if (!coaVal) {
-        Swal.fire('COA Kosong', 'Pilih kategori pemasukan terlebih dahulu.', 'warning');
+        Swal.fire({ icon:'warning', title:'COA Kosong', text:'Pilih kategori pemasukan terlebih dahulu.', confirmButtonColor:'#4338ca' });
         return;
       }
     }
 
-    // Validasi nominal
     const nominalRaw = parseInt(document.getElementById('kas-nominal-raw').value) || 0;
     if (nominalRaw <= 0) {
-      Swal.fire('Nominal Kosong', 'Masukkan nominal yang valid!', 'warning');
+      Swal.fire({ icon:'warning', title:'Nominal Kosong', text:'Masukkan nominal yang valid!', confirmButtonColor:'#4338ca' });
       return;
     }
 
-    // Susun nama item final
-    // - PEMASUKAN: "COA · Keterangan" atau cukup COA jika keterangan kosong
-    // - PENGELUARAN: nama item langsung
-    const namaItemManual = document.getElementById('kas-item').value.trim();
-    let itemFinal = '';
+    const namaItem = document.getElementById('kas-item').value.trim();
+    let itemFinal  = '';
     if (mode === 'PEMASUKAN') {
-      if (namaItemManual && namaItemManual !== coaVal) {
-        itemFinal = coaVal + ' · ' + namaItemManual;
-      } else {
-        itemFinal = coaVal;
-      }
+      itemFinal = (namaItem && namaItem !== coaVal) ? coaVal + ' · ' + namaItem : coaVal;
     } else {
-      itemFinal = namaItemManual;
+      itemFinal = namaItem;
     }
-
     if (!itemFinal) {
-      Swal.fire('Nama Item Kosong', 'Isi nama item / sumber dana.', 'warning');
+      Swal.fire({ icon:'warning', title:'Nama Kosong', text:'Isi nama item / sumber dana.', confirmButtonColor:'#4338ca' });
       return;
     }
 
-    let btn = document.getElementById('btn-submit-kas');
-    let btnTeksLama = btn.innerText;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...';
-    btn.disabled  = true;
+    const btn      = document.getElementById('btn-submit-kas');
+    const btnText  = document.getElementById('btn-submit-text');
+    const origText = btnText.textContent;
+    btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Menyimpan...';
+    btn.disabled = true;
 
     const payload = {
       tanggal: document.getElementById('kas-tgl').value,
-      periode: document.getElementById('kas-periode').value,
+      periode: document.getElementById('kas-periode').textContent,
       tipe:    mode,
       item:    itemFinal,
       nominal: document.getElementById('kas-nominal-raw').value,
@@ -371,24 +844,21 @@
 
     google.script.run
       .withSuccessHandler(res => {
-        Swal.fire({ title: 'Berhasil!', text: res, icon: 'success' });
-        // Reset field tapi jaga tanggal & periode
+        Swal.fire({ icon:'success', title:'Berhasil Disimpan!', text:res, confirmButtonColor:'#4338ca' });
         document.getElementById('kas-item').value           = '';
         document.getElementById('kas-nominal-visual').value = '';
         document.getElementById('kas-nominal-raw').value    = '0';
         document.getElementById('kas-catatan').value        = '';
         document.getElementById('kas-template-input').value = '';
         document.getElementById('kas-dropdown-list').classList.add('hidden');
-        if (mode === 'PEMASUKAN') {
-          document.getElementById('kas-coa-pemasukan').value = '';
-        }
-        btn.innerText = btnTeksLama;
-        btn.disabled  = false;
+        if (mode === 'PEMASUKAN') document.getElementById('kas-coa-pemasukan').value = '';
+        btnText.textContent = origText;
+        btn.disabled = false;
       })
       .withFailureHandler(err => {
-        Swal.fire('Gagal', err.message, 'error');
-        btn.innerText = btnTeksLama;
-        btn.disabled  = false;
+        Swal.fire({ icon:'error', title:'Gagal Menyimpan', text:err.message, confirmButtonColor:'#4338ca' });
+        btnText.textContent = origText;
+        btn.disabled = false;
       })
       .simpanTrxArusKas(payload);
   }
