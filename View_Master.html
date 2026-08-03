@@ -1,13 +1,315 @@
-<!-- KONTEN: View_Master.html - UPDATE: Tambah Master COA Pemasukan -->
-<section id="modul-master" class="block pb-24 w-full overflow-x-hidden">
-  <div class="bg-white p-4 rounded-2xl shadow-sm border border-pink-100 mb-4">
-    <h3 class="text-xs font-bold text-rose-900 mb-3">
-      <i class="fa-solid fa-database text-pink-500 mr-2"></i> Pengaturan Master
-    </h3>
+<!-- ================================================================
+     KONTEN: View_Master.html
+     REDESIGN: Palette indigo-violet + emerald + warm amber
+     Konsisten dengan View_ArusKas & View_Transaksi
+     ================================================================ -->
 
-    <div class="flex gap-2 mb-6">
-      <select id="pilihMaster" onchange="loadMasterAktif()"
-              class="flex-1 min-w-0 bg-rose-50 border border-pink-200 py-3 px-3 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none text-sm font-bold text-rose-900">
+<style>
+  #modul-master {
+    --c-indigo:    #4338ca;
+    --c-indigo-md: #6366f1;
+    --c-indigo-lt: #e0e7ff;
+    --c-indigo-xs: #eef2ff;
+    --c-violet:    #7c3aed;
+    --c-violet-lt: #ede9fe;
+    --c-emerald:   #059669;
+    --c-emerald-lt:#d1fae5;
+    --c-emerald-xs:#ecfdf5;
+    --c-amber:     #d97706;
+    --c-amber-lt:  #fef3c7;
+    --c-amber-xs:  #fffbeb;
+    --c-amber-dk:  #b45309;
+    --c-red:       #dc2626;
+    --c-red-lt:    #fee2e2;
+    --c-slate-1:   #f1f5f9;
+    --c-slate-2:   #e2e8f0;
+    --c-slate-3:   #cbd5e1;
+    --c-slate-5:   #64748b;
+    --c-slate-7:   #334155;
+    --c-slate-9:   #0f172a;
+    --c-white:     #ffffff;
+
+    --radius-card:  1.25rem;
+    --radius-input: 0.875rem;
+    --shadow-card:  0 1px 3px 0 rgb(0 0 0 / .08), 0 1px 2px -1px rgb(0 0 0 / .06);
+    --shadow-btn:   0 4px 14px 0 rgb(67 56 202 / .28);
+  }
+
+  /* ── Card ── */
+  #modul-master .ms-card {
+    background: var(--c-white);
+    border-radius: var(--radius-card);
+    border: 1px solid var(--c-slate-2);
+    box-shadow: var(--shadow-card);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  /* ── Header modul ── */
+  #modul-master .ms-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  #modul-master .ms-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.875rem;
+    background: linear-gradient(135deg, var(--c-indigo), var(--c-violet));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 10px rgb(67 56 202 / .22);
+  }
+  #modul-master .ms-title {
+    font-size: 0.9375rem;
+    font-weight: 800;
+    color: var(--c-slate-9);
+    line-height: 1.2;
+  }
+  #modul-master .ms-sub {
+    font-size: 0.6875rem;
+    color: var(--c-slate-5);
+    margin-top: 0.125rem;
+  }
+
+  /* ── Divider ── */
+  #modul-master .ms-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--c-slate-2), transparent);
+    margin: 1rem 0;
+  }
+
+  /* ── Toolbar: select + tombol tambah ── */
+  #modul-master .ms-toolbar {
+    display: flex;
+    gap: 0.625rem;
+    align-items: stretch;
+    margin-bottom: 1.25rem;
+  }
+  #modul-master .ms-select {
+    flex: 1;
+    min-width: 0;
+    background: var(--c-slate-1);
+    border: 1.5px solid var(--c-slate-2);
+    border-radius: var(--radius-input);
+    padding: 0.75rem 2.25rem 0.75rem 0.875rem;
+    font-size: 16px !important;
+    font-weight: 700;
+    color: var(--c-slate-9);
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.875rem center;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  #modul-master .ms-select:focus {
+    border-color: var(--c-indigo-md);
+    background-color: var(--c-white);
+    box-shadow: 0 0 0 3px var(--c-indigo-lt);
+  }
+  #modul-master .ms-btn-add {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    background: linear-gradient(135deg, var(--c-indigo), var(--c-violet));
+    color: var(--c-white);
+    border: none;
+    border-radius: var(--radius-input);
+    padding: 0 1rem;
+    font-size: 0.8125rem;
+    font-weight: 800;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: var(--shadow-btn);
+    transition: all .2s cubic-bezier(.4,0,.2,1);
+    position: relative;
+    overflow: hidden;
+  }
+  #modul-master .ms-btn-add::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,.15) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform .5s ease;
+  }
+  #modul-master .ms-btn-add:hover::after { transform: translateX(100%); }
+  #modul-master .ms-btn-add:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgb(67 56 202 / .38);
+  }
+  #modul-master .ms-btn-add:active { transform: translateY(0); }
+
+  /* ── Tabel ── */
+  #modul-master .ms-table-wrap {
+    overflow-x: auto;
+    border-radius: 0.875rem;
+    border: 1px solid var(--c-slate-2);
+  }
+  #modul-master .ms-table-wrap::-webkit-scrollbar { height: 4px; }
+  #modul-master .ms-table-wrap::-webkit-scrollbar-thumb { background: var(--c-slate-3); border-radius: 4px; }
+
+  #modul-master table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+  }
+  #modul-master thead tr {
+    background: var(--c-indigo-xs);
+  }
+  #modul-master thead th {
+    padding: 0.625rem 0.875rem;
+    font-size: 0.5625rem;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--c-indigo);
+    text-align: left;
+    white-space: nowrap;
+    border-bottom: 1.5px solid var(--c-indigo-lt);
+  }
+  #modul-master thead th.th-right { text-align: right; }
+
+  #modul-master tbody tr {
+    border-bottom: 1px solid var(--c-slate-1);
+    transition: background .1s;
+  }
+  #modul-master tbody tr:last-child { border-bottom: none; }
+  #modul-master tbody tr:hover { background: var(--c-slate-1); }
+  #modul-master tbody td {
+    padding: 0.75rem 0.875rem;
+    color: var(--c-slate-7);
+    vertical-align: middle;
+  }
+  #modul-master tbody td.td-right { text-align: right; }
+
+  /* ── Chip kategori / badge ── */
+  #modul-master .chip-kat {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    max-width: 6rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #modul-master .chip-indigo { background: var(--c-indigo-lt); color: var(--c-indigo); }
+  #modul-master .chip-emerald { background: var(--c-emerald-lt); color: var(--c-emerald); }
+  #modul-master .chip-amber { background: var(--c-amber-lt); color: var(--c-amber-dk); }
+  #modul-master .chip-violet { background: var(--c-violet-lt); color: var(--c-violet); }
+
+  /* ── Tombol hapus ── */
+  #modul-master .btn-hapus {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: 0.5rem;
+    border: 1.5px solid var(--c-red-lt);
+    background: var(--c-red-lt);
+    color: var(--c-red);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  #modul-master .btn-hapus:hover {
+    background: var(--c-red);
+    border-color: var(--c-red);
+    color: var(--c-white);
+  }
+
+  /* ── Loading / empty state ── */
+  #modul-master .ms-loading {
+    text-align: center;
+    padding: 2.5rem 1rem;
+    color: var(--c-slate-5);
+  }
+  #modul-master .ms-loading i {
+    font-size: 1.5rem;
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--c-indigo-md);
+  }
+  #modul-master .ms-empty {
+    text-align: center;
+    padding: 2.5rem 1rem;
+  }
+  #modul-master .ms-empty i {
+    font-size: 2rem;
+    color: var(--c-slate-3);
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+  #modul-master .ms-empty p {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--c-slate-5);
+  }
+  #modul-master .ms-empty span {
+    font-size: 0.625rem;
+    color: var(--c-slate-3);
+    display: block;
+    margin-top: 0.25rem;
+  }
+
+  /* ── Nominal chip ── */
+  #modul-master .chip-nominal {
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: var(--c-emerald);
+    background: var(--c-emerald-xs);
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    border: 1px solid var(--c-emerald-lt);
+  }
+
+  /* ── Truncate cell ── */
+  #modul-master .td-truncate {
+    max-width: 10rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #modul-master .td-truncate-sm {
+    max-width: 6rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>
+
+
+<section id="modul-master" class="block pb-24 w-full overflow-x-hidden" style="background:#f8fafc; min-height:100%;">
+
+  <div class="ms-card">
+
+    <!-- Header -->
+    <div class="ms-header">
+      <div class="ms-icon">
+        <i class="fa-solid fa-database text-white" style="font-size:1rem;"></i>
+      </div>
+      <div>
+        <p class="ms-title">Master Database</p>
+        <p class="ms-sub">Kelola referensi lokasi, aset, dan akun</p>
+      </div>
+    </div>
+
+    <div class="ms-divider"></div>
+
+    <!-- Toolbar -->
+    <div class="ms-toolbar">
+      <select id="pilihMaster" onchange="loadMasterAktif()" class="ms-select">
         <option value="Lokasi">Master Lokasi Klinik</option>
         <option value="Kategori">Master Kategori Aset</option>
         <option value="Platform">Master Platform Aset</option>
@@ -15,374 +317,414 @@
         <option value="Pengeluaran">Master Pengeluaran Rutin</option>
         <option value="COAPemasukan">Master COA Pemasukan</option>
       </select>
-      <button onclick="bukaFormTambahMaster()"
-              class="bg-pink-600 hover:bg-pink-700 active:bg-pink-800 text-white font-bold py-3 px-4 rounded-xl shadow-md text-sm whitespace-nowrap transition-colors flex-shrink-0">
-        <i class="fa-solid fa-plus mr-1"></i> Tambah
+      <button onclick="bukaFormTambahMaster()" class="ms-btn-add">
+        <i class="fa-solid fa-plus" style="font-size:0.75rem;"></i>
+        Tambah
       </button>
     </div>
 
-    <div class="overflow-x-auto -mx-1 px-1" style="max-width: calc(100vw - 2rem);">
-      <table class="text-left text-xs min-w-full border border-pink-100 rounded-lg">
-        <thead class="bg-rose-50 text-pink-700" id="theadMaster">
-          <!-- Header dirender JavaScript -->
-        </thead>
-        <tbody id="tbodyMaster" class="divide-y divide-pink-50">
-          <!-- Data dirender JavaScript -->
+    <!-- Tabel -->
+    <div class="ms-table-wrap">
+      <table>
+        <thead id="theadMaster"></thead>
+        <tbody id="tbodyMaster">
+          <tr>
+            <td colspan="5">
+              <div class="ms-loading">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                Memuat data...
+              </div>
+            </td>
+          </tr>
         </tbody>
       </table>
     </div>
+
   </div>
 </section>
+
 
 <script>
   function initModulMaster() {
     loadMasterAktif();
   }
 
+  /* ── Loader utama ── */
   function loadMasterAktif() {
     const pilihan = document.getElementById('pilihMaster').value;
     document.getElementById('tbodyMaster').innerHTML =
-      '<tr><td colspan="5" class="px-2 py-4 text-center text-gray-400">' +
-      '<i class="fa-solid fa-spinner fa-spin text-pink-500 mb-2 text-xl block"></i> Memuat data...</td></tr>';
+      `<tr><td colspan="5"><div class="ms-loading">
+        <i class="fa-solid fa-spinner fa-spin"></i>Memuat data...
+      </div></td></tr>`;
 
-    try {
-      if (pilihan === 'Lokasi') {
-        renderHeaderTabel(['Lokasi', 'Komisi', 'Cut-Off', 'BPJS', 'Aksi']);
-        google.script.run.withFailureHandler(handleError)
-          .withSuccessHandler(data => renderTabelMaster(data, 'Lokasi'))
-          .bacaDataMaster("Master Lokasi", 5);
-      }
-      else if (pilihan === 'Kategori') {
-        renderHeaderTabel(['Nama Kategori', 'Aksi']);
-        google.script.run.withFailureHandler(handleError)
-          .withSuccessHandler(data => renderTabelMaster(data, 'Kategori'))
-          .bacaDataMaster("Master Kategori", 2);
-      }
-      else if (pilihan === 'Platform') {
-        renderHeaderTabel(['Nama Platform', 'Aksi']);
-        google.script.run.withFailureHandler(handleError)
-          .withSuccessHandler(data => renderTabelMaster(data, 'Platform'))
-          .bacaDataMaster("Master Platform", 2);
-      }
-      else if (pilihan === 'Item') {
-        renderHeaderTabel(['Kategori', 'Nama Item', 'Aksi']);
-        google.script.run.withFailureHandler(handleError)
-          .withSuccessHandler(data => renderTabelMaster(data, 'Item'))
-          .bacaDataMaster("Master Item", 3);
-      }
-      else if (pilihan === 'Pengeluaran') {
-        renderHeaderTabel(['Nama Tagihan', 'Nominal', 'Catatan', 'Aksi']);
-        google.script.run.withFailureHandler(handleError)
-          .withSuccessHandler(data => renderTabelPengeluaran(data))
-          .bacaDataMaster("Master Pengeluaran Rutin", 4);
-      }
-      else if (pilihan === 'COAPemasukan') {
-        renderHeaderTabel(['Kategori', 'Nama COA', 'Aksi']);
-        google.script.run.withFailureHandler(handleError)
-          .withSuccessHandler(data => renderTabelCOAPemasukan(data))
-          .bacaDataMaster("Master COA Pemasukan", 3);
-      }
-    } catch (error) {
-      console.error("Syntax Error: ", error);
-      Swal.fire('Error Sistem', 'Terjadi kesalahan logika: ' + error.message, 'error');
-    }
-  }
-
-  function handleError(error) {
-    Swal.fire('Gagal Menarik Data', error.message, 'error');
-    document.getElementById('tbodyMaster').innerHTML =
-      '<tr><td colspan="5" class="px-2 py-4 text-center text-red-500 font-bold">Gagal memuat data.</td></tr>';
-  }
-
-  function renderHeaderTabel(arrHeader) {
-    let html = '<tr>';
-    arrHeader.forEach(h => {
-      const align = h === 'Aksi' ? 'text-right' : 'text-left';
-      html += `<th class="px-2 py-2 ${align} whitespace-nowrap">${h}</th>`;
-    });
-    html += '</tr>';
-    document.getElementById('theadMaster').innerHTML = html;
-  }
-
-  // ── Render tabel generik ──
-  function renderTabelMaster(data, jenis) {
-    const tbody = document.getElementById('tbodyMaster');
-    tbody.innerHTML = '';
-    if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="px-2 py-4 text-center text-gray-400">Data kosong</td></tr>';
-      return;
-    }
-
-    data.forEach(item => {
-      let rowHtml = '<tr class="hover:bg-rose-50 transition-colors">';
-      if (jenis === 'Lokasi') {
-        rowHtml += `<td class="px-2 py-3 font-bold text-slate-700 max-w-[80px]"><span class="block truncate">${item[1]}</span></td>`;
-        rowHtml += `<td class="px-2 py-3 whitespace-nowrap">${item[2]}%</td>`;
-        rowHtml += `<td class="px-2 py-3 whitespace-nowrap">Tgl ${item[3]}</td>`;
-        rowHtml += `<td class="px-2 py-3 whitespace-nowrap text-[10px]">Rp${parseInt(item[4]||0).toLocaleString('id-ID')}</td>`;
-      } else if (jenis === 'Kategori' || jenis === 'Platform') {
-        rowHtml += `<td class="px-2 py-3 font-bold text-slate-700 max-w-[180px]"><span class="block truncate">${item[1]}</span></td>`;
-      } else if (jenis === 'Item') {
-        rowHtml += `<td class="px-2 py-3 text-[10px] bg-pink-50 text-pink-600 rounded max-w-[70px]"><span class="block truncate">${item[1]}</span></td>`;
-        rowHtml += `<td class="px-2 py-3 font-bold text-slate-700 max-w-[100px]"><span class="block truncate">${item[2]}</span></td>`;
-      }
-
-      let targetSheet = jenis === 'Lokasi'    ? "Master Lokasi"
-                      : jenis === 'Kategori'  ? "Master Kategori"
-                      : jenis === 'Platform'  ? "Master Platform"
-                      : "Master Item";
-      rowHtml += `<td class="px-2 py-3 text-right whitespace-nowrap">
-        <button onclick="prosesHapusMaster('${targetSheet}', '${item[0]}')"
-                class="text-rose-400 hover:text-rose-600 p-1">
-          <i class="fa-solid fa-trash"></i>
-        </button></td></tr>`;
-      tbody.innerHTML += rowHtml;
-    });
-  }
-
-  // ── Render tabel Pengeluaran Rutin ──
-  function renderTabelPengeluaran(data) {
-    const tbody = document.getElementById('tbodyMaster');
-    tbody.innerHTML = '';
-    if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="4" class="px-2 py-4 text-center text-gray-400">Data kosong</td></tr>';
-      return;
-    }
-    data.forEach(item => {
-      const nominalFormat = item[2] ? parseInt(item[2]).toLocaleString('id-ID') : "0";
-      tbody.innerHTML += `
-        <tr class="hover:bg-rose-50 transition-colors">
-          <td class="px-2 py-3 font-bold text-slate-700 max-w-[90px]"><span class="block truncate">${item[1]}</span></td>
-          <td class="px-2 py-3 text-[10px] font-bold text-slate-600 whitespace-nowrap">Rp${nominalFormat}</td>
-          <td class="px-2 py-3 text-[10px] text-gray-500 max-w-[70px]"><span class="block truncate">${item[3] || '-'}</span></td>
-          <td class="px-2 py-3 text-right whitespace-nowrap">
-            <button onclick="prosesHapusMaster('Master Pengeluaran Rutin', '${item[0]}')"
-                    class="text-rose-400 hover:text-rose-600 p-1">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </td>
-        </tr>`;
-    });
-  }
-
-  // ── Render tabel COA Pemasukan — BARU ──
-  function renderTabelCOAPemasukan(data) {
-    const tbody = document.getElementById('tbodyMaster');
-    tbody.innerHTML = '';
-    if (data.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="3" class="px-2 py-4 text-center text-gray-400">Data kosong</td></tr>';
-      return;
-    }
-
-    // Ikon per kategori
-    const iconMap = {
-      'Pendapatan Aktif':  '💼',
-      'Pendapatan Pasif':  '📈',
-      'Penerimaan Lain':   '🎁',
-      'Transfer Masuk':    '🔄',
+    const cfg = {
+      Lokasi:       { header: ['Lokasi',        'Komisi',  'Cut-off', 'Tarif BPJS', ''], cols: 5, sheet: 'Master Lokasi' },
+      Kategori:     { header: ['Nama Kategori',  ''],                                     cols: 2, sheet: 'Master Kategori' },
+      Platform:     { header: ['Nama Platform',  ''],                                     cols: 2, sheet: 'Master Platform' },
+      Item:         { header: ['Kategori',       'Nama Item', ''],                        cols: 3, sheet: 'Master Item' },
+      Pengeluaran:  { header: ['Nama Tagihan',   'Nominal',   'Catatan', ''],             cols: 4, sheet: 'Master Pengeluaran Rutin' },
+      COAPemasukan: { header: ['Kategori',       'Nama COA',  ''],                        cols: 3, sheet: 'Master COA Pemasukan' },
     };
 
-    data.forEach(item => {
-      const kat  = String(item[2] || 'Lainnya').trim();
-      const icon = iconMap[kat] || '📂';
-      tbody.innerHTML += `
-        <tr class="hover:bg-green-50 transition-colors">
-          <td class="px-2 py-3 max-w-[90px]">
-            <span class="inline-flex items-center gap-1 bg-green-50 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full border border-green-200">
-              <span>${icon}</span>
-              <span class="block truncate max-w-[60px]">${kat}</span>
-            </span>
-          </td>
-          <td class="px-2 py-3 font-bold text-slate-700 max-w-[140px]">
-            <span class="block truncate">${item[1]}</span>
-          </td>
-          <td class="px-2 py-3 text-right whitespace-nowrap">
-            <button onclick="prosesHapusMaster('Master COA Pemasukan', '${item[0]}')"
-                    class="text-rose-400 hover:text-rose-600 p-1">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </td>
-        </tr>`;
-    });
+    const c = cfg[pilihan];
+    renderHeaderTabel(c.header);
+
+    const renderFn = {
+      Lokasi:       renderTabelLokasi,
+      Kategori:     (d) => renderTabelSimple(d, 'Master Kategori'),
+      Platform:     (d) => renderTabelSimple(d, 'Master Platform'),
+      Item:         renderTabelItem,
+      Pengeluaran:  renderTabelPengeluaran,
+      COAPemasukan: renderTabelCOAPemasukan,
+    }[pilihan];
+
+    google.script.run
+      .withSuccessHandler(renderFn)
+      .withFailureHandler(handleError)
+      .bacaDataMaster(c.sheet, c.cols);
   }
 
-  // ── Buka Form Tambah Master ──
+  function handleError(err) {
+    Swal.fire('Gagal Menarik Data', err.message, 'error');
+    document.getElementById('tbodyMaster').innerHTML =
+      `<tr><td colspan="5"><div class="ms-empty">
+        <i class="fa-solid fa-triangle-exclamation" style="color:#dc2626;"></i>
+        <p>Gagal memuat data</p><span>${err.message}</span>
+      </div></td></tr>`;
+  }
+
+  /* ── Render header ── */
+  function renderHeaderTabel(arr) {
+    const html = arr.map((h, i) => {
+      const isLast = i === arr.length - 1;
+      return `<th class="${isLast && h === '' ? 'th-right' : ''}">${h}</th>`;
+    }).join('');
+    document.getElementById('theadMaster').innerHTML = `<tr>${html}</tr>`;
+  }
+
+  /* ── Empty state helper ── */
+  function emptyState(msg = 'Belum ada data', sub = 'Tekan Tambah untuk menambahkan entri baru') {
+    return `<tr><td colspan="6"><div class="ms-empty">
+      <i class="fa-solid fa-inbox"></i>
+      <p>${msg}</p><span>${sub}</span>
+    </div></td></tr>`;
+  }
+
+  /* ── RENDER: Lokasi ── */
+  function renderTabelLokasi(data) {
+    if (!data.length) { document.getElementById('tbodyMaster').innerHTML = emptyState(); return; }
+    document.getElementById('tbodyMaster').innerHTML = data.map(item => `
+      <tr>
+        <td class="td-truncate" style="font-weight:700; color:var(--c-slate-9);">${item[1]}</td>
+        <td>
+          <span class="chip-kat chip-indigo">${item[2]}%</span>
+        </td>
+        <td style="font-size:0.6875rem; color:var(--c-slate-5); white-space:nowrap;">Tgl ${item[3]}</td>
+        <td>
+          <span class="chip-nominal">Rp${parseInt(item[4]||0).toLocaleString('id-ID')}</span>
+        </td>
+        <td class="td-right">
+          <button onclick="prosesHapusMaster('Master Lokasi','${item[0]}')" class="btn-hapus">
+            <i class="fa-solid fa-trash" style="font-size:0.625rem;"></i>
+          </button>
+        </td>
+      </tr>`).join('');
+  }
+
+  /* ── RENDER: Kategori / Platform (simple 1 kolom) ── */
+  function renderTabelSimple(data, sheetName) {
+    if (!data.length) { document.getElementById('tbodyMaster').innerHTML = emptyState(); return; }
+    document.getElementById('tbodyMaster').innerHTML = data.map(item => `
+      <tr>
+        <td class="td-truncate" style="font-weight:600; color:var(--c-slate-9);">${item[1]}</td>
+        <td class="td-right">
+          <button onclick="prosesHapusMaster('${sheetName}','${item[0]}')" class="btn-hapus">
+            <i class="fa-solid fa-trash" style="font-size:0.625rem;"></i>
+          </button>
+        </td>
+      </tr>`).join('');
+  }
+
+  /* ── RENDER: Item ── */
+  function renderTabelItem(data) {
+    if (!data.length) { document.getElementById('tbodyMaster').innerHTML = emptyState(); return; }
+    document.getElementById('tbodyMaster').innerHTML = data.map(item => `
+      <tr>
+        <td>
+          <span class="chip-kat chip-amber">${item[1]}</span>
+        </td>
+        <td class="td-truncate" style="font-weight:600; color:var(--c-slate-9);">${item[2]}</td>
+        <td class="td-right">
+          <button onclick="prosesHapusMaster('Master Item','${item[0]}')" class="btn-hapus">
+            <i class="fa-solid fa-trash" style="font-size:0.625rem;"></i>
+          </button>
+        </td>
+      </tr>`).join('');
+  }
+
+  /* ── RENDER: Pengeluaran Rutin ── */
+  function renderTabelPengeluaran(data) {
+    if (!data.length) { document.getElementById('tbodyMaster').innerHTML = emptyState(); return; }
+    document.getElementById('tbodyMaster').innerHTML = data.map(item => `
+      <tr>
+        <td class="td-truncate" style="font-weight:600; color:var(--c-slate-9);">${item[1]}</td>
+        <td>
+          <span class="chip-nominal">Rp${parseInt(item[2]||0).toLocaleString('id-ID')}</span>
+        </td>
+        <td class="td-truncate-sm" style="font-size:0.6875rem; color:var(--c-slate-5);">${item[3]||'-'}</td>
+        <td class="td-right">
+          <button onclick="prosesHapusMaster('Master Pengeluaran Rutin','${item[0]}')" class="btn-hapus">
+            <i class="fa-solid fa-trash" style="font-size:0.625rem;"></i>
+          </button>
+        </td>
+      </tr>`).join('');
+  }
+
+  /* ── RENDER: COA Pemasukan ── */
+  function renderTabelCOAPemasukan(data) {
+    if (!data.length) { document.getElementById('tbodyMaster').innerHTML = emptyState(); return; }
+    const iconMap = {
+      'Pendapatan Aktif':'💼', 'Pendapatan Pasif':'📈',
+      'Penerimaan Lain':'🎁',  'Transfer Masuk':'🔄',
+    };
+    document.getElementById('tbodyMaster').innerHTML = data.map(item => {
+      const kat  = String(item[2]||'Lainnya').trim();
+      const icon = iconMap[kat] || '📂';
+      return `<tr>
+        <td>
+          <span class="chip-kat chip-emerald" style="max-width:7rem;">
+            ${icon} ${kat}
+          </span>
+        </td>
+        <td class="td-truncate" style="font-weight:600; color:var(--c-slate-9);">${item[1]}</td>
+        <td class="td-right">
+          <button onclick="prosesHapusMaster('Master COA Pemasukan','${item[0]}')" class="btn-hapus">
+            <i class="fa-solid fa-trash" style="font-size:0.625rem;"></i>
+          </button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  /* ════════════════════════════════════════════
+     FORM TAMBAH — semua lewat SweetAlert2
+  ════════════════════════════════════════════ */
   function bukaFormTambahMaster() {
     const pilihan = document.getElementById('pilihMaster').value;
 
+    /* ── Lokasi ── */
     if (pilihan === 'Lokasi') {
       Swal.fire({
-        title: 'Tambah Master Lokasi',
-        html: '<input id="swal-nama"   class="swal2-input text-sm" placeholder="Nama Lokasi">' +
-              '<input id="swal-komisi" type="number" class="swal2-input text-sm" placeholder="Komisi Dokter (%)">' +
-              '<input id="swal-cutoff" type="number" class="swal2-input text-sm" placeholder="Tgl Cut-Off (misal: 25)">' +
-              '<input id="swal-bpjs"   type="number" class="swal2-input text-sm" placeholder="Tarif BPJS (misal: 150000)">',
-        showCancelButton: true, confirmButtonColor: '#db2777', confirmButtonText: 'Simpan',
+        title: 'Tambah Lokasi Klinik',
+        html: `
+          <input id="sw-nama"   class="swal2-input" placeholder="Nama Lokasi / Klinik" style="font-size:16px!important;">
+          <input id="sw-komisi" type="number" class="swal2-input" placeholder="Komisi Dokter (%)" style="font-size:16px!important;">
+          <input id="sw-cutoff" type="number" class="swal2-input" placeholder="Tgl Cut-off (misal: 25)" style="font-size:16px!important;">
+          <input id="sw-bpjs"   type="number" class="swal2-input" placeholder="Tarif BPJS flat (opsional)" style="font-size:16px!important;">`,
+        showCancelButton: true,
+        confirmButtonColor: '#4338ca',
+        confirmButtonText: 'Simpan',
+        cancelButtonText: 'Batal',
         preConfirm: () => {
           const v = [
-            document.getElementById('swal-nama').value,
-            document.getElementById('swal-komisi').value,
-            document.getElementById('swal-cutoff').value,
-            document.getElementById('swal-bpjs').value
+            document.getElementById('sw-nama').value.trim(),
+            document.getElementById('sw-komisi').value,
+            document.getElementById('sw-cutoff').value,
+            document.getElementById('sw-bpjs').value || '0',
           ];
-          if (!v[0] || !v[1] || !v[2]) Swal.showValidationMessage('Nama, Komisi, dan Cut-off wajib diisi!');
+          if (!v[0] || !v[1] || !v[2]) { Swal.showValidationMessage('Nama, Komisi, dan Cut-off wajib diisi!'); return false; }
           return v;
         }
       }).then(res => {
         if (res.isConfirmed)
-          google.script.run.withSuccessHandler(() => loadMasterAktif())
+          google.script.run
+            .withSuccessHandler(() => { Swal.fire({ icon:'success', title:'Tersimpan!', confirmButtonColor:'#4338ca', timer:1500, showConfirmButton:false }); loadMasterAktif(); })
+            .withFailureHandler(e => Swal.fire('Gagal', e.message, 'error'))
             .simpanMasterLokasi(res.value[0], res.value[1], res.value[2], res.value[3]);
       });
     }
+
+    /* ── Kategori ── */
     else if (pilihan === 'Kategori') {
       Swal.fire({
         title: 'Tambah Kategori Aset',
-        input: 'text', inputPlaceholder: 'Misal: Emas / Reksadana Saham',
-        showCancelButton: true, confirmButtonColor: '#db2777', confirmButtonText: 'Simpan',
-        preConfirm: val => { if (!val) Swal.showValidationMessage('Nama kategori wajib diisi!'); return val; }
+        input: 'text',
+        inputPlaceholder: 'Misal: Emas / Reksadana Saham',
+        inputAttributes: { style: 'font-size:16px!important;' },
+        showCancelButton: true,
+        confirmButtonColor: '#4338ca',
+        confirmButtonText: 'Simpan',
+        cancelButtonText: 'Batal',
+        preConfirm: v => { if (!v?.trim()) { Swal.showValidationMessage('Nama kategori wajib diisi!'); return false; } return v.trim(); }
       }).then(res => {
         if (res.isConfirmed)
-          google.script.run.withSuccessHandler(() => loadMasterAktif()).simpanMasterKategori(res.value);
+          google.script.run
+            .withSuccessHandler(() => { Swal.fire({ icon:'success', title:'Tersimpan!', confirmButtonColor:'#4338ca', timer:1500, showConfirmButton:false }); loadMasterAktif(); })
+            .withFailureHandler(e => Swal.fire('Gagal', e.message, 'error'))
+            .simpanMasterKategori(res.value);
       });
     }
+
+    /* ── Platform ── */
     else if (pilihan === 'Platform') {
       Swal.fire({
         title: 'Tambah Platform Aset',
-        input: 'text', inputPlaceholder: 'Misal: Bibit / Brankas Antam',
-        showCancelButton: true, confirmButtonColor: '#db2777', confirmButtonText: 'Simpan',
-        preConfirm: val => { if (!val) Swal.showValidationMessage('Nama platform wajib diisi!'); return val; }
+        input: 'text',
+        inputPlaceholder: 'Misal: Bibit / Brankas Antam',
+        inputAttributes: { style: 'font-size:16px!important;' },
+        showCancelButton: true,
+        confirmButtonColor: '#4338ca',
+        confirmButtonText: 'Simpan',
+        cancelButtonText: 'Batal',
+        preConfirm: v => { if (!v?.trim()) { Swal.showValidationMessage('Nama platform wajib diisi!'); return false; } return v.trim(); }
       }).then(res => {
         if (res.isConfirmed)
-          google.script.run.withSuccessHandler(() => loadMasterAktif()).simpanMasterPlatform(res.value);
+          google.script.run
+            .withSuccessHandler(() => { Swal.fire({ icon:'success', title:'Tersimpan!', confirmButtonColor:'#4338ca', timer:1500, showConfirmButton:false }); loadMasterAktif(); })
+            .withFailureHandler(e => Swal.fire('Gagal', e.message, 'error'))
+            .simpanMasterPlatform(res.value);
       });
     }
+
+    /* ── Item ── */
     else if (pilihan === 'Item') {
-      google.script.run.withSuccessHandler(katData => {
-        let opt = '<select id="swal-kat" class="swal2-input text-sm"><option value="" disabled selected>Pilih Kategori...</option>';
-        katData.forEach(k => opt += `<option value="${k[1]}">${k[1]}</option>`);
-        opt += '</select><input id="swal-item" class="swal2-input text-sm" placeholder="Nama Item (Misal: Emas Antam 10gr)">';
-        Swal.fire({
-          title: 'Tambah Item Spesifik', html: opt,
-          showCancelButton: true, confirmButtonColor: '#db2777', confirmButtonText: 'Simpan',
-          preConfirm: () => {
-            const k = document.getElementById('swal-kat').value;
-            const i = document.getElementById('swal-item').value;
-            if (!k || !i) Swal.showValidationMessage('Semua kolom wajib diisi!');
-            return [k, i];
-          }
-        }).then(res => {
-          if (res.isConfirmed)
-            google.script.run.withSuccessHandler(() => loadMasterAktif())
-              .simpanMasterItem(res.value[0], res.value[1]);
-        });
-      }).bacaDataMaster("Master Kategori", 2);
+      google.script.run
+        .withSuccessHandler(katData => {
+          const opts = katData.length
+            ? katData.map(k => `<option value="${k[1]}">${k[1]}</option>`).join('')
+            : '<option disabled>⚠ Tambah kategori dulu</option>';
+          Swal.fire({
+            title: 'Tambah Item Spesifik',
+            html: `
+              <select id="sw-kat" class="swal2-input" style="font-size:16px!important;">
+                <option value="" disabled selected>Pilih Kategori...</option>${opts}
+              </select>
+              <input id="sw-item" class="swal2-input" placeholder="Nama Item (Misal: Emas Antam 10gr)" style="font-size:16px!important;">`,
+            showCancelButton: true,
+            confirmButtonColor: '#4338ca',
+            confirmButtonText: 'Simpan',
+            cancelButtonText: 'Batal',
+            preConfirm: () => {
+              const k = document.getElementById('sw-kat').value;
+              const i = document.getElementById('sw-item').value.trim();
+              if (!k || !i) { Swal.showValidationMessage('Semua kolom wajib diisi!'); return false; }
+              return [k, i];
+            }
+          }).then(res => {
+            if (res.isConfirmed)
+              google.script.run
+                .withSuccessHandler(() => { Swal.fire({ icon:'success', title:'Tersimpan!', confirmButtonColor:'#4338ca', timer:1500, showConfirmButton:false }); loadMasterAktif(); })
+                .withFailureHandler(e => Swal.fire('Gagal', e.message, 'error'))
+                .simpanMasterItem(res.value[0], res.value[1]);
+          });
+        })
+        .bacaDataMaster('Master Kategori', 2);
     }
+
+    /* ── Pengeluaran Rutin ── */
     else if (pilihan === 'Pengeluaran') {
       Swal.fire({
-        title: 'Master Pengeluaran Baru',
-        html: '<input id="swal-nama"    class="swal2-input text-sm" placeholder="Nama Tagihan (Misal: Listrik)">' +
-              '<input id="swal-nominal" type="number" class="swal2-input text-sm" placeholder="Estimasi Nominal (Misal: 500000)">' +
-              '<input id="swal-catatan" class="swal2-input text-sm" placeholder="Catatan (Misal: VA BCA 12345)">',
-        showCancelButton: true, confirmButtonColor: '#db2777', confirmButtonText: 'Simpan',
+        title: 'Tambah Template Pengeluaran',
+        html: `
+          <input id="sw-nama"    class="swal2-input" placeholder="Nama Tagihan (Misal: Listrik)" style="font-size:16px!important;">
+          <input id="sw-nominal" type="number" class="swal2-input" placeholder="Estimasi Nominal (Misal: 500000)" style="font-size:16px!important;">
+          <input id="sw-catatan" class="swal2-input" placeholder="Catatan — No. rek, kode (opsional)" style="font-size:16px!important;">`,
+        showCancelButton: true,
+        confirmButtonColor: '#4338ca',
+        confirmButtonText: 'Simpan',
+        cancelButtonText: 'Batal',
         preConfirm: () => {
-          const v = [
-            document.getElementById('swal-nama').value,
-            document.getElementById('swal-nominal').value,
-            document.getElementById('swal-catatan').value
-          ];
-          if (!v[0] || !v[1]) Swal.showValidationMessage('Nama dan Nominal wajib diisi!');
-          return v;
+          const n = document.getElementById('sw-nama').value.trim();
+          const m = document.getElementById('sw-nominal').value;
+          const c = document.getElementById('sw-catatan').value.trim();
+          if (!n || !m) { Swal.showValidationMessage('Nama dan Nominal wajib diisi!'); return false; }
+          return [n, m, c];
         }
       }).then(res => {
         if (res.isConfirmed)
-          google.script.run.withSuccessHandler(() => loadMasterAktif())
+          google.script.run
+            .withSuccessHandler(() => { Swal.fire({ icon:'success', title:'Tersimpan!', confirmButtonColor:'#4338ca', timer:1500, showConfirmButton:false }); loadMasterAktif(); })
+            .withFailureHandler(e => Swal.fire('Gagal', e.message, 'error'))
             .simpanMasterPengeluaran(res.value[0], res.value[1], res.value[2]);
       });
     }
+
+    /* ── COA Pemasukan ── */
     else if (pilihan === 'COAPemasukan') {
-      // ── Form Tambah COA Pemasukan — BARU ──
-      const kategoriList = [
-        { val: 'Pendapatan Aktif', icon: '💼' },
-        { val: 'Pendapatan Pasif', icon: '📈' },
-        { val: 'Penerimaan Lain',  icon: '🎁' },
-        { val: 'Transfer Masuk',   icon: '🔄' },
+      const katList = [
+        { val:'Pendapatan Aktif', icon:'💼' },
+        { val:'Pendapatan Pasif', icon:'📈' },
+        { val:'Penerimaan Lain',  icon:'🎁' },
+        { val:'Transfer Masuk',   icon:'🔄' },
       ];
-      const kategoriOpts = kategoriList
-        .map(k => `<option value="${k.val}">${k.icon} ${k.val}</option>`)
-        .join('');
+      const katOpts = katList.map(k => `<option value="${k.val}">${k.icon} ${k.val}</option>`).join('');
 
       Swal.fire({
-        title: '➕ Tambah COA Pemasukan',
+        title: 'Tambah COA Pemasukan',
         html: `
-          <p class="text-xs text-gray-500 mb-3 text-left">
-            Chart of Accounts untuk mengelompokkan sumber pemasukan Anda.
+          <p style="font-size:.75rem; color:#64748b; text-align:left; margin:0 0 .75rem; padding:0 .5rem;">
+            Akun untuk mengelompokkan sumber pemasukan Anda.
           </p>
-          <select id="swal-kat" class="swal2-input text-sm">
-            <option value="" disabled selected>Pilih Kategori...</option>
-            ${kategoriOpts}
+          <select id="sw-kat" class="swal2-input" style="font-size:16px!important;">
+            <option value="" disabled selected>Pilih Kategori...</option>${katOpts}
           </select>
-          <input id="swal-nama" class="swal2-input text-sm"
-                 placeholder="Nama COA (Misal: Gaji Bulanan)">
-          <p class="text-[10px] text-gray-400 text-left mt-1 px-2">
-            💡 Akan disimpan sebagai: <b id="preview-coa-nama">—</b>
+          <input id="sw-nama" class="swal2-input" placeholder="Nama COA (Misal: Gaji Bulanan)" style="font-size:16px!important;">
+          <p style="font-size:.6875rem; color:#64748b; text-align:left; margin:.5rem 0 0; padding:0 .5rem;">
+            Preview: <b id="sw-preview-coa">—</b>
           </p>`,
         didOpen: () => {
-          const katEl  = document.getElementById('swal-kat');
-          const namaEl = document.getElementById('swal-nama');
-          const prev   = document.getElementById('preview-coa-nama');
-          const update = () => {
-            const k = katEl.value;
-            const n = namaEl.value.trim();
-            prev.innerText = (k && n) ? `${k}: ${n}` : '—';
+          const katEl  = document.getElementById('sw-kat');
+          const namaEl = document.getElementById('sw-nama');
+          const prev   = document.getElementById('sw-preview-coa');
+          const upd = () => {
+            const k = katEl.value, n = namaEl.value.trim();
+            prev.textContent = (k && n) ? `${k}: ${n}` : '—';
           };
-          katEl.addEventListener('change', update);
-          namaEl.addEventListener('input', update);
+          katEl.addEventListener('change', upd);
+          namaEl.addEventListener('input', upd);
         },
         showCancelButton: true,
-        confirmButtonColor: '#16a34a',
-        cancelButtonColor:  '#d1d5db',
-        confirmButtonText:  'Simpan COA',
+        confirmButtonColor: '#059669',
+        confirmButtonText: 'Simpan COA',
+        cancelButtonText: 'Batal',
         preConfirm: () => {
-          const k = document.getElementById('swal-kat').value;
-          const n = document.getElementById('swal-nama').value.trim();
-          if (!k) Swal.showValidationMessage('Pilih kategori terlebih dahulu!');
-          if (!n) Swal.showValidationMessage('Nama COA wajib diisi!');
+          const k = document.getElementById('sw-kat').value;
+          const n = document.getElementById('sw-nama').value.trim();
+          if (!k) { Swal.showValidationMessage('Pilih kategori terlebih dahulu!'); return false; }
+          if (!n) { Swal.showValidationMessage('Nama COA wajib diisi!'); return false; }
           return [k, n];
         }
       }).then(res => {
-        if (res.isConfirmed) {
+        if (res.isConfirmed)
           google.script.run
-            .withSuccessHandler(msg => {
-              Swal.fire('Berhasil!', msg, 'success');
-              loadMasterAktif();
-            })
-            .withFailureHandler(err => Swal.fire('Gagal', err.message, 'error'))
+            .withSuccessHandler(msg => { Swal.fire({ icon:'success', title:'Berhasil!', text:msg, confirmButtonColor:'#4338ca', timer:2000, showConfirmButton:false }); loadMasterAktif(); })
+            .withFailureHandler(e => Swal.fire('Gagal', e.message, 'error'))
             .simpanCOAPemasukan(res.value[0], res.value[1]);
-        }
       });
     }
   }
 
-  // ── Hapus Data Master ──
+  /* ── Hapus ── */
   function prosesHapusMaster(sheetName, idRow) {
     Swal.fire({
       title: 'Hapus Data?',
-      text: "Data master ini akan dihapus permanen.",
+      text: 'Data ini akan dihapus permanen dan tidak bisa dikembalikan.',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#db2777',
-      cancelButtonColor:  '#d1d5db',
-      confirmButtonText:  'Ya, Hapus!'
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor:  '#e2e8f0',
+      confirmButtonText:  'Ya, Hapus',
+      cancelButtonText:   'Batal',
     }).then(result => {
-      if (result.isConfirmed) {
-        Swal.fire({ title: 'Menghapus...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-        google.script.run
-          .withSuccessHandler(res => {
-            Swal.fire('Terhapus!', res, 'success');
-            loadMasterAktif();
-          })
-          .hapusDataMaster(sheetName, idRow);
-      }
+      if (!result.isConfirmed) return;
+      Swal.fire({ title:'Menghapus...', allowOutsideClick:false, didOpen:()=>Swal.showLoading() });
+      google.script.run
+        .withSuccessHandler(res => {
+          Swal.fire({ icon:'success', title:'Terhapus!', text:res, confirmButtonColor:'#4338ca', timer:1500, showConfirmButton:false });
+          loadMasterAktif();
+        })
+        .withFailureHandler(e => Swal.fire('Gagal', e.message, 'error'))
+        .hapusDataMaster(sheetName, idRow);
     });
   }
 </script>
