@@ -2,7 +2,7 @@
  * ==================================================================
  * FILE: Code_Main.gs
  * FUNGSI: Mesin Routing, Templating, dan Setup Database
- * UPDATE: Tambah setup "Master COA Pemasukan" & Perbaikan UI Alert
+ * UPDATE: Hapus setup "Master Lokasi" & "Trx Fee Klinik"
  * ==================================================================
  */
 
@@ -28,16 +28,7 @@ function setupDatabase() {
 
   // ── MASTER TABLES ──────────────────────────────────────────────
 
-  // 1. Master Lokasi (Klinik)
-  var sheetLokasi = ss.getSheetByName("Master Lokasi");
-  if (!sheetLokasi) {
-    sheetLokasi = ss.insertSheet("Master Lokasi");
-    sheetLokasi.appendRow(["ID_Lokasi", "Nama_Lokasi", "Komisi_Persen", "Tanggal_Cutoff", "Tarif_BPJS"]);
-    sheetLokasi.getRange("A1:E1").setFontWeight("bold").setBackground("#be185d").setFontColor("white");
-    sheetLokasi.setColumnWidth(1, 250);
-  }
-
-  // 2. Master Kategori
+  // 1. Master Kategori
   var sheetKategori = ss.getSheetByName("Master Kategori");
   if (!sheetKategori) {
     sheetKategori = ss.insertSheet("Master Kategori");
@@ -46,7 +37,7 @@ function setupDatabase() {
     sheetKategori.setColumnWidth(1, 250);
   }
 
-  // 3. Master Platform
+  // 2. Master Platform
   var sheetPlatform = ss.getSheetByName("Master Platform");
   if (!sheetPlatform) {
     sheetPlatform = ss.insertSheet("Master Platform");
@@ -55,7 +46,7 @@ function setupDatabase() {
     sheetPlatform.setColumnWidth(1, 250);
   }
 
-  // 4. Master Item
+  // 3. Master Item
   var sheetItem = ss.getSheetByName("Master Item");
   if (!sheetItem) {
     sheetItem = ss.insertSheet("Master Item");
@@ -64,7 +55,7 @@ function setupDatabase() {
     sheetItem.setColumnWidth(1, 250);
   }
 
-  // 5. Master Pengeluaran Rutin
+  // 4. Master Pengeluaran Rutin
   var sheetPengeluaran = ss.getSheetByName("Master Pengeluaran Rutin");
   if (!sheetPengeluaran) {
     sheetPengeluaran = ss.insertSheet("Master Pengeluaran Rutin");
@@ -73,7 +64,7 @@ function setupDatabase() {
     sheetPengeluaran.setColumnWidth(1, 250);
   }
 
-  // 6. Master COA Pemasukan — BARU
+  // 5. Master COA Pemasukan
   var sheetCOAMasuk = ss.getSheetByName("Master COA Pemasukan");
   if (!sheetCOAMasuk) {
     sheetCOAMasuk = ss.insertSheet("Master COA Pemasukan");
@@ -83,7 +74,7 @@ function setupDatabase() {
     sheetCOAMasuk.setColumnWidth(2, 260);
     sheetCOAMasuk.setColumnWidth(3, 180);
 
-    // Seed data awal — bisa dihapus/tambah sesuai kebutuhan
+    // Seed data awal
     var seedData = [
       ["Pendapatan Aktif",  "Gaji Bulanan"],
       ["Pendapatan Aktif",  "Honor / Fee Profesional"],
@@ -110,20 +101,7 @@ function setupDatabase() {
 
   // ── TRANSACTION TABLES ─────────────────────────────────────────
 
-  // 7. Trx Fee Klinik (10 kolom)
-  var sheetTrxKlinik = ss.getSheetByName("Trx Fee Klinik");
-  if (!sheetTrxKlinik) {
-    sheetTrxKlinik = ss.insertSheet("Trx Fee Klinik");
-    sheetTrxKlinik.appendRow([
-      "ID_Trx_Klinik", "Tanggal_Input", "Periode_Komisi",
-      "Klinik", "Nama_Pasien", "Tindakan",
-      "Omset", "Komisi_Persen", "Nominal_Komisi", "Laba_Bersih"
-    ]);
-    sheetTrxKlinik.getRange("A1:J1").setFontWeight("bold").setBackground("#881337").setFontColor("white");
-    sheetTrxKlinik.setColumnWidth(1, 250);
-  }
-
-  // 8. Trx Tabungan Aset (10 kolom)
+  // 6. Trx Tabungan Aset (10 kolom)
   var sheetTrxAset = ss.getSheetByName("Trx Tabungan Aset");
   if (!sheetTrxAset) {
     sheetTrxAset = ss.insertSheet("Trx Tabungan Aset");
@@ -136,7 +114,7 @@ function setupDatabase() {
     sheetTrxAset.setColumnWidth(1, 250);
   }
 
-  // 9. Trx Arus Kas (General Ledger) (8 kolom)
+  // 7. Trx Arus Kas (General Ledger) (8 kolom)
   var sheetTrxKas = ss.getSheetByName("Trx Arus Kas");
   if (!sheetTrxKas) {
     sheetTrxKas = ss.insertSheet("Trx Arus Kas");
@@ -153,17 +131,15 @@ function setupDatabase() {
     sheetTrxKas.setColumnWidth(3, 120);
   }
 
-  // Tampilkan konfirmasi menggunakan Logger (Anti-Error)
+  // Tampilkan konfirmasi
   Logger.log(
     '✅ Setup Database Selesai!\n\n' +
     'Sheet yang dibuat/diverifikasi:\n' +
-    '• Master Lokasi\n' +
     '• Master Kategori\n' +
     '• Master Platform\n' +
     '• Master Item\n' +
     '• Master Pengeluaran Rutin\n' +
-    '• Master COA Pemasukan  ← BARU\n' +
-    '• Trx Fee Klinik\n' +
+    '• Master COA Pemasukan\n' +
     '• Trx Tabungan Aset\n' +
     '• Trx Arus Kas (General Ledger)\n\n' +
     'Master COA Pemasukan sudah diisi 13 akun awal.\n' +

@@ -2,6 +2,7 @@
  * ==================================================================
  * FILE: Code_Transaksi.gs
  * FUNGSI: Mesin Backend untuk Menyimpan Transaksi & Menghitung Periode
+ * UPDATE: Hapus simpanTrxKlinik() — modul fee klinik dihapus
  * PERBAIKAN v3:
  *   - getRiwayatBeliAktif():
  *       * Mode FISIK (Emas/Perak/dll): return per lot seperti sebelumnya
@@ -63,67 +64,25 @@ function catatKeJurnalKas(ss, tanggal, periode, tipe, item, catatan, debit, kred
   ]);
 }
 
-// ============================================================
-// simpanTrxKlinik()
-// ============================================================
-function simpanTrxKlinik(data) {
-  try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheetKlinik = ss.getSheetByName("Trx Fee Klinik");
-    if (!sheetKlinik) throw new Error("Sheet 'Trx Fee Klinik' tidak ditemukan!");
-
-    var periodePembukuan = hitungPeriodeSmart(data.tanggal);
-    var omset         = parseFloat(data.omset)        || 0;
-    var persenKomisi  = parseFloat(data.persenKomisi) || 0;
-    var nominalKomisi = parseFloat(data.nominalKomisi)|| 0;
-    var labaBersih    = parseFloat(data.labaBersih)   || 0;
-
-    sheetKlinik.appendRow([
-      Utilities.getUuid(),
-      data.tanggal,
-      periodePembukuan,
-      data.klinik,
-      data.pasien,
-      data.tindakan || "-",
-      omset,
-      persenKomisi,
-      nominalKomisi,
-      labaBersih
-    ]);
-
-    catatKeJurnalKas(
-      ss, data.tanggal, periodePembukuan, "PEMASUKAN",
-      "Fee Klinik: " + data.klinik,
-      "Pasien: " + data.pasien + " | " + (data.tindakan || "-"),
-      nominalKomisi, 0
-    );
-
-    return "Fee klinik berhasil disimpan ke periode: " + periodePembukuan;
-  } catch (error) {
-    throw new Error("Gagal menyimpan klinik: " + error.message);
-  }
-}
-
-// ============================================================
-// getRiwayatBeliAktif()
-//
-// Mengembalikan campuran dua tipe entry:
-//
-// 1. MODE FISIK (Emas, Perak, dll):
-//    Entry per lot dengan sisaQty dalam unit fisik (gram, keping, dll)
-//    { id, tanggal, platform, kategori, item, qtyBeli, hargaBeli, totalBeli, sisaQty }
-//
-// 2. MODE NOMINAL (Reksadana, Saham, dll):
-//    Entry diagregasi per kombinasi item+platform+kategori.
-//    sisaQty = 1 (dummy), hargaBeli = total nominal sisa (bukan per unit).
-//    Frontend akan menggunakan hargaBeli sebagai "sisa nominal".
-//    { id (lot pertama sebagai referensi), tanggal, platform, kategori, item,
-//      qtyBeli, hargaBeli (=totalNominalSisa), totalBeli, sisaQty=1 }
-//
-// KOLOM Trx Tabungan Aset:
-//   A(0)=ID, B(1)=Tanggal, C(2)=Platform, D(3)=Kategori,
-//   E(4)=NamaItem, F(5)=Tipe, G(6)=Qty, H(7)=Harga, I(8)=Total, J(9)=IdReferensi
-// ============================================================
+/**
+ * getRiwayatBeliAktif()
+ *
+ * Mengembalikan campuran dua tipe entry:
+ *
+ * 1. MODE FISIK (Emas, Perak, dll):
+ *    Entry per lot dengan sisaQty dalam unit fisik (gram, keping, dll)
+ *    { id, tanggal, platform, kategori, item, qtyBeli, hargaBeli, totalBeli, sisaQty }
+ *
+ * 2. MODE NOMINAL (Reksadana, Saham, dll):
+ *    Entry diagregasi per kombinasi item+platform+kategori.
+ *    sisaQty = 1 (dummy), hargaBeli = total nominal sisa (bukan per unit).
+ *    { id, tanggal, platform, kategori, item,
+ *      qtyBeli, hargaBeli (=totalNominalSisa), totalBeli, sisaQty=1 }
+ *
+ * KOLOM Trx Tabungan Aset:
+ *   A(0)=ID, B(1)=Tanggal, C(2)=Platform, D(3)=Kategori,
+ *   E(4)=NamaItem, F(5)=Tipe, G(6)=Qty, H(7)=Harga, I(8)=Total, J(9)=IdReferensi
+ */
 function getRiwayatBeliAktif() {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -171,7 +130,7 @@ function getRiwayatBeliAktif() {
           var key = item + "||" + platform + "||" + kategori;
           if (!nominalMap[key]) {
             nominalMap[key] = {
-              id:            id,          // simpan ID lot pertama sebagai referensi
+              id:            id,
               tanggal:       tgl,
               platform:      platform,
               kategori:      kategori,
@@ -218,15 +177,15 @@ function getRiwayatBeliAktif() {
       var sisa = n.totalModalBeli - n.totalTerjual;
       if (sisa > 0.01) {
         hasil.push({
-          id:        n.id,        // lot pertama sebagai referensi
+          id:        n.id,
           tanggal:   n.tanggal,
           platform:  n.platform,
           kategori:  n.kategori,
           item:      n.item,
           qtyBeli:   1,
-          hargaBeli: sisa,        // frontend baca ini sebagai "sisa nominal"
+          hargaBeli: sisa,
           totalBeli: n.totalModalBeli,
-          sisaQty:   1            // dummy — mode nominal tidak pakai qty
+          sisaQty:   1
         });
       }
     });

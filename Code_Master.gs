@@ -2,7 +2,7 @@
  * ==================================================================
  * FILE: Code_Master.gs
  * FUNGSI: Logika CRUD untuk semua tabel Master
- * UPDATE: Tambah fungsi CRUD Master COA Pemasukan
+ * UPDATE: Hapus fungsi lokasi klinik; tambah CRUD Master COA Pemasukan
  * ==================================================================
  */
 
@@ -29,15 +29,12 @@ function hapusDataMaster(namaSheet, idTarget) {
 /**
  * getReferensiTransaksi()
  * Dipanggil oleh initModulTransaksi() di View_Transaksi.html
+ * Catatan: referensi lokasi klinik dihapus
  */
 function getReferensiTransaksi() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var result = { lokasi: [], kategori: [], platform: [], item: [] };
+  var result = { kategori: [], platform: [], item: [] };
 
-  var sheetLokasi = ss.getSheetByName("Master Lokasi");
-  if (sheetLokasi && sheetLokasi.getLastRow() > 1) {
-    result.lokasi = sheetLokasi.getRange(2, 1, sheetLokasi.getLastRow() - 1, 5).getValues();
-  }
   var sheetKategori = ss.getSheetByName("Master Kategori");
   if (sheetKategori && sheetKategori.getLastRow() > 1) {
     result.kategori = sheetKategori.getRange(2, 1, sheetKategori.getLastRow() - 1, 2).getValues();
@@ -54,7 +51,7 @@ function getReferensiTransaksi() {
 }
 
 // ============================================================
-// FUNGSI COA PEMASUKAN — BARU
+// FUNGSI COA PEMASUKAN
 // ============================================================
 
 /**
@@ -83,12 +80,6 @@ function simpanCOAPemasukan(kategori, nama) {
 // ============================================================
 // Fungsi Spesifik CRUD Master lainnya
 // ============================================================
-
-function simpanMasterLokasi(nama, komisi, cutoff, tarif) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Master Lokasi");
-  sheet.appendRow([Utilities.getUuid(), nama, parseFloat(komisi), parseInt(cutoff), parseFloat(tarif) || 0]);
-  return "Lokasi berhasil ditambahkan!";
-}
 
 function simpanMasterKategori(nama) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName("Master Kategori");

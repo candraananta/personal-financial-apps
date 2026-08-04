@@ -3,22 +3,14 @@
  * FILE: Code_Report.gs
  * FUNGSI: Menarik data transaksi untuk direkapitulasi oleh Frontend
  *
- * PERBAIKAN v3:
- *   - getDataLaporan():
- *       * Sheet Klinik  → getDisplayValues() TETAP (sudah string semua, OK)
- *       * Sheet Aset    → getValues() + normalisasi manual di sini
- *         (getDisplayValues() menghasilkan "1.234.567" yang merusak parseFloat di frontend)
- *       * Sheet Kas     → getValues() + normalisasi manual
- *       * Tanggal diformat ke "YYYY-MM-DD" agar frontend bisa parse konsisten
- *       * Angka numerik dikembalikan sebagai number, bukan string
- *   - renderCardAset() dipindah ke View_Report.html (lihat catatan di bawah)
- *   - getRekapPNLAset(): tidak berubah
+ * UPDATE: Hapus data klinik dari getDataLaporan()
+ *   - getDataLaporan() hanya mengembalikan { aset, kas }
+ *   - getRekapPNLAset() tetap ada (dipakai oleh View_Report.html)
  * ==================================================================
  */
 
 /**
  * HELPER: Format tanggal Date → "YYYY-MM-DD"
- * Menggunakan kalkulasi lokal agar tidak kena bug timezone.
  */
 function formatTanggalYMD_(tgl) {
   if (!tgl) return "";
@@ -44,9 +36,7 @@ function normPeriodeGS_(val) {
     return namaBulan[val.getMonth()] + " " + val.getFullYear();
   }
   var str = String(val).trim();
-  // Jika sudah "NamaBulan TAHUN" — kembalikan apa adanya
   if (/^[A-Za-z]+\s+\d{4}$/.test(str)) return str;
-  // Coba parse string tanggal YYYY-MM-DD
   var parts = str.split("-");
   if (parts.length === 3) {
     var bln = parseInt(parts[1], 10) - 1;
@@ -59,12 +49,7 @@ function normPeriodeGS_(val) {
  * getDataLaporan()
  * Dipanggil oleh initModulReport() di View_Report.html.
  *
- * Return: { klinik: [[...]], aset: [[...]], kas: [[...]] }
- *
- * Format per sheet:
- *   klinik : getDisplayValues() — sudah aman (semua data relevan = string/angka sederhana)
- *   aset   : getValues() → diproses → array dengan tipe data tepat
- *   kas    : getValues() → diproses → array dengan tipe data tepat
+ * Return: { aset: [[...]], kas: [[...]] }
  *
  * Kolom Trx Tabungan Aset (10 kolom):
  *   [0]=ID  [1]=Tanggal  [2]=Platform  [3]=Kategori  [4]=NamaItem
@@ -73,40 +58,12 @@ function normPeriodeGS_(val) {
  * Kolom Trx Arus Kas (8 kolom):
  *   [0]=ID  [1]=Tanggal  [2]=Periode  [3]=Tipe  [4]=Akun
  *   [5]=Catatan  [6]=Debit  [7]=Kredit
- *
- * Kolom Trx Fee Klinik (10 kolom):
- *   [0]=ID  [1]=Tanggal  [2]=Periode  [3]=Klinik  [4]=Pasien
- *   [5]=Tindakan  [6]=Omset  [7]=KomisiPersen  [8]=NominalKomisi  [9]=LabaBersih
  */
 function getDataLaporan() {
   var ss         = SpreadsheetApp.getActiveSpreadsheet();
-  var dataReport = { klinik: [], aset: [], kas: [] };
+  var dataReport = { aset: [], kas: [] };
 
-  /* ── 1. Fee Klinik ─────────────────────────────────────────── */
-  var sheetKlinik = ss.getSheetByName("Trx Fee Klinik");
-  if (sheetKlinik && sheetKlinik.getLastRow() > 1) {
-    // getValues() agar tanggal & angka bertipe asli
-    var rawKlinik = sheetKlinik
-      .getRange(2, 1, sheetKlinik.getLastRow() - 1, 10)
-      .getValues();
-
-    dataReport.klinik = rawKlinik.map(function(row) {
-      return [
-        String(row[0]),                          // [0] ID
-        formatTanggalYMD_(row[1]),               // [1] Tanggal → "YYYY-MM-DD"
-        normPeriodeGS_(row[2]),                  // [2] Periode → "NamaBulan TAHUN"
-        String(row[3] || ""),                    // [3] Klinik
-        String(row[4] || ""),                    // [4] Pasien
-        String(row[5] || "-"),                   // [5] Tindakan
-        parseFloat(row[6])  || 0,                // [6] Omset
-        parseFloat(row[7])  || 0,                // [7] KomisiPersen
-        parseFloat(row[8])  || 0,                // [8] NominalKomisi
-        parseFloat(row[9])  || 0                 // [9] LabaBersih
-      ];
-    });
-  }
-
-  /* ── 2. Tabungan Aset ──────────────────────────────────────── */
+  /* ── 1. Tabungan Aset ──────────────────────────────────────── */
   var sheetAset = ss.getSheetByName("Trx Tabungan Aset");
   if (sheetAset && sheetAset.getLastRow() > 1) {
     var rawAset = sheetAset
@@ -129,7 +86,7 @@ function getDataLaporan() {
     });
   }
 
-  /* ── 3. Arus Kas / GL ──────────────────────────────────────── */
+  /* ── 2. Arus Kas / GL ──────────────────────────────────────── */
   var sheetKas = ss.getSheetByName("Trx Arus Kas");
   if (sheetKas && sheetKas.getLastRow() > 1) {
     var rawKas = sheetKas

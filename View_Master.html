@@ -2,6 +2,7 @@
      KONTEN: View_Master.html
      REDESIGN: Palette indigo-violet + emerald + warm amber
      Konsisten dengan View_ArusKas & View_Transaksi
+     UPDATE: Hapus Master Lokasi Klinik
      ================================================================ -->
 
 <style>
@@ -301,7 +302,7 @@
       </div>
       <div>
         <p class="ms-title">Master Database</p>
-        <p class="ms-sub">Kelola referensi lokasi, aset, dan akun</p>
+        <p class="ms-sub">Kelola referensi aset, kategori, dan akun</p>
       </div>
     </div>
 
@@ -310,7 +311,6 @@
     <!-- Toolbar -->
     <div class="ms-toolbar">
       <select id="pilihMaster" onchange="loadMasterAktif()" class="ms-select">
-        <option value="Lokasi">Master Lokasi Klinik</option>
         <option value="Kategori">Master Kategori Aset</option>
         <option value="Platform">Master Platform Aset</option>
         <option value="Item">Master Item Spesifik</option>
@@ -358,7 +358,6 @@
       </div></td></tr>`;
 
     const cfg = {
-      Lokasi:       { header: ['Lokasi',        'Komisi',  'Cut-off', 'Tarif BPJS', ''], cols: 5, sheet: 'Master Lokasi' },
       Kategori:     { header: ['Nama Kategori',  ''],                                     cols: 2, sheet: 'Master Kategori' },
       Platform:     { header: ['Nama Platform',  ''],                                     cols: 2, sheet: 'Master Platform' },
       Item:         { header: ['Kategori',       'Nama Item', ''],                        cols: 3, sheet: 'Master Item' },
@@ -370,7 +369,6 @@
     renderHeaderTabel(c.header);
 
     const renderFn = {
-      Lokasi:       renderTabelLokasi,
       Kategori:     (d) => renderTabelSimple(d, 'Master Kategori'),
       Platform:     (d) => renderTabelSimple(d, 'Master Platform'),
       Item:         renderTabelItem,
@@ -408,27 +406,6 @@
       <i class="fa-solid fa-inbox"></i>
       <p>${msg}</p><span>${sub}</span>
     </div></td></tr>`;
-  }
-
-  /* ── RENDER: Lokasi ── */
-  function renderTabelLokasi(data) {
-    if (!data.length) { document.getElementById('tbodyMaster').innerHTML = emptyState(); return; }
-    document.getElementById('tbodyMaster').innerHTML = data.map(item => `
-      <tr>
-        <td class="td-truncate" style="font-weight:700; color:var(--c-slate-9);">${item[1]}</td>
-        <td>
-          <span class="chip-kat chip-indigo">${item[2]}%</span>
-        </td>
-        <td style="font-size:0.6875rem; color:var(--c-slate-5); white-space:nowrap;">Tgl ${item[3]}</td>
-        <td>
-          <span class="chip-nominal">Rp${parseInt(item[4]||0).toLocaleString('id-ID')}</span>
-        </td>
-        <td class="td-right">
-          <button onclick="prosesHapusMaster('Master Lokasi','${item[0]}')" class="btn-hapus">
-            <i class="fa-solid fa-trash" style="font-size:0.625rem;"></i>
-          </button>
-        </td>
-      </tr>`).join('');
   }
 
   /* ── RENDER: Kategori / Platform (simple 1 kolom) ── */
@@ -512,40 +489,8 @@
   function bukaFormTambahMaster() {
     const pilihan = document.getElementById('pilihMaster').value;
 
-    /* ── Lokasi ── */
-    if (pilihan === 'Lokasi') {
-      Swal.fire({
-        title: 'Tambah Lokasi Klinik',
-        html: `
-          <input id="sw-nama"   class="swal2-input" placeholder="Nama Lokasi / Klinik" style="font-size:16px!important;">
-          <input id="sw-komisi" type="number" class="swal2-input" placeholder="Komisi Dokter (%)" style="font-size:16px!important;">
-          <input id="sw-cutoff" type="number" class="swal2-input" placeholder="Tgl Cut-off (misal: 25)" style="font-size:16px!important;">
-          <input id="sw-bpjs"   type="number" class="swal2-input" placeholder="Tarif BPJS flat (opsional)" style="font-size:16px!important;">`,
-        showCancelButton: true,
-        confirmButtonColor: '#4338ca',
-        confirmButtonText: 'Simpan',
-        cancelButtonText: 'Batal',
-        preConfirm: () => {
-          const v = [
-            document.getElementById('sw-nama').value.trim(),
-            document.getElementById('sw-komisi').value,
-            document.getElementById('sw-cutoff').value,
-            document.getElementById('sw-bpjs').value || '0',
-          ];
-          if (!v[0] || !v[1] || !v[2]) { Swal.showValidationMessage('Nama, Komisi, dan Cut-off wajib diisi!'); return false; }
-          return v;
-        }
-      }).then(res => {
-        if (res.isConfirmed)
-          google.script.run
-            .withSuccessHandler(() => { Swal.fire({ icon:'success', title:'Tersimpan!', confirmButtonColor:'#4338ca', timer:1500, showConfirmButton:false }); loadMasterAktif(); })
-            .withFailureHandler(e => Swal.fire('Gagal', e.message, 'error'))
-            .simpanMasterLokasi(res.value[0], res.value[1], res.value[2], res.value[3]);
-      });
-    }
-
     /* ── Kategori ── */
-    else if (pilihan === 'Kategori') {
+    if (pilihan === 'Kategori') {
       Swal.fire({
         title: 'Tambah Kategori Aset',
         input: 'text',
