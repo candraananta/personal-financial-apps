@@ -2,6 +2,7 @@
      KONTEN: View_Transaksi.html
      REDESIGN: Palette indigo-violet + emerald + warm amber
      Konsisten dengan View_ArusKas.html
+     UPDATE: Modul Fee Klinik dihapus — hanya Tabungan Aset
      ================================================================ -->
 
 <style>
@@ -44,46 +45,6 @@
     box-shadow: var(--shadow-card);
     padding: 1.25rem;
     margin-bottom: 1rem;
-  }
-
-  /* ── Mode selector (top) ── */
-  #modul-transaksi .mode-top-wrap {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-  #modul-transaksi .mode-top-icon {
-    width: 2.75rem;
-    height: 2.75rem;
-    border-radius: 0.875rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    background: linear-gradient(135deg, var(--c-indigo), var(--c-violet));
-    box-shadow: 0 4px 10px rgb(67 56 202 / .22);
-  }
-  #modul-transaksi .mode-top-select {
-    flex: 1;
-    background: var(--c-slate-1);
-    border: 1.5px solid var(--c-slate-2);
-    border-radius: var(--radius-input);
-    padding: 0.75rem 2rem 0.75rem 0.875rem;
-    font-size: 16px !important;
-    font-weight: 700;
-    color: var(--c-slate-9);
-    outline: none;
-    -webkit-appearance: none;
-    appearance: none;
-    transition: border-color .15s, box-shadow .15s;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.875rem center;
-  }
-  #modul-transaksi .mode-top-select:focus {
-    border-color: var(--c-indigo-md);
-    box-shadow: 0 0 0 3px var(--c-indigo-lt);
-    background-color: var(--c-white);
   }
 
   /* ── Label ── */
@@ -138,7 +99,7 @@
     pointer-events: none;
   }
 
-  /* ── BELI / JUAL pill toggle — SIGNATURE ELEMENT ── */
+  /* ── BELI / JUAL pill toggle ── */
   #modul-transaksi .tipe-toggle {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -520,169 +481,14 @@
     transition: background .15s;
   }
   #modal-grid-jual .btn-batal:hover { background: var(--c-slate-2); }
-
-  /* Klinik BPJS toggle */
-  #modul-transaksi .bpjs-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--c-violet-lt);
-    border: 1.5px solid #c4b5fd;
-    border-radius: var(--radius-input);
-    padding: 0.75rem 0.875rem;
-    margin-bottom: 1rem;
-  }
-  #modul-transaksi .bpjs-toggle {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    flex-shrink: 0;
-  }
-  #modul-transaksi .bpjs-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
-  #modul-transaksi .bpjs-track {
-    width: 2.75rem;
-    height: 1.5rem;
-    background: var(--c-slate-3);
-    border-radius: 999px;
-    position: relative;
-    transition: background .2s;
-    cursor: pointer;
-  }
-  #modul-transaksi .bpjs-track::after {
-    content: '';
-    position: absolute;
-    top: 0.1875rem;
-    left: 0.1875rem;
-    width: 1.125rem;
-    height: 1.125rem;
-    background: var(--c-white);
-    border-radius: 50%;
-    transition: transform .2s, box-shadow .2s;
-    box-shadow: 0 1px 3px rgb(0 0 0 / .2);
-  }
-  #modul-transaksi .bpjs-toggle input:checked + .bpjs-track { background: var(--c-violet); }
-  #modul-transaksi .bpjs-toggle input:checked + .bpjs-track::after { transform: translateX(1.25rem); }
 </style>
 
 <section id="modul-transaksi" class="block relative w-full" style="background:#f8fafc; min-height:100%;">
 
-  <!-- ── Pemilih Jenis Transaksi ── -->
-  <div class="trx-card">
-    <div class="mode-top-wrap">
-      <div class="mode-top-icon">
-        <i class="fa-solid fa-money-bill-transfer text-white" style="font-size:1.125rem;"></i>
-      </div>
-      <div style="flex:1; min-width:0;">
-        <label class="trx-label" style="margin-bottom:0.25rem;">Mode Pencatatan</label>
-        <select id="pilihModeTrx" onchange="gantiModeTrx()"
-                class="mode-top-select">
-          <option value="klinik">Fee Klinik Medis</option>
-          <option value="aset">Tabungan Aset (Investasi)</option>
-        </select>
-      </div>
-    </div>
-  </div>
-
-
   <!-- ================================================================ -->
-  <!-- FORM 1: TRANSAKSI KLINIK                                          -->
+  <!-- FORM: TRANSAKSI TABUNGAN ASET                                     -->
   <!-- ================================================================ -->
-  <div id="form-klinik-container" class="trx-card mb-20 block">
-    <form id="formKlinik" onsubmit="submitTrxKlinik(event)">
-
-      <!-- Header -->
-      <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem;">
-        <div style="width:2.25rem; height:2.25rem; border-radius:0.75rem; background:linear-gradient(135deg,#7c3aed,#6366f1); display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 3px 8px rgb(124 58 237/.22);">
-          <i class="fa-solid fa-stethoscope text-white" style="font-size:0.875rem;"></i>
-        </div>
-        <div>
-          <p style="font-size:0.9375rem; font-weight:800; color:var(--c-slate-9); line-height:1.2;">Fee Klinik Medis</p>
-          <p style="font-size:0.6875rem; color:var(--c-slate-5);">Komisi & laba per tindakan</p>
-        </div>
-      </div>
-      <div class="trx-divider"></div>
-
-      <div style="margin-bottom:1rem;">
-        <label class="trx-label">Tanggal Transaksi <span class="req">*</span></label>
-        <input type="date" id="klinik-tgl" class="trx-input" required>
-      </div>
-
-      <div style="margin-bottom:1rem;">
-        <label class="trx-label">Lokasi / Klinik <span class="req">*</span></label>
-        <select id="klinik-lokasi" onchange="kalkulasiKlinik()"
-                class="trx-select" required>
-          <option value="" disabled selected>⏳ Memuat data lokasi...</option>
-        </select>
-      </div>
-
-      <div style="margin-bottom:1rem;">
-        <label class="trx-label">Nama Pasien <span class="req">*</span></label>
-        <input type="text" id="klinik-pasien" class="trx-input"
-               placeholder="Nama lengkap pasien" required>
-      </div>
-
-      <!-- Toggle BPJS -->
-      <div class="bpjs-row">
-        <div style="flex:1; min-width:0; margin-right:1rem;">
-          <p style="font-size:0.8125rem; font-weight:700; color:#5b21b6; display:flex; align-items:center; gap:0.375rem;">
-            <i class="fa-solid fa-id-card" style="font-size:0.75rem;"></i> Pasien BPJS?
-          </p>
-          <p style="font-size:0.625rem; color:#7c3aed; margin-top:0.125rem;">Tarif flat masuk ke komisi dokter</p>
-        </div>
-        <label class="bpjs-toggle">
-          <input type="checkbox" id="klinik-bpjs" onchange="toggleBPJS()">
-          <div class="bpjs-track"></div>
-        </label>
-      </div>
-
-      <div style="margin-bottom:1rem;">
-        <label class="trx-label">Tindakan <span style="font-weight:400; text-transform:none; letter-spacing:0; font-size:0.625rem;">(opsional)</span></label>
-        <input type="text" id="klinik-tindakan" class="trx-input"
-               placeholder="Misal: Konsultasi / Tindakan Estetik">
-      </div>
-
-      <div style="margin-bottom:1rem;">
-        <label class="trx-label">Total Omset (Rp) <span class="req">*</span></label>
-        <div class="trx-nominal-wrap" style="margin-bottom:0;">
-          <span class="trx-nominal-prefix">Rp</span>
-          <input type="text" id="klinik-omset-visual"
-                 oninput="formatVisualAngka(this, 'klinik-omset-raw'); kalkulasiKlinik()"
-                 class="trx-nominal-input"
-                 placeholder="0" required>
-          <input type="hidden" id="klinik-omset-raw" value="0">
-        </div>
-      </div>
-
-      <!-- Preview kalkulasi -->
-      <div style="background:var(--c-slate-1); border:1.5px solid var(--c-slate-2); border-radius:var(--radius-input); padding:0.875rem; margin-bottom:1.25rem; display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; text-align:center;">
-        <div>
-          <p style="font-size:0.5625rem; font-weight:800; letter-spacing:.06em; color:var(--c-slate-5); text-transform:uppercase; margin-bottom:0.25rem;">
-            Komisi Dokter (<span id="txt-persen-klinik">0</span>%)
-          </p>
-          <p style="font-size:0.9375rem; font-weight:800; color:var(--c-indigo); font-variant-numeric:tabular-nums;" id="txt-nominal-klinik">Rp 0</p>
-        </div>
-        <div style="border-left:1px solid var(--c-slate-2); padding-left:0.5rem;">
-          <p style="font-size:0.5625rem; font-weight:800; letter-spacing:.06em; color:var(--c-slate-5); text-transform:uppercase; margin-bottom:0.25rem;">Laba Klinik</p>
-          <p style="font-size:0.9375rem; font-weight:800; color:var(--c-emerald); font-variant-numeric:tabular-nums;" id="txt-laba-klinik">Rp 0</p>
-        </div>
-      </div>
-
-      <input type="hidden" id="val-persen-klinik"  value="0">
-      <input type="hidden" id="val-nominal-klinik" value="0">
-      <input type="hidden" id="val-laba-klinik"    value="0">
-      <input type="hidden" id="val-cutoff-klinik"  value="0">
-
-      <button type="submit" id="btn-submit-klinik" class="trx-btn">
-        <i class="fa-solid fa-floppy-disk"></i> Simpan Fee Klinik
-      </button>
-    </form>
-  </div>
-
-
-  <!-- ================================================================ -->
-  <!-- FORM 2: TRANSAKSI TABUNGAN ASET                                   -->
-  <!-- ================================================================ -->
-  <div id="form-aset-container" class="trx-card mb-20 hidden">
+  <div class="trx-card mb-20">
     <form id="formAset" onsubmit="submitTrxAset(event)">
 
       <input type="hidden" id="val-id-referensi" value="">
@@ -704,7 +510,7 @@
         <input type="date" id="aset-tgl" class="trx-input" required>
       </div>
 
-      <!-- BELI / JUAL pill toggle — SIGNATURE -->
+      <!-- BELI / JUAL pill toggle -->
       <div style="margin-bottom:1rem;">
         <label class="trx-label">Tipe Transaksi <span class="req">*</span></label>
         <div class="tipe-toggle">
@@ -884,8 +690,7 @@
   function initModulTransaksi() {
     const localDate = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
                         .toISOString().split('T')[0];
-    document.getElementById('klinik-tgl').value = localDate;
-    document.getElementById('aset-tgl').value   = localDate;
+    document.getElementById('aset-tgl').value = localDate;
 
     google.script.run
       .withSuccessHandler(data => { dataMasterCache = data; populateDropdowns(); })
@@ -916,13 +721,6 @@
   function populateDropdowns() {
     const sorted = (arr) => arr.slice().sort((a,b) => String(a[1]).localeCompare(String(b[1]),'id'));
 
-    let cbK = '<option value="" disabled selected>-- Pilih Lokasi --</option>';
-    sorted(dataMasterCache.lokasi).forEach(k => {
-      const obj = JSON.stringify({ nama:k[1], komisi:parseFloat(k[2])||0, cutoff:parseInt(k[3])||25, tarifBpjs:parseFloat(k[4])||0 });
-      cbK += `<option value='${obj.replace(/'/g,"&#39;")}'>${k[1]}</option>`;
-    });
-    document.getElementById('klinik-lokasi').innerHTML = cbK || '<option>⚠ Tambah di Master Lokasi</option>';
-
     let cbP = '<option value="" disabled selected>-- Pilih Platform --</option>';
     sorted(dataMasterCache.platform).forEach(p => { cbP += `<option value="${p[1]}">${p[1]}</option>`; });
     document.getElementById('aset-platform').innerHTML = cbP;
@@ -931,15 +729,6 @@
     sorted(dataMasterCache.kategori).forEach(k => { cbKat += `<option value="${k[1]}">${k[1]}</option>`; });
     document.getElementById('aset-kategori').innerHTML = cbKat;
     document.getElementById('aset-item').innerHTML = '<option value="" disabled selected>← Pilih Kategori dulu</option>';
-  }
-
-  // ============================================================
-  // MODE TRANSAKSI (KLINIK / ASET)
-  // ============================================================
-  function gantiModeTrx() {
-    const mode = document.getElementById('pilihModeTrx').value;
-    document.getElementById('form-klinik-container').classList.toggle('hidden', mode !== 'klinik');
-    document.getElementById('form-aset-container').classList.toggle('hidden', mode !== 'aset');
   }
 
   // ============================================================
@@ -953,88 +742,6 @@
   }
   function formatRp(n) {
     return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(n);
-  }
-
-  // ============================================================
-  // KLINIK
-  // ============================================================
-  function toggleBPJS() {
-    const kVal  = document.getElementById('klinik-lokasi').value;
-    const isBPJS = document.getElementById('klinik-bpjs').checked;
-    const vis   = document.getElementById('klinik-omset-visual');
-    const raw   = document.getElementById('klinik-omset-raw');
-    if (isBPJS && !kVal) {
-      Swal.fire('Oops!','Pilih lokasi klinik terlebih dahulu.','warning');
-      document.getElementById('klinik-bpjs').checked = false; return;
-    }
-    if (isBPJS) {
-      const tarif = JSON.parse(kVal).tarifBpjs || 0;
-      raw.value = tarif;
-      vis.value = parseInt(tarif).toLocaleString('id-ID');
-      vis.readOnly = true;
-      vis.style.cssText += ';background:var(--c-slate-1);color:var(--c-slate-5);cursor:not-allowed;';
-    } else {
-      raw.value = '0'; vis.value = '';
-      vis.readOnly = false;
-      vis.style.cssText = '';
-    }
-    kalkulasiKlinik();
-  }
-
-  function kalkulasiKlinik() {
-    const kVal  = document.getElementById('klinik-lokasi').value;
-    const isBPJS = document.getElementById('klinik-bpjs').checked;
-    let persen = 0, cutoff = 0, tarifBpjs = 0;
-    if (kVal) { const o = JSON.parse(kVal); persen = parseFloat(o.komisi)||0; cutoff = parseInt(o.cutoff)||25; tarifBpjs = parseFloat(o.tarifBpjs)||0; }
-    if (isBPJS && kVal) {
-      document.getElementById('klinik-omset-raw').value   = tarifBpjs;
-      document.getElementById('klinik-omset-visual').value = parseInt(tarifBpjs).toLocaleString('id-ID');
-    }
-    const omset = parseFloat(document.getElementById('klinik-omset-raw').value) || 0;
-    let nom = 0, laba = 0;
-    if (isBPJS) { nom = omset; laba = 0; document.getElementById('txt-persen-klinik').innerText='Flat'; }
-    else        { nom = omset*(persen/100); laba = omset-nom; document.getElementById('txt-persen-klinik').innerText=persen; }
-    document.getElementById('txt-nominal-klinik').innerText = formatRp(nom);
-    document.getElementById('txt-laba-klinik').innerText    = formatRp(laba);
-    document.getElementById('val-persen-klinik').value  = isBPJS ? 0 : persen;
-    document.getElementById('val-nominal-klinik').value = nom;
-    document.getElementById('val-laba-klinik').value    = laba;
-    document.getElementById('val-cutoff-klinik').value  = cutoff;
-  }
-
-  function submitTrxKlinik(e) {
-    e.preventDefault();
-    if (!document.getElementById('klinik-lokasi').value)
-      return Swal.fire('Oops!','Pilih lokasi klinik terlebih dahulu.','warning');
-    const btn = document.getElementById('btn-submit-klinik');
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...';
-    btn.disabled  = true;
-    let pasien = document.getElementById('klinik-pasien').value;
-    if (document.getElementById('klinik-bpjs').checked) pasien += ' (BPJS)';
-    const payload = {
-      tanggal: document.getElementById('klinik-tgl').value,
-      klinik:  JSON.parse(document.getElementById('klinik-lokasi').value).nama,
-      pasien,
-      tindakan:     document.getElementById('klinik-tindakan').value || '-',
-      omset:        document.getElementById('klinik-omset-raw').value,
-      persenKomisi: document.getElementById('val-persen-klinik').value,
-      nominalKomisi:document.getElementById('val-nominal-klinik').value,
-      labaBersih:   document.getElementById('val-laba-klinik').value,
-      cutoff:       document.getElementById('val-cutoff-klinik').value
-    };
-    google.script.run
-      .withSuccessHandler(res => {
-        Swal.fire({ title:'✅ Tersimpan!', text:res, icon:'success', confirmButtonColor:'#4338ca' });
-        ['klinik-pasien','klinik-tindakan','klinik-omset-visual'].forEach(id => document.getElementById(id).value='');
-        document.getElementById('klinik-omset-raw').value='0';
-        document.getElementById('klinik-bpjs').checked=false; toggleBPJS();
-        btn.innerHTML='<i class="fa-solid fa-floppy-disk"></i> Simpan Fee Klinik'; btn.disabled=false;
-      })
-      .withFailureHandler(err => {
-        Swal.fire({ title:'❌ Gagal!', text:err.message, icon:'error', confirmButtonColor:'#4338ca' });
-        btn.innerHTML='<i class="fa-solid fa-floppy-disk"></i> Simpan Fee Klinik'; btn.disabled=false;
-      })
-      .simpanTrxKlinik(payload);
   }
 
   // ============================================================
