@@ -1,11 +1,6 @@
 <!-- ===================================================================
      FILE: View_Report.html — Redesign v4
-     UX Philosophy:
-       · Single-scroll, no hidden tabs — user sees everything
-       · Plain language, zero accounting jargon
-       · Progressive disclosure — summary first, detail on tap
-       · Period picker sticky + always visible
-       · Every section answers a real question the user would ask
+     UPDATE: Modul Fee Klinik dihapus — hanya Arus Kas & Portofolio Aset
      =================================================================== -->
 
 <style>
@@ -55,7 +50,7 @@
     100% { background-position:  200% 0; }
   }
   @keyframes rpt-ring-fill {
-    from { stroke-dashoffset: 251.2; }
+    from { stroke-dashoffset: 188.5; }
   }
   @keyframes rpt-count-up {
     from { opacity: 0; transform: scale(0.92); }
@@ -154,16 +149,6 @@
     margin: 0;
     flex: 1;
   }
-  #modul-report .rpt-section-title .see-all {
-    font-size: 0.625rem;
-    font-weight: 700;
-    color: var(--pink);
-    cursor: pointer;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.375rem;
-    transition: background 0.15s;
-  }
-  #modul-report .rpt-section-title .see-all:hover { background: var(--pink-lt); }
 
   /* ─── Card base ─────────────────────────────────────────── */
   #modul-report .rpt-card {
@@ -284,10 +269,10 @@
     color: var(--white);
   }
 
-  /* ─── Stat 3-grid ───────────────────────────────────────── */
+  /* ─── Stat 2-grid (pasien dihapus, tinggal Transaksi & Aset) ── */
   #modul-report .rpt-stat-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 0.5rem;
     margin-bottom: 1rem;
   }
@@ -326,7 +311,7 @@
     display: block;
   }
 
-  /* ─── Flow bars (income/expense breakdown) ──────────────── */
+  /* ─── Flow bars ──────────────────────────────────────────── */
   #modul-report .flow-item {
     display: flex;
     align-items: center;
@@ -390,51 +375,6 @@
     color: var(--slate-3);
     font-size: 0.625rem;
     flex-shrink: 0;
-  }
-
-  /* ─── Klinik ranking card ───────────────────────────────── */
-  #modul-report .klinik-card {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.75rem;
-    background: var(--white);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--slate-2);
-    box-shadow: var(--shadow-sm);
-    margin-bottom: 0.5rem;
-    transition: transform 0.12s;
-  }
-  #modul-report .klinik-card:active { transform: scale(0.98); }
-  #modul-report .klinik-rank {
-    font-size: 1.125rem;
-    width: 1.75rem;
-    text-align: center;
-    flex-shrink: 0;
-  }
-  #modul-report .klinik-info { flex: 1; min-width: 0; }
-  #modul-report .klinik-info .name {
-    font-size: 0.8125rem;
-    font-weight: 800;
-    color: var(--slate-9);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  #modul-report .klinik-info .sub {
-    font-size: 0.625rem;
-    color: var(--slate-5);
-    margin-top: 0.125rem;
-  }
-  #modul-report .klinik-bar-col {
-    width: 4rem;
-    flex-shrink: 0;
-  }
-  #modul-report .klinik-amount {
-    font-size: 0.75rem;
-    font-weight: 800;
-    color: var(--green);
-    text-align: right;
   }
 
   /* ─── Portofolio / Asset card ───────────────────────────── */
@@ -527,7 +467,6 @@
     margin-bottom: 0.75rem;
     transition: background 0.3s;
   }
-  #rpt-pnl-banner .pnl-left {}
   #rpt-pnl-banner .pnl-lbl {
     font-size: 0.625rem;
     font-weight: 800;
@@ -557,7 +496,7 @@
     font-size: 1.25rem;
   }
 
-  /* ─── Trend chart area ───────────────────────────────────── */
+  /* ─── Trend & Chart ──────────────────────────────────────── */
   #modul-report .chart-wrap {
     position: relative;
     width: 100%;
@@ -600,46 +539,7 @@
     color: var(--slate-5);
   }
 
-  /* ─── Pasien list ────────────────────────────────────────── */
-  #modul-report .pasien-row {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid var(--slate-1);
-  }
-  #modul-report .pasien-row:last-child { border-bottom: none; }
-  #modul-report .pasien-avatar {
-    width: 2rem; height: 2rem;
-    border-radius: 50%;
-    background: var(--pink-lt);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.5625rem;
-    font-weight: 800;
-    color: var(--pink);
-    flex-shrink: 0;
-  }
-  #modul-report .pasien-info { flex: 1; min-width: 0; }
-  #modul-report .pasien-info .name {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--slate-7);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  #modul-report .pasien-info .sub {
-    font-size: 0.5625rem;
-    color: var(--slate-4);
-  }
-  #modul-report .pasien-fee {
-    font-size: 0.6875rem;
-    font-weight: 800;
-    color: var(--green);
-    flex-shrink: 0;
-  }
-
-  /* ─── Collapsible section ───────────────────────────────── */
+  /* ─── Collapsible ───────────────────────────────────────── */
   #modul-report .rpt-collapse-toggle {
     width: 100%;
     background: none;
@@ -725,21 +625,10 @@
     margin-top: 0.25rem;
   }
 
-  /* ─── Scrollbar styling for modals ─────────────────────── */
+  /* ─── Scrollbar ─────────────────────────────────────────── */
   #modul-report .thin-scroll { scrollbar-width: thin; scrollbar-color: var(--pink-lt) transparent; }
   #modul-report .thin-scroll::-webkit-scrollbar { width: 3px; }
   #modul-report .thin-scroll::-webkit-scrollbar-thumb { background: var(--pink-lt); border-radius: 3px; }
-
-  /* ─── Badge pill ─────────────────────────────────────────── */
-  #modul-report .badge {
-    display: inline-flex;
-    align-items: center;
-    font-size: 0.5rem;
-    font-weight: 800;
-    padding: 0.125rem 0.4375rem;
-    border-radius: 999px;
-    letter-spacing: 0.04em;
-  }
 
   /* ─── Divider ─────────────────────────────────────────────  */
   #modul-report .rpt-divider {
@@ -768,7 +657,7 @@
     </div>
   </div>
 
-  <!-- ── HERO: Ringkasan Keuangan ── -->
+  <!-- ── HERO ── -->
   <div style="margin-top: 0.875rem;">
     <div id="rpt-hero">
       <div class="hero-top">
@@ -782,7 +671,6 @@
         </button>
       </div>
       <div class="gauge-wrap">
-        <!-- Gauge ring: 80px diameter, r=37 → circumference ≈ 232.5 -->
         <div class="gauge-ring">
           <svg width="76" height="76" viewBox="0 0 76 76">
             <circle cx="38" cy="38" r="30" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="8"/>
@@ -811,26 +699,13 @@
             <span class="gauge-lbl">Uang Keluar</span>
             <span class="gauge-val" id="hero-keluar">Rp 0</span>
           </div>
-          <div style="height:1px; background:rgba(255,255,255,.12); margin:0.375rem 0;"></div>
-          <div class="gauge-row">
-            <span class="gauge-dot" style="background:#f9a8d4;"></span>
-            <span class="gauge-lbl">Fee Klinik</span>
-            <span class="gauge-val" id="hero-klinik">Rp 0</span>
-          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ── Quick Stats Grid ── -->
+  <!-- ── Quick Stats Grid (2 kolom) ── -->
   <div class="rpt-stat-grid">
-    <div class="rpt-stat-cell" onclick="rptScrollTo('section-klinik')">
-      <div class="cell-icon" style="background:#dcfce7;">
-        <i class="fa-solid fa-user-doctor" style="color:#16a34a; font-size:0.75rem;"></i>
-      </div>
-      <span class="cell-val" id="stat-pasien">0</span>
-      <span class="cell-lbl">Pasien</span>
-    </div>
     <div class="rpt-stat-cell" onclick="rptScrollTo('section-kas')">
       <div class="cell-icon" style="background:#fce7f3;">
         <i class="fa-solid fa-arrow-right-arrow-left" style="color:#db2777; font-size:0.75rem;"></i>
@@ -885,7 +760,6 @@
           </div>
           <span id="kas-total-keluar-label" style="font-size:0.8125rem; font-weight:900; color:var(--red);">Rp 0</span>
         </div>
-        <!-- Donut keluar -->
         <div class="donut-wrap" id="kas-donut-wrap-keluar">
           <canvas id="rpt-chart-keluar" class="donut-canvas"></canvas>
           <div id="rpt-legend-keluar" class="donut-legend">
@@ -893,7 +767,6 @@
             <div class="rpt-skel" style="height:10px; width:60%; margin-bottom:6px;"></div>
           </div>
         </div>
-        <!-- Flow list pengeluaran -->
         <div id="list-kas-keluar" style="margin-top:0.25rem;"></div>
       </div>
       <button class="rpt-collapse-toggle" id="btn-toggle-keluar" onclick="rptToggleKeluar()">
@@ -922,56 +795,6 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════════
-       SECTION: Klinik
-  ══════════════════════════════════════════════════════ -->
-  <div class="rpt-section" id="section-klinik">
-    <div class="rpt-section-title">
-      <div class="icon-pill" style="background:#dcfce7;">
-        <i class="fa-solid fa-user-doctor" style="color:#16a34a; font-size:0.625rem;"></i>
-      </div>
-      <h2>Fee Klinik</h2>
-    </div>
-
-    <!-- Summary row -->
-    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem; margin-bottom:0.625rem;">
-      <div class="rpt-card" style="padding:0.75rem 0.5rem; text-align:center; border-radius:var(--radius-md);">
-        <span style="font-size:0.5rem; font-weight:800; color:var(--slate-4); text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:0.25rem;">Omset</span>
-        <span id="klinik-omset" style="font-size:0.75rem; font-weight:800; color:var(--slate-9);">Rp 0</span>
-      </div>
-      <div class="rpt-card" style="padding:0.75rem 0.5rem; text-align:center; border-radius:var(--radius-md);">
-        <span style="font-size:0.5rem; font-weight:800; color:var(--slate-4); text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:0.25rem;">Komisi</span>
-        <span id="klinik-komisi" style="font-size:0.75rem; font-weight:800; color:var(--pink);">Rp 0</span>
-      </div>
-      <div class="rpt-card" style="padding:0.75rem 0.5rem; text-align:center; border-radius:var(--radius-md); background:var(--green-xs); border-color:#bbf7d0;">
-        <span style="font-size:0.5rem; font-weight:800; color:#16a34a; text-transform:uppercase; letter-spacing:.04em; display:block; margin-bottom:0.25rem;">Laba</span>
-        <span id="klinik-laba" style="font-size:0.75rem; font-weight:800; color:var(--green);">Rp 0</span>
-      </div>
-    </div>
-
-    <!-- Lokasi ranking -->
-    <div class="rpt-card rpt-card-p" style="margin-bottom:0.625rem;">
-      <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
-        <span style="font-size:0.625rem; font-weight:800; color:var(--slate-4); text-transform:uppercase; letter-spacing:.06em;">Pendapatan per Klinik</span>
-      </div>
-      <div id="list-klinik-ranking"></div>
-    </div>
-
-    <!-- Pasien terbaru -->
-    <div class="rpt-card rpt-card-p">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.625rem;">
-        <span style="font-size:0.625rem; font-weight:800; color:var(--slate-4); text-transform:uppercase; letter-spacing:.06em;">Pasien Terbaru</span>
-        <div style="position:relative;">
-          <i class="fa-solid fa-search" style="position:absolute; left:0.5rem; top:50%; transform:translateY(-50%); color:var(--slate-3); font-size:0.5625rem;"></i>
-          <input type="text" id="rpt-cari-pasien" oninput="rptCariPasien()"
-                 placeholder="Cari nama..."
-                 style="background:var(--slate-1); border:1.5px solid var(--slate-2); border-radius:0.5rem; padding:0.3125rem 0.5rem 0.3125rem 1.5rem; font-size:0.625rem; font-weight:600; color:var(--slate-7); outline:none; width:7rem;">
-        </div>
-      </div>
-      <div id="list-pasien" class="thin-scroll" style="max-height:14rem; overflow-y:auto;"></div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════
        SECTION: Portofolio Aset
   ══════════════════════════════════════════════════════ -->
   <div class="rpt-section" id="section-aset">
@@ -982,9 +805,8 @@
       <h2>Portofolio Investasi</h2>
     </div>
 
-    <!-- PNL banner -->
     <div id="rpt-pnl-banner" style="background:linear-gradient(135deg,#be185d,#db2777); color:white;">
-      <div class="pnl-left">
+      <div>
         <p class="pnl-lbl">Keuntungan / Rugi Terealisasi</p>
         <p class="pnl-val" id="pnl-nilai">Rp 0</p>
         <p class="pnl-sub">Dari aset yang sudah dijual</p>
@@ -992,7 +814,6 @@
       <div class="pnl-icon" id="pnl-icon-wrap">📈</div>
     </div>
 
-    <!-- Modal vs Realisasi -->
     <div class="rpt-card rpt-card-p" style="margin-bottom:0.625rem;">
       <div style="font-size:0.625rem; font-weight:800; color:var(--slate-4); text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.75rem;">Modal vs Dana Dicairkan</div>
       <div class="chart-wrap" style="height:150px;">
@@ -1000,7 +821,6 @@
       </div>
     </div>
 
-    <!-- Asset cards -->
     <div id="list-aset-cards"></div>
   </div>
 
@@ -1033,19 +853,16 @@
     </div>
   </div>
 
-</section><!-- /modul-report -->
+</section>
 
 
-<!-- ══════════════════════════════════════════════════════════
-     MODAL: Detail Transaksi per Akun
-══════════════════════════════════════════════════════════ -->
+<!-- ── Modal Detail Transaksi ── -->
 <div id="rpt-modal-detail"
      class="hidden fixed inset-0 z-[60] flex items-end justify-center"
      style="background:rgba(15,23,42,.55); backdrop-filter:blur(4px);"
      onclick="if(event.target===this) rptTutupModal()">
   <div style="background:white; border-radius:1.5rem 1.5rem 0 0; width:100%; max-width:32rem; display:flex; flex-direction:column; max-height:88dvh; max-height:88vh; overflow:hidden; box-shadow:0 -8px 32px rgba(0,0,0,.15);">
 
-    <!-- Modal header -->
     <div style="background:linear-gradient(135deg,#9d174d,#db2777); padding:1rem; flex-shrink:0;">
       <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:0.75rem;">
         <div style="flex:1; min-width:0; margin-right:0.75rem;">
@@ -1073,7 +890,6 @@
       </div>
     </div>
 
-    <!-- Search -->
     <div style="padding:0.625rem 0.875rem; background:#fdf2f8; border-bottom:1px solid #fce7f3; flex-shrink:0;">
       <div style="position:relative;">
         <i class="fa-solid fa-search" style="position:absolute;left:0.625rem;top:50%;transform:translateY(-50%);color:#f9a8d4;font-size:0.625rem;"></i>
@@ -1083,7 +899,6 @@
       </div>
     </div>
 
-    <!-- List -->
     <div id="rpt-modal-list" class="thin-scroll" style="overflow-y:auto; flex:1; padding:0.75rem;"></div>
   </div>
 </div>
@@ -1118,27 +933,21 @@
 </div>
 
 
-<!-- ══════════════════════════════════════════════════════════
-     JAVASCRIPT
-══════════════════════════════════════════════════════════ -->
 <script>
 /* ─── State ─────────────────────────────────────────────── */
-var _rptData = { kas: [], klinik: [], aset: [] };
+var _rptData    = { kas: [], aset: [] };
 var _rptPeriode = 'ALL';
-var _rptSaldo = { masuk:0, keluar:0, saldo:0 };
-var _rptKeluar = {}; // cached pengeluaran map
-var _rptMasuk  = {}; // cached pemasukan map
-var _rptPasien = [];
-var _rptSaldoHidden = false;
+var _rptSaldo   = { masuk:0, keluar:0, saldo:0 };
+var _rptKeluar  = {};
+var _rptMasuk   = {};
+var _rptSaldoHidden    = false;
 var _rptKeluarExpanded = false;
 var _rptMasukExpanded  = false;
 
-// Chart instances
 var _chartTrend  = null;
 var _chartKeluar = null;
 var _chartAset   = null;
 
-// WARNA
 var RPT_COLORS = ['#db2777','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#06b6d4','#f97316','#84cc16','#ec4899'];
 var NAMA_BULAN = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
@@ -1181,19 +990,15 @@ function rptScrollTo(id) {
   var el = document.getElementById(id);
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
-function rptInitials(name) {
-  return String(name).trim().split(' ').slice(0,2).map(function(w){ return w[0]||''; }).join('').toUpperCase() || '?';
-}
 
 /* ─── INIT ──────────────────────────────────────────────── */
 function initModulReport() {
-  _rptData = { kas:[], klinik:[], aset:[] };
+  _rptData = { kas:[], aset:[] };
   _rptPeriode = 'ALL';
   google.script.run
     .withSuccessHandler(function(data) {
-      _rptData.kas    = data.kas    || [];
-      _rptData.klinik = data.klinik || [];
-      _rptData.aset   = data.aset   || [];
+      _rptData.kas  = data.kas  || [];
+      _rptData.aset = data.aset || [];
       rptBuatChipPeriode();
       rptTerapkan(_rptPeriode);
     })
@@ -1206,15 +1011,13 @@ function initModulReport() {
 /* ─── PERIOD CHIPS ──────────────────────────────────────── */
 function rptBuatChipPeriode() {
   var set = new Set();
-  _rptData.kas.forEach(function(r) { if (r[2]) set.add(rptNormPeriode(r[2])); });
-  _rptData.klinik.forEach(function(r) { if (r[2]) set.add(rptNormPeriode(r[2])); });
+  _rptData.kas.forEach(function(r)  { if (r[2]) set.add(rptNormPeriode(r[2])); });
   _rptData.aset.forEach(function(r) { if (r[1]) set.add(rptNormPeriode(r[1])); });
 
   var ps = rptPeriodeSkrg();
   set.add(ps);
   var daftar = Array.from(set).filter(Boolean).sort(rptUrutPeriode);
 
-  // Default to current period if available, else ALL
   if (_rptPeriode === 'ALL' && daftar.indexOf(ps) >= 0) _rptPeriode = ps;
 
   var html = '<button class="rpt-chip' + (_rptPeriode==='ALL'?' active':'') + '" onclick="rptPilihPeriode(\'ALL\')">Semua</button>';
@@ -1224,7 +1027,6 @@ function rptBuatChipPeriode() {
   });
   document.getElementById('rpt-period-chips').innerHTML = html;
 
-  // Scroll active chip into view
   setTimeout(function() {
     var el = document.getElementById('chip-' + _rptPeriode.replace(/\s/g,'_'));
     if (el) el.scrollIntoView({ inline:'center', behavior:'smooth', block:'nearest' });
@@ -1243,28 +1045,24 @@ function rptPilihPeriode(p) {
 
 /* ─── TERAPKAN FILTER ───────────────────────────────────── */
 function rptTerapkan(periode) {
-  var kasF    = periode === 'ALL' ? _rptData.kas    : _rptData.kas.filter(function(r)    { return rptNormPeriode(r[2]).toLowerCase() === periode.toLowerCase(); });
-  var klinikF = periode === 'ALL' ? _rptData.klinik : _rptData.klinik.filter(function(r) { return rptNormPeriode(r[2]).toLowerCase() === periode.toLowerCase(); });
-  var asetF   = periode === 'ALL' ? _rptData.aset   : _rptData.aset.filter(function(r)   { return rptNormPeriode(r[1]).toLowerCase() === periode.toLowerCase(); });
+  var kasF  = periode === 'ALL' ? _rptData.kas  : _rptData.kas.filter(function(r)  { return rptNormPeriode(r[2]).toLowerCase() === periode.toLowerCase(); });
+  var asetF = periode === 'ALL' ? _rptData.aset : _rptData.aset.filter(function(r) { return rptNormPeriode(r[1]).toLowerCase() === periode.toLowerCase(); });
 
-  rptRenderHero(kasF, klinikF);
-  rptRenderStatGrid(kasF, klinikF, asetF);
+  rptRenderHero(kasF);
+  rptRenderStatGrid(kasF, asetF);
   rptRenderTrend();
   rptRenderKas(kasF);
-  rptRenderKlinik(klinikF);
   rptRenderAset(asetF);
   rptUpdateExportLabel();
 }
 
 /* ─── HERO ──────────────────────────────────────────────── */
-function rptRenderHero(kasData, klinikData) {
+function rptRenderHero(kasData) {
   var masuk = 0, keluar = 0;
   kasData.forEach(function(r) {
     masuk  += parseFloat(r[6]) || 0;
     keluar += parseFloat(r[7]) || 0;
   });
-  var feeKlinik = 0;
-  klinikData.forEach(function(r) { feeKlinik += parseFloat(r[8]) || 0; });
   var saldo = masuk - keluar;
   var pct   = masuk > 0 ? Math.min(keluar/masuk*100, 100) : 0;
 
@@ -1272,43 +1070,31 @@ function rptRenderHero(kasData, klinikData) {
 
   var lab = _rptPeriode === 'ALL' ? 'Semua periode' : _rptPeriode;
   document.getElementById('hero-period-label').innerText = lab;
-  document.getElementById('hero-saldo').innerText = rptFmtFull(saldo);
+  document.getElementById('hero-saldo').innerText  = rptFmtFull(saldo);
   document.getElementById('hero-masuk').innerText  = rptFmt(masuk);
   document.getElementById('hero-keluar').innerText = rptFmt(keluar);
-  document.getElementById('hero-klinik').innerText = rptFmt(feeKlinik);
+  document.getElementById('hero-saldo').style.color = saldo < 0 ? '#fca5a5' : '#ffffff';
 
-  // Hero saldo color
-  var heroSaldo = document.getElementById('hero-saldo');
-  heroSaldo.style.color = saldo < 0 ? '#fca5a5' : '#ffffff';
-
-  // Ring gauge
   var circumference = 188.5;
   var dashOffset = circumference - (circumference * pct / 100);
   var ring = document.getElementById('ring-arc');
-  var ringText = document.getElementById('ring-pct-text');
   ring.style.strokeDashoffset = dashOffset;
   ring.style.stroke = pct > 90 ? '#fca5a5' : pct > 70 ? '#fde68a' : '#86efac';
-  ringText.textContent = Math.round(pct) + '%';
+  document.getElementById('ring-pct-text').textContent = Math.round(pct) + '%';
 
   if (_rptSaldoHidden) rptApplyMask();
-  document.getElementById('label-export-periode').innerText = _rptPeriode === 'ALL' ? 'Semua Periode' : _rptPeriode;
 }
 
 /* ─── TOGGLE SALDO ──────────────────────────────────────── */
 function rptToggleSaldo() {
   _rptSaldoHidden = !_rptSaldoHidden;
-  var icon = document.getElementById('hero-eye-icon');
-  icon.className = _rptSaldoHidden ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+  document.getElementById('hero-eye-icon').className = _rptSaldoHidden ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
   rptApplyMask();
 }
 function rptApplyMask() {
-  var els = [
-    document.getElementById('hero-saldo'),
-    document.getElementById('hero-masuk'),
-    document.getElementById('hero-keluar'),
-    document.getElementById('hero-klinik'),
-  ];
-  els.forEach(function(el) {
+  var ids = ['hero-saldo', 'hero-masuk', 'hero-keluar'];
+  ids.forEach(function(id) {
+    var el = document.getElementById(id);
     if (!el) return;
     if (_rptSaldoHidden) {
       if (!el._val) el._val = el.innerText;
@@ -1322,17 +1108,15 @@ function rptApplyMask() {
 }
 
 /* ─── STAT GRID ──────────────────────────────────────────── */
-function rptRenderStatGrid(kasData, klinikData, asetData) {
-  var jmlPasien = klinikData.length;
-  var jmlTrx    = kasData.length;
-  var jmlAset   = (function() {
+function rptRenderStatGrid(kasData, asetData) {
+  var jmlTrx  = kasData.length;
+  var jmlAset = (function() {
     var set = {};
     asetData.forEach(function(r) { if (r[4]) set[r[4]] = 1; });
     return Object.keys(set).length;
   })();
-  document.getElementById('stat-pasien').innerText = jmlPasien;
-  document.getElementById('stat-trx').innerText    = jmlTrx;
-  document.getElementById('stat-aset').innerText   = jmlAset;
+  document.getElementById('stat-trx').innerText  = jmlTrx;
+  document.getElementById('stat-aset').innerText = jmlAset;
 }
 
 /* ─── TREND CHART ───────────────────────────────────────── */
@@ -1410,13 +1194,9 @@ function rptRenderKas(kasData) {
   var maxKeluar = keluarEntries.length ? keluarEntries[0][1].total : 1;
   var maxMasuk  = masukEntries.length  ? masukEntries[0][1].total  : 1;
 
-  // Render pengeluaran list (top 5 by default)
   rptRenderFlowList('list-kas-keluar', keluarEntries, maxKeluar, 'keluar', _rptKeluarExpanded);
-  // Render pemasukan list
-  rptRenderFlowList('list-kas-masuk', masukEntries, maxMasuk, 'masuk', _rptMasukExpanded);
-
-  // Donut keluar
-  rptRenderDonut('rpt-chart-keluar', 'rpt-legend-keluar', keluarEntries.slice(0,8), totKeluar, 'keluar');
+  rptRenderFlowList('list-kas-masuk',  masukEntries,  maxMasuk,  'masuk',  _rptMasukExpanded);
+  rptRenderDonut('rpt-chart-keluar', 'rpt-legend-keluar', keluarEntries.slice(0,8), totKeluar);
 }
 
 function rptRenderFlowList(containerId, entries, maxVal, tipe, expanded) {
@@ -1429,12 +1209,10 @@ function rptRenderFlowList(containerId, entries, maxVal, tipe, expanded) {
   var color = tipe === 'keluar' ? 'var(--red)' : 'var(--green)';
   var html = '';
   shown.forEach(function(entry, i) {
-    var nama    = entry[0];
-    var val     = entry[1].total;
-    var jml     = entry[1].rows.length;
-    var pct     = maxVal > 0 ? (val/maxVal*100) : 0;
-    var dotColor= RPT_COLORS[i % RPT_COLORS.length];
-    var encNama = encodeURIComponent(nama);
+    var nama = entry[0], val = entry[1].total, jml = entry[1].rows.length;
+    var pct  = maxVal > 0 ? (val/maxVal*100) : 0;
+    var dotColor = RPT_COLORS[i % RPT_COLORS.length];
+    var encNama  = encodeURIComponent(nama);
     html += '<div class="flow-item" onclick="rptBukaDetail(\'' + rptEsc(encNama) + '\',\'' + tipe + '\')">'
           + '<span class="flow-dot" style="background:' + dotColor + ';"></span>'
           + '<div class="flow-name"><p>' + rptEsc(nama) + '</p><span>' + jml + ' transaksi</span></div>'
@@ -1446,11 +1224,10 @@ function rptRenderFlowList(containerId, entries, maxVal, tipe, expanded) {
   container.innerHTML = html;
 }
 
-function rptRenderDonut(canvasId, legendId, entries, total, tipe) {
+function rptRenderDonut(canvasId, legendId, entries, total) {
   var canvas = document.getElementById(canvasId);
   if (!canvas) return;
   var ctx = canvas.getContext('2d');
-
   if (entries.length === 0) {
     document.getElementById(legendId).innerHTML = '<p style="font-size:.625rem; color:var(--slate-4);">Belum ada data</p>';
     return;
@@ -1458,8 +1235,6 @@ function rptRenderDonut(canvasId, legendId, entries, total, tipe) {
   var labels = entries.map(function(e){ return e[0]; });
   var values = entries.map(function(e){ return e[1].total; });
   var colors = entries.map(function(_, i){ return RPT_COLORS[i % RPT_COLORS.length]; });
-
-  // Destroy existing
   if (canvas._chart) canvas._chart.destroy();
   canvas._chart = new Chart(ctx, {
     type: 'doughnut',
@@ -1473,7 +1248,6 @@ function rptRenderDonut(canvasId, legendId, entries, total, tipe) {
       cutout: '72%'
     }
   });
-
   var html = '';
   entries.forEach(function(entry, i) {
     var pct = total > 0 ? (entry[1].total/total*100).toFixed(0) : 0;
@@ -1490,10 +1264,9 @@ function rptToggleKeluar() {
   var entries = Object.entries(_rptKeluar).sort(function(a,b){ return b[1].total-a[1].total; });
   var max = entries.length ? entries[0][1].total : 1;
   rptRenderFlowList('list-kas-keluar', entries, max, 'keluar', _rptKeluarExpanded);
-  var icon = document.getElementById('icon-toggle-keluar');
-  var btn  = document.getElementById('btn-toggle-keluar');
-  icon.style.transform = _rptKeluarExpanded ? 'rotate(180deg)' : '';
-  btn.innerHTML = '<i class="fa-solid fa-chevron-' + (_rptKeluarExpanded?'up':'down') + '" style="font-size:0.5rem;" id="icon-toggle-keluar"></i> ' + (_rptKeluarExpanded ? 'Tutup' : 'Lihat semua pengeluaran');
+  var btn = document.getElementById('btn-toggle-keluar');
+  btn.innerHTML = '<i class="fa-solid fa-chevron-' + (_rptKeluarExpanded?'up':'down') + '" style="font-size:0.5rem;"></i> '
+                + (_rptKeluarExpanded ? 'Tutup' : 'Lihat semua pengeluaran');
   btn.onclick = rptToggleKeluar;
 }
 
@@ -1503,91 +1276,15 @@ function rptToggleMasuk() {
   var max = entries.length ? entries[0][1].total : 1;
   rptRenderFlowList('list-kas-masuk', entries, max, 'masuk', _rptMasukExpanded);
   var btn = document.getElementById('btn-toggle-masuk');
-  btn.innerHTML = '<i class="fa-solid fa-chevron-' + (_rptMasukExpanded?'up':'down') + '" style="font-size:0.5rem;" id="icon-toggle-masuk"></i> ' + (_rptMasukExpanded ? 'Tutup' : 'Lihat semua pemasukan');
+  btn.innerHTML = '<i class="fa-solid fa-chevron-' + (_rptMasukExpanded?'up':'down') + '" style="font-size:0.5rem;"></i> '
+                + (_rptMasukExpanded ? 'Tutup' : 'Lihat semua pemasukan');
   btn.onclick = rptToggleMasuk;
-}
-
-/* ─── KLINIK ─────────────────────────────────────────────── */
-function rptRenderKlinik(klinikData) {
-  var totOmset = 0, totKomisi = 0, totLaba = 0;
-  var lokasiMap = {};
-  var pasienList = [];
-
-  klinikData.forEach(function(r) {
-    var klinik = r[3] || '-';
-    var omset  = parseFloat(r[6]) || 0;
-    var komisi = parseFloat(r[8]) || 0;
-    var laba   = parseFloat(r[9]) || 0;
-    totOmset  += omset; totKomisi += komisi; totLaba += laba;
-    if (!lokasiMap[klinik]) lokasiMap[klinik] = { pasien:0, omset:0, komisi:0, laba:0 };
-    lokasiMap[klinik].pasien++;
-    lokasiMap[klinik].omset  += omset;
-    lokasiMap[klinik].komisi += komisi;
-    lokasiMap[klinik].laba   += laba;
-    pasienList.push({ tgl:r[1], klinik:klinik, pasien:r[4]||'-', laba:laba, tindakan:r[5]||'-' });
-  });
-
-  _rptPasien = pasienList.slice().reverse();
-
-  document.getElementById('klinik-omset').innerText  = rptFmt(totOmset);
-  document.getElementById('klinik-komisi').innerText = rptFmt(totKomisi);
-  document.getElementById('klinik-laba').innerText   = rptFmt(totLaba);
-
-  // Ranking
-  var ranked = Object.entries(lokasiMap).sort(function(a,b){ return b[1].laba-a[1].laba; });
-  var maxLaba = ranked.length ? ranked[0][1].laba : 1;
-  var medali = ['🥇','🥈','🥉'];
-  var html = '';
-  ranked.forEach(function(entry, i) {
-    var pct = maxLaba > 0 ? (entry[1].laba/maxLaba*100).toFixed(1) : 0;
-    html += '<div class="klinik-card">'
-          + '<div class="klinik-rank">' + (medali[i] || (i+1)) + '</div>'
-          + '<div class="klinik-info">'
-          + '<div class="name">' + rptEsc(entry[0]) + '</div>'
-          + '<div class="sub">' + entry[1].pasien + ' pasien · omset ' + rptFmt(entry[1].omset) + '</div>'
-          + '<div style="margin-top:0.375rem; background:var(--green-lt); border-radius:999px; height:0.3125rem; overflow:hidden;">'
-          + '<div style="height:100%; background:var(--green); border-radius:999px; width:' + pct + '%; transition:width .8s cubic-bezier(.4,0,.2,1);"></div>'
-          + '</div></div>'
-          + '<div class="klinik-amount">' + rptFmt(entry[1].laba) + '</div>'
-          + '</div>';
-  });
-  if (!html) html = '<div class="rpt-empty"><span class="empty-icon">🏥</span><p>Belum ada data klinik</p></div>';
-  document.getElementById('list-klinik-ranking').innerHTML = html;
-
-  rptRenderPasien(_rptPasien);
-}
-
-function rptRenderPasien(list) {
-  var container = document.getElementById('list-pasien');
-  if (list.length === 0) {
-    container.innerHTML = '<div class="rpt-empty"><span class="empty-icon">👤</span><p>Belum ada pasien</p></div>';
-    return;
-  }
-  container.innerHTML = list.map(function(p) {
-    return '<div class="pasien-row">'
-      + '<div class="pasien-avatar">' + rptInitials(p.pasien) + '</div>'
-      + '<div class="pasien-info">'
-      + '<div class="name">' + rptEsc(p.pasien) + '</div>'
-      + '<div class="sub">' + (p.tgl||'-') + ' · ' + rptEsc(p.klinik) + (p.tindakan&&p.tindakan!=='-'?' · '+rptEsc(p.tindakan):'') + '</div>'
-      + '</div>'
-      + '<span class="pasien-fee">' + rptFmt(p.laba) + '</span>'
-      + '</div>';
-  }).join('');
-}
-
-function rptCariPasien() {
-  var q = document.getElementById('rpt-cari-pasien').value.toLowerCase();
-  var filtered = _rptPasien.filter(function(p) {
-    return p.pasien.toLowerCase().includes(q) || p.klinik.toLowerCase().includes(q);
-  });
-  rptRenderPasien(filtered);
 }
 
 /* ─── ASET ────────────────────────────────────────────────── */
 function rptRenderAset(asetData) {
-  var beliMap = {};
-  var rekapItem = {};
-  var totBeli = 0, totJual = 0, pnlTotal = 0;
+  var beliMap = {}, rekapItem = {};
+  var pnlTotal = 0;
 
   asetData.forEach(function(r) {
     var id = String(r[0]).trim(), tipe = String(r[5]).trim();
@@ -1608,14 +1305,12 @@ function rptRenderAset(asetData) {
     if (!rekapItem[item]) rekapItem[item] = { qtyBeli:0, nilaiBeli:0, qtyJual:0, nilaiJual:0, hargaPokokJual:0, kategori:kategori, platform:platform };
 
     if (tipe === 'BELI') {
-      totBeli += total;
       rekapItem[item].qtyBeli   += qty;
       rekapItem[item].nilaiBeli += total;
     } else if (tipe === 'JUAL') {
-      totJual += total;
       rekapItem[item].qtyJual   += qty;
       rekapItem[item].nilaiJual += total;
-      var hBeli = (idRef && idRef!=='-' && beliMap[idRef]) ? beliMap[idRef].harga : 0;
+      var hBeli  = (idRef && idRef!=='-' && beliMap[idRef]) ? beliMap[idRef].harga : 0;
       var hPokok = hBeli * qty;
       rekapItem[item].hargaPokokJual += hPokok;
       pnlTotal += (total - hPokok);
@@ -1636,23 +1331,18 @@ function rptRenderAset(asetData) {
     banner.style.background = 'linear-gradient(135deg,#4338ca,#6366f1)';
     icon.innerHTML = '📊';
   }
-  var pnlColor = pnlTotal >= 0 ? 'white' : '#fecaca';
-  document.getElementById('pnl-nilai').style.color = pnlColor;
+  document.getElementById('pnl-nilai').style.color = pnlTotal >= 0 ? 'white' : '#fecaca';
 
-  // Chart aset
   rptRenderAsetChart(rekapItem);
-
-  // Asset cards
   rptRenderAsetCards(rekapItem);
 }
 
 function rptRenderAsetChart(rekapItem) {
-  var entries = Object.entries(rekapItem);
+  var entries  = Object.entries(rekapItem);
   if (!entries.length) return;
   var labels   = entries.map(function(e){ return e[0].length>12?e[0].substring(0,10)+'…':e[0]; });
   var dataBeli = entries.map(function(e){ return e[1].nilaiBeli; });
   var dataJual = entries.map(function(e){ return e[1].nilaiJual; });
-
   var ctx = document.getElementById('rpt-chart-aset').getContext('2d');
   if (_chartAset) _chartAset.destroy();
   _chartAset = new Chart(ctx, {
@@ -1660,8 +1350,8 @@ function rptRenderAsetChart(rekapItem) {
     data: {
       labels: labels,
       datasets: [
-        { label:'Modal', data:dataBeli, backgroundColor:'#fbcfe8', borderColor:'#db2777', borderWidth:1.5, borderRadius:5 },
-        { label:'Dicairkan', data:dataJual, backgroundColor:'#bbf7d0', borderColor:'#16a34a', borderWidth:1.5, borderRadius:5 }
+        { label:'Modal',      data:dataBeli, backgroundColor:'#fbcfe8', borderColor:'#db2777', borderWidth:1.5, borderRadius:5 },
+        { label:'Dicairkan',  data:dataJual, backgroundColor:'#bbf7d0', borderColor:'#16a34a', borderWidth:1.5, borderRadius:5 }
       ]
     },
     options: {
@@ -1682,35 +1372,29 @@ function rptRenderAsetCards(rekapItem) {
     container.innerHTML = '<div class="rpt-empty"><span class="empty-icon">💼</span><p>Belum ada data aset</p><span>Catat pembelian aset di menu Transaksi</span></div>';
     return;
   }
-
   var emojiMap = { emas:'🪙', gold:'🪙', perak:'🥈', silver:'🥈', reksa:'📊', reksadana:'📊', saham:'📈', crypto:'💎', bitcoin:'💎', deposito:'🏦', obligasi:'📜' };
   function getEmoji(kat) {
     var k = (kat||'').toLowerCase();
     for (var key in emojiMap) { if (k.includes(key)) return emojiMap[key]; }
     return '💰';
   }
-
   container.innerHTML = entries.map(function(entry) {
-    var nama  = entry[0];
-    var d     = entry[1];
-    var sisa  = d.nilaiBeli - d.nilaiJual;
-    var pnl   = d.nilaiJual - d.hargaPokokJual;
-    var hasDijual = d.nilaiJual > 0;
-    var pnlColor  = pnl > 0 ? 'var(--green)' : pnl < 0 ? 'var(--red)' : 'var(--slate-4)';
-    var pnlSign   = pnl >= 0 ? '+' : '';
-    var jualPct   = d.nilaiBeli > 0 ? Math.min(d.nilaiJual/d.nilaiBeli*100,100).toFixed(1) : 0;
-
+    var nama = entry[0], d = entry[1];
+    var sisa = d.nilaiBeli - d.nilaiJual;
+    var pnl  = d.nilaiJual - d.hargaPokokJual;
+    var hasDijual  = d.nilaiJual > 0;
+    var pnlColor   = pnl > 0 ? 'var(--green)' : pnl < 0 ? 'var(--red)' : 'var(--slate-4)';
+    var pnlSign    = pnl >= 0 ? '+' : '';
+    var jualPct    = d.nilaiBeli > 0 ? Math.min(d.nilaiJual/d.nilaiBeli*100,100).toFixed(1) : 0;
     return '<div class="aset-card">'
       + '<div class="aset-card-header">'
       + '<div class="aset-icon">' + getEmoji(d.kategori) + '</div>'
       + '<div class="aset-card-info">'
       + '<div class="name">' + rptEsc(nama) + '</div>'
       + '<div class="sub">' + rptEsc(d.platform||'-') + ' · ' + rptEsc(d.kategori||'-') + '</div>'
-      // Jual progress
       + '<div style="margin-top:0.375rem; background:var(--slate-1); border-radius:999px; height:0.25rem; overflow:hidden; width:100%;">'
       + '<div style="height:100%; background:var(--pink); border-radius:999px; width:' + jualPct + '%; transition:width .8s;"></div>'
-      + '</div>'
-      + '</div>'
+      + '</div></div>'
       + '<div class="aset-card-pnl">'
       + '<div class="val" style="color:' + (hasDijual ? pnlColor : 'var(--slate-3)') + ';">' + (hasDijual ? pnlSign + rptFmt(pnl) : '—') + '</div>'
       + '<div class="lbl">' + (hasDijual ? 'PNL' : 'Belum dijual') + '</div>'
@@ -1723,26 +1407,22 @@ function rptRenderAsetCards(rekapItem) {
   }).join('');
 }
 
-/* ─── MODAL DETAIL TRANSAKSI ─────────────────────────────── */
+/* ─── MODAL DETAIL ───────────────────────────────────────── */
 var _rptModalRows = [];
 
 function rptBukaDetail(encodedNama, tipe) {
-  var nama    = decodeURIComponent(encodedNama);
-  var sumber  = tipe === 'keluar' ? _rptKeluar[nama] : _rptMasuk[nama];
+  var nama   = decodeURIComponent(encodedNama);
+  var sumber = tipe === 'keluar' ? _rptKeluar[nama] : _rptMasuk[nama];
   if (!sumber) return;
-
   document.getElementById('modal-detail-title').innerText = nama;
   document.getElementById('rpt-cari-detail').value = '';
-
   var rows = sumber.rows.slice().sort(function(a,b){ return String(a[1]).localeCompare(String(b[1])); }).reverse();
   _rptModalRows = rows;
-
   var sumMasuk = 0, sumKeluar = 0;
   rows.forEach(function(r) { sumMasuk += parseFloat(r[6])||0; sumKeluar += parseFloat(r[7])||0; });
   document.getElementById('modal-sum-masuk').innerText  = rptFmt(sumMasuk);
   document.getElementById('modal-sum-keluar').innerText = rptFmt(sumKeluar);
   document.getElementById('modal-sum-count').innerText  = rows.length;
-
   rptRenderModalList(rows);
   document.getElementById('rpt-modal-detail').classList.remove('hidden');
 }
@@ -1759,7 +1439,7 @@ function rptRenderModalList(rows) {
     var isIn   = debit > 0;
     var nom    = isIn ? debit : kredit;
     var catatan = r[5] || '-';
-    return '<div class="detail-row" style="display:flex; align-items:center; gap:0.625rem; padding:0.625rem; background:white; border:1px solid var(--slate-1); border-radius:0.625rem; margin-bottom:0.375rem;">'
+    return '<div style="display:flex; align-items:center; gap:0.625rem; padding:0.625rem; background:white; border:1px solid var(--slate-1); border-radius:0.625rem; margin-bottom:0.375rem;">'
       + '<div style="width:2rem;height:2rem;border-radius:0.625rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:' + (isIn?'var(--green-lt)':'var(--red-lt)') + ';">'
       + '<i class="fa-solid fa-' + (isIn?'arrow-down':'arrow-up') + '" style="font-size:0.625rem; color:' + (isIn?'var(--green)':'var(--red)') + ';"></i></div>'
       + '<div style="flex:1;min-width:0;">'
@@ -1783,13 +1463,12 @@ function rptTutupModal() {
   document.getElementById('rpt-modal-detail').classList.add('hidden');
 }
 
-/* ─── EXPORT LABEL ───────────────────────────────────────── */
+/* ─── EXPORT ─────────────────────────────────────────────── */
 function rptUpdateExportLabel() {
   var el = document.getElementById('label-export-periode');
   if (el) el.innerText = _rptPeriode === 'ALL' ? 'Semua Periode' : _rptPeriode;
 }
 
-/* ─── EXPORT PDF ─────────────────────────────────────────── */
 var _rptExportMode = 'lengkap';
 
 function exportPDF(mode) {
@@ -1841,12 +1520,11 @@ async function rptJalankanExportPDF() {
     const GREEN=[22,163,74], RED=[220,38,38];
     const GRAY=[107,114,128], LGRAY=[243,244,246], BLACK=[17,24,39], WHITE=[255,255,255];
 
-    const periode    = _rptPeriode;
-    const filterFn   = function(r) { return periode==='ALL' || rptNormPeriode(r[2]).toLowerCase()===periode.toLowerCase(); };
-    const kasData    = _rptData.kas.filter(filterFn);
-    const klinikData = _rptData.klinik.filter(function(r){ return periode==='ALL' || rptNormPeriode(r[2]).toLowerCase()===periode.toLowerCase(); });
-    const labelPer   = periode==='ALL' ? 'Semua Periode' : periode;
-    const tglCetak   = new Date().toLocaleDateString('id-ID',{ day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    const periode   = _rptPeriode;
+    const filterFn  = function(r) { return periode==='ALL' || rptNormPeriode(r[2]).toLowerCase()===periode.toLowerCase(); };
+    const kasData   = _rptData.kas.filter(filterFn);
+    const labelPer  = periode==='ALL' ? 'Semua Periode' : periode;
+    const tglCetak  = new Date().toLocaleDateString('id-ID',{ day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
 
     let totMasuk=0, totKeluar=0;
     const akunMap={}, trxPerAkun={};
@@ -1874,11 +1552,9 @@ async function rptJalankanExportPDF() {
     doc.setFillColor(157,23,77); doc.circle(-15,H*0.42+15,40,'F');
     doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(10);
     doc.text('LAPORAN KEUANGAN PRIBADI',W/2,45,{align:'center'});
-    doc.setFontSize(22);
-    doc.text('Ringkasan Finansial',W/2,60,{align:'center'});
+    doc.setFontSize(22); doc.text('Ringkasan Finansial',W/2,60,{align:'center'});
     doc.setFont('helvetica','normal'); doc.setFontSize(12);
     doc.text(labelPer, W/2, 72, {align:'center'});
-    // Summary card
     doc.setFillColor(...WHITE); doc.roundedRect(ML, H*0.46, CW, H*0.38, 4, 4, 'F');
     const iy=H*0.46+10;
     doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...DPINK);
@@ -1937,7 +1613,7 @@ async function rptJalankanExportPDF() {
       currentY=doc.lastAutoTable.finalY+8;
     }
 
-    // PAGE 3+: DETAIL (jika mode lengkap)
+    // PAGE 3+: DETAIL
     if (_rptExportMode === 'lengkap') {
       const sortedBB = [...sortedAkun].sort(function(a,b){
         const am=a[1].debit>0&&a[1].kredit===0, bm=b[1].debit>0&&b[1].kredit===0;
@@ -1997,7 +1673,7 @@ async function rptJalankanExportPDF() {
   }
 }
 
-/* ─── EVENT LISTENERS ────────────────────────────────────── */
+/* ─── Event Listeners ────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function() {
   rptUpdateExportLabel();
   var modal = document.getElementById('rpt-modal-detail');
