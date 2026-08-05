@@ -1,9 +1,11 @@
 <!-- ===================================================================
-     FILE: View_Report.html — Fixed v7
-     PERBAIKAN:
-       1. Tambah Recent 15 Transaksi Terakhir (pakai getRecentArusKas())
-       2. Fix modal detail COA — elemen modal ditambahkan ke DOM
-       3. Default saldo hidden (_saldoMasked = true)
+     FILE: View_Report.html — Fixed v8
+     PERBAIKAN v8:
+       1. TAMBAH elemen #r-modal-detail ke DOM (sebelumnya hanya ada CSS-nya)
+       2. Semua ID yang dipakai JS: r-modal-title, r-ms-masuk, r-ms-keluar,
+          r-ms-count, r-modal-cari, r-modal-sort, r-modal-list → sudah ada
+       3. Recent 15 transaksi (getRecentArusKas())
+       4. Default saldo hidden (_saldoMasked = true)
    =================================================================== -->
 
 <style>
@@ -750,7 +752,11 @@
   .r-empty p    { font-size: 0.75rem; font-weight: 700; color: var(--r-n400); margin: 0 0 .25rem; }
   .r-empty span { font-size: 0.5625rem; color: var(--r-n300); }
 
-  /* ─── Modal Detail ─── */
+  /* ═══════════════════════════════════════════════════════════
+     ─── Modal Detail Transaksi per COA ───
+     PERBAIKAN v8: Semua CSS sudah ada, sekarang elemen HTML-nya
+     juga ditambahkan ke DOM di bawah.
+  ═══════════════════════════════════════════════════════════ */
   .r-modal-overlay {
     position: fixed;
     inset: 0;
@@ -775,29 +781,74 @@
     box-shadow: 0 -12px 40px rgba(0,0,0,.14);
     animation: r-slide-up .28s cubic-bezier(.4,0,.2,1) both;
   }
-  .r-modal-handle { width: 2.5rem; height: 3px; background: var(--r-n200); border-radius: var(--r-full); margin: 0.625rem auto 0; flex-shrink: 0; }
+  .r-modal-handle {
+    width: 2.5rem; height: 3px;
+    background: var(--r-n200);
+    border-radius: var(--r-full);
+    margin: 0.625rem auto 0;
+    flex-shrink: 0;
+  }
   .r-modal-header { padding: 0.75rem 1rem 0.875rem; flex-shrink: 0; }
-  .r-modal-header-inner { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+  .r-modal-header-inner {
+    display: flex; align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
   .r-modal-title { font-size: 0.9375rem; font-weight: 800; color: var(--r-n900); margin: 0; }
   .r-modal-close {
-    width: 1.875rem;
-    height: 1.875rem;
+    width: 1.875rem; height: 1.875rem;
     border-radius: 0.5rem;
     background: var(--r-n100);
-    border: none;
-    color: var(--r-n500);
+    border: none; color: var(--r-n500);
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
     font-size: 0.75rem;
     transition: background .12s;
   }
   .r-modal-close:hover { background: var(--r-n200); }
-  .r-modal-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.375rem; margin-bottom: 0.75rem; }
-  .r-modal-sum-cell { background: var(--r-n100); border-radius: var(--r-md); padding: 0.5625rem 0.375rem; text-align: center; }
-  .r-modal-sum-cell .ms-val { font-size: 0.8125rem; font-weight: 800; color: var(--r-n900); display: block; }
-  .r-modal-sum-cell .ms-lbl { font-size: 0.4375rem; color: var(--r-n400); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+
+  .r-modal-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.375rem;
+    margin-bottom: 0.75rem;
+  }
+  .r-modal-sum-cell {
+    background: var(--r-n100);
+    border-radius: var(--r-md);
+    padding: 0.5625rem 0.375rem;
+    text-align: center;
+  }
+  .r-modal-sum-cell .ms-val {
+    font-size: 0.8125rem; font-weight: 800;
+    color: var(--r-n900); display: block;
+  }
+  .r-modal-sum-cell .ms-lbl {
+    font-size: 0.4375rem; color: var(--r-n400);
+    text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
+  }
+
+  /* Badge tipe di modal header */
+  .r-modal-tipe-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.5625rem;
+    font-weight: 800;
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--r-full);
+    letter-spacing: 0.04em;
+  }
+  .r-modal-tipe-badge.badge-keluar {
+    background: var(--r-red-xs);
+    color: var(--r-red);
+    border: 1.5px solid var(--r-red-lt);
+  }
+  .r-modal-tipe-badge.badge-masuk {
+    background: var(--r-green-xs);
+    color: var(--r-green);
+    border: 1.5px solid var(--r-green-lt);
+  }
 
   .r-modal-toolbar {
     display: flex;
@@ -809,7 +860,11 @@
     flex-shrink: 0;
   }
   .r-modal-search-wrap { flex: 1; position: relative; }
-  .r-modal-search-wrap i { position: absolute; left: 0.625rem; top: 50%; transform: translateY(-50%); color: var(--r-n400); font-size: 0.625rem; pointer-events: none; }
+  .r-modal-search-wrap i {
+    position: absolute; left: 0.625rem; top: 50%;
+    transform: translateY(-50%);
+    color: var(--r-n400); font-size: 0.625rem; pointer-events: none;
+  }
   .r-modal-search {
     width: 100%;
     background: var(--r-white);
@@ -817,8 +872,7 @@
     border-radius: var(--r-full);
     padding: 0.5rem 0.625rem 0.5rem 1.875rem;
     font-size: 0.75rem;
-    outline: none;
-    color: var(--r-n700);
+    outline: none; color: var(--r-n700);
     transition: border-color .15s;
   }
   .r-modal-search:focus { border-color: var(--r-rose); }
@@ -827,19 +881,19 @@
     border: 1.5px solid var(--r-n200);
     border-radius: var(--r-full);
     padding: 0.5rem 0.75rem;
-    font-size: 0.6875rem;
-    font-weight: 700;
+    font-size: 0.6875rem; font-weight: 700;
     color: var(--r-n600);
-    cursor: pointer;
-    white-space: nowrap;
+    cursor: pointer; white-space: nowrap;
     transition: border-color .15s;
     outline: none;
-    -webkit-appearance: none;
-    appearance: none;
+    -webkit-appearance: none; appearance: none;
   }
   .r-modal-sort:focus { border-color: var(--r-rose); }
 
   .r-modal-list { overflow-y: auto; flex: 1; padding: 0.75rem; }
+  .r-modal-list::-webkit-scrollbar { width: 3px; }
+  .r-modal-list::-webkit-scrollbar-thumb { background: var(--r-rose-lt); border-radius: 3px; }
+
   .r-modal-row {
     display: flex;
     align-items: center;
@@ -849,14 +903,27 @@
     border: 1px solid var(--r-n100);
     border-radius: var(--r-md);
     margin-bottom: 0.3125rem;
-    transition: border-color .12s;
+    transition: border-color .12s, background .12s;
   }
-  .r-modal-row:hover { border-color: var(--r-n300); }
-  .r-modal-row-icon { width: 1.875rem; height: 1.875rem; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; font-size: 0.625rem; flex-shrink: 0; }
+  .r-modal-row:hover { border-color: var(--r-n300); background: var(--r-n50); }
+  .r-modal-row-icon {
+    width: 1.875rem; height: 1.875rem;
+    border-radius: 0.5rem;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.625rem; flex-shrink: 0;
+  }
   .r-modal-row-info { flex: 1; min-width: 0; }
-  .r-modal-row-main { font-size: 0.6875rem; font-weight: 700; color: var(--r-n700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 0 0.1875rem; }
+  .r-modal-row-main {
+    font-size: 0.6875rem; font-weight: 700; color: var(--r-n700);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    margin: 0 0 0.1875rem;
+  }
   .r-modal-row-sub { font-size: 0.5rem; color: var(--r-n400); }
   .r-modal-row-amount { font-size: 0.75rem; font-weight: 800; flex-shrink: 0; }
+  .r-modal-row-date {
+    font-size: 0.4375rem; color: var(--r-n400);
+    display: block; text-align: right; margin-top: 0.0625rem;
+  }
 
   .r-mask { color: transparent !important; text-shadow: 0 0 12px rgba(255,255,255,.55); user-select: none; }
   .r-spin { animation: r-spin .8s linear infinite; display: inline-block; }
@@ -973,7 +1040,7 @@
     </div>
   </div>
 
-  <!-- ══ RECENT 15 TRANSAKSI ══ -->
+  <!-- Recent 15 Transaksi -->
   <div class="r-section" id="r-recent-section">
     <div class="r-section-head">
       <h2>
@@ -985,9 +1052,8 @@
       <span style="font-size:0.5625rem; font-weight:700; color:var(--r-n400);">15 terbaru</span>
     </div>
     <div class="r-card" id="r-recent-list">
-      <!-- Skeleton -->
       <div style="padding:0.75rem 0.875rem;" id="r-recent-skel">
-        <div style="display:flex;align-items:center;gap:.625rem;padding:.5rem 0;" class="r-skel-row" id="rs0">
+        <div style="display:flex;align-items:center;gap:.625rem;padding:.5rem 0;">
           <div class="r-skel" style="width:2rem;height:2rem;border-radius:.5rem;flex-shrink:0;"></div>
           <div style="flex:1;"><div class="r-skel" style="height:9px;width:65%;margin-bottom:5px;"></div><div class="r-skel" style="height:5px;width:40%;"></div></div>
           <div class="r-skel" style="width:3.5rem;height:12px;border-radius:.375rem;"></div>
@@ -1010,6 +1076,7 @@
   <div class="r-section" id="r-kas-section">
     <div class="r-section-head">
       <h2><span class="icon-tag" style="background:#fff1f2;"><i class="fa-solid fa-wallet" style="color:var(--r-rose);"></i></span>Arus Kas</h2>
+      <span style="font-size:0.5625rem; font-weight:700; color:var(--r-n400);">Klik akun untuk detail</span>
     </div>
     <div class="r-card">
       <div class="r-kas-summary">
@@ -1044,6 +1111,7 @@
   <div class="r-section" id="r-breakdown-section">
     <div class="r-section-head">
       <h2><span class="icon-tag" style="background:#fff1f2;"><i class="fa-solid fa-chart-pie" style="color:var(--r-rose);"></i></span>Komposisi Pengeluaran</h2>
+      <span style="font-size:0.5625rem; font-weight:700; color:var(--r-n400);">Klik slice untuk detail</span>
     </div>
     <div class="r-card">
       <div class="r-donut-wrap">
@@ -1115,21 +1183,107 @@
 
 </div><!-- /#modul-report -->
 
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MODAL DETAIL TRANSAKSI PER COA
+     PERBAIKAN v8: Elemen ini sebelumnya TIDAK ADA di DOM.
+     Semua ID yang dipakai oleh rptBukaDetail() sekarang sudah ada:
+       - #r-modal-detail        (wrapper overlay)
+       - #r-modal-title         (judul nama akun)
+       - #r-modal-tipe-badge    (badge Keluar/Masuk)
+       - #r-ms-masuk            (total masuk akun ini)
+       - #r-ms-keluar           (total keluar akun ini)
+       - #r-ms-count            (jumlah transaksi)
+       - #r-modal-cari          (input pencarian)
+       - #r-modal-sort          (dropdown sort)
+       - #r-modal-list          (list transaksi)
+═══════════════════════════════════════════════════════════════ -->
+<div id="r-modal-detail"
+     class="r-modal-overlay hidden"
+     onclick="if(event.target===this) rptTutupModal()">
+  <div class="r-modal-sheet">
+
+    <!-- Handle -->
+    <div class="r-modal-handle"></div>
+
+    <!-- Header -->
+    <div class="r-modal-header">
+      <div class="r-modal-header-inner">
+        <div style="flex:1; min-width:0;">
+          <p class="r-modal-title" id="r-modal-title">Detail Transaksi</p>
+          <div style="margin-top:0.25rem;">
+            <span class="r-modal-tipe-badge badge-keluar" id="r-modal-tipe-badge">
+              <i class="fa-solid fa-arrow-up" style="font-size:0.4375rem;"></i>
+              Pengeluaran
+            </span>
+          </div>
+        </div>
+        <button class="r-modal-close" onclick="rptTutupModal()" title="Tutup">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Summary 3 cell -->
+      <div class="r-modal-summary">
+        <div class="r-modal-sum-cell">
+          <span class="ms-val" id="r-ms-masuk" style="color:var(--r-green);">Rp 0</span>
+          <span class="ms-lbl">Masuk</span>
+        </div>
+        <div class="r-modal-sum-cell">
+          <span class="ms-val" id="r-ms-keluar" style="color:var(--r-red);">Rp 0</span>
+          <span class="ms-lbl">Keluar</span>
+        </div>
+        <div class="r-modal-sum-cell">
+          <span class="ms-val" id="r-ms-count" style="color:var(--r-n700);">0</span>
+          <span class="ms-lbl">Transaksi</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toolbar: Search + Sort -->
+    <div class="r-modal-toolbar">
+      <div class="r-modal-search-wrap">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" id="r-modal-cari"
+               class="r-modal-search"
+               placeholder="Cari tanggal, catatan..."
+               oninput="rptModalCari()">
+      </div>
+      <select id="r-modal-sort" class="r-modal-sort" onchange="rptModalSort()">
+        <option value="tgl-desc">Terbaru</option>
+        <option value="tgl-asc">Terlama</option>
+        <option value="nom-desc">Terbesar</option>
+        <option value="nom-asc">Terkecil</option>
+      </select>
+    </div>
+
+    <!-- Daftar Transaksi -->
+    <div class="r-modal-list" id="r-modal-list">
+      <div class="r-empty">
+        <span class="r-empty-icon">📭</span>
+        <p>Belum ada data</p>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /#r-modal-detail -->
+
+
 <script>
 /* ═══════════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════════ */
 var _D        = { kas:[], aset:[] };
-var _recentTrx = [];           // FIX 1: state untuk recent transactions
+var _recentTrx = [];
 var _periode  = 'ALL';
 var _periodes = [];
 var _pIdx     = -1;
 var _kasTab   = 'keluar';
 var _kasExpanded = false;
 var _kasMap   = { keluar:{}, masuk:{} };
-var _saldoMasked = true;       // FIX 3: default hidden
+var _saldoMasked = true;
 var _saldoValues = {};
-var _modalRowsAll  = [];
+var _modalRowsAll      = [];
 var _modalRowsFiltered = [];
 var _exportMode = 'lengkap';
 
@@ -1206,18 +1360,16 @@ function initModulReport() {
   _pIdx = -1;
   _kasTab = 'keluar';
   _kasExpanded = false;
-  _saldoMasked = true;          // FIX 3: always start hidden
+  _saldoMasked = true;
   _saldoValues = {};
 
   if (_charts.trend) { _charts.trend.destroy(); _charts.trend = null; }
   if (_charts.donut) { _charts.donut.destroy(); _charts.donut = null; }
   if (_charts.aset)  { _charts.aset.destroy();  _charts.aset  = null; }
 
-  // Reset eye icon ke slash (karena masked)
   var eyeIcon = document.getElementById('r-hero-eye-icon');
   if (eyeIcon) eyeIcon.className = 'fa-solid fa-eye-slash';
 
-  // Reset saldo text ke masked
   ['r-hero-saldo','r-hero-masuk','r-hero-keluar'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) { el.innerText = '••••••'; el.classList.add('r-mask'); }
@@ -1229,7 +1381,6 @@ function initModulReport() {
   document.getElementById('r-flow-list').innerHTML = rSkelList(5);
   document.getElementById('r-aset-cards').innerHTML = rSkelList(3, true);
 
-  // FIX 1: load recent transactions dulu secara paralel
   google.script.run
     .withSuccessHandler(function(rows) {
       _recentTrx = rows || [];
@@ -1273,10 +1424,7 @@ function rSkelList(n, wide) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FIX 1: RENDER RECENT 15 TRANSAKSI
-   Data dari getRecentArusKas():
-     [0]=ID  [1]=Tanggal(DD/MM/YYYY)  [2]=Periode  [3]=Tipe
-     [4]=Item  [5]=Catatan  [6]=Debit  [7]=Kredit
+   RENDER RECENT 15 TRANSAKSI
 ═══════════════════════════════════════════════════════════ */
 function _rptRenderRecent() {
   var container = document.getElementById('r-recent-list');
@@ -1293,22 +1441,20 @@ function _rptRenderRecent() {
   }
 
   var html = _recentTrx.map(function(r) {
-    var tipe   = String(r[3] || '');
-    var item   = String(r[4] || '-');
-    var catat  = String(r[5] || '-');
-    var debit  = parseFloat(r[6]) || 0;
-    var kredit = parseFloat(r[7]) || 0;
-    var tgl    = String(r[1] || '-');   // sudah format DD/MM/YYYY dari GS
+    var tipe    = String(r[3] || '');
+    var item    = String(r[4] || '-');
+    var catat   = String(r[5] || '-');
+    var debit   = parseFloat(r[6]) || 0;
+    var kredit  = parseFloat(r[7]) || 0;
+    var tgl     = String(r[1] || '-');
     var periode = String(r[2] || '');
 
-    var isMasuk = debit > 0;
-    var nominal = isMasuk ? debit : kredit;
-    var color   = isMasuk ? 'var(--r-green)' : 'var(--r-red)';
-    var bg      = isMasuk ? 'var(--r-green-xs)' : 'var(--r-red-xs)';
-    var icon    = isMasuk ? 'fa-arrow-down' : 'fa-arrow-up';
-    var sign    = isMasuk ? '+' : '-';
-
-    // Label tipe ringkas
+    var isMasuk  = debit > 0;
+    var nominal  = isMasuk ? debit : kredit;
+    var color    = isMasuk ? 'var(--r-green)' : 'var(--r-red)';
+    var bg       = isMasuk ? 'var(--r-green-xs)' : 'var(--r-red-xs)';
+    var icon     = isMasuk ? 'fa-arrow-down' : 'fa-arrow-up';
+    var sign     = isMasuk ? '+' : '-';
     var tipeLabel = tipe === 'PEMASUKAN' ? 'Masuk' : 'Keluar';
 
     return '<div class="r-recent-item">' +
@@ -1320,9 +1466,7 @@ function _rptRenderRecent() {
         '<div class="r-recent-meta">' + rEsc(tipeLabel) + ' · ' + rEsc(catat !== '-' ? catat : periode) + '</div>' +
       '</div>' +
       '<div style="text-align:right; flex-shrink:0;">' +
-        '<div class="r-recent-amount" style="color:' + color + ';">' +
-          sign + rFmt(nominal, true) +
-        '</div>' +
+        '<div class="r-recent-amount" style="color:' + color + ';">' + sign + rFmt(nominal, true) + '</div>' +
         '<span class="r-recent-date">' + rEsc(tgl) + '</span>' +
       '</div>' +
     '</div>';
@@ -1432,7 +1576,6 @@ function _rptRenderHero(kasData) {
   };
   _saldoValues = vals;
 
-  // Terapkan mask sesuai state saat ini
   Object.keys(vals).forEach(function(id) {
     var el = document.getElementById(id);
     if (!el) return;
@@ -1640,7 +1783,7 @@ function _rptRenderKas() {
     var pct  = maxVal > 0 ? (val / maxVal * 100) : 0;
     var c    = COLORS[i % COLORS.length];
     var enc  = encodeURIComponent(nama);
-    return '<div class="r-flow-item" onclick="rptBukaDetail(\'' + enc + '\',\'' + _kasTab + '\')">' +
+    return '<div class="r-flow-item" onclick="rptBukaDetail(\'' + enc + '\',\'' + _kasTab + '\')" title="Klik untuk lihat detail">' +
       '<div class="r-flow-rank" style="background:' + c + '22; color:' + c + ';">' + (i + 1) + '</div>' +
       '<div class="r-flow-info">' +
         '<div class="r-flow-name">' + rEsc(nama) + '</div>' +
@@ -1706,7 +1849,7 @@ function _rptRenderDonut() {
   var legHtml = entries.map(function(entry, i) {
     var pct    = total > 0 ? ((entry[1].total / total) * 100).toFixed(0) : 0;
     var shortN = entry[0].length > 22 ? entry[0].substring(0, 20) + '…' : entry[0];
-    return '<div class="r-legend-item" onclick="rptBukaDetail(\'' + encodeURIComponent(entry[0]) + '\',\'keluar\')">' +
+    return '<div class="r-legend-item" onclick="rptBukaDetail(\'' + encodeURIComponent(entry[0]) + '\',\'keluar\')" title="Lihat detail ' + rEsc(entry[0]) + '">' +
       '<span class="r-legend-dot" style="background:' + colors[i] + ';"></span>' +
       '<span class="r-legend-name">' + rEsc(shortN) + '</span>' +
       '<span class="r-legend-pct">' + pct + '%</span>' +
@@ -1846,7 +1989,7 @@ function _rptRenderAset(asetData) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FIX 3: SALDO MASK — default true, toggle bisa buka/tutup
+   SALDO MASK
 ═══════════════════════════════════════════════════════════ */
 function rptToggleSaldo() {
   _saldoMasked = !_saldoMasked;
@@ -1875,17 +2018,29 @@ function _rptApplyMask() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   FIX 2: MODAL DETAIL TRANSAKSI PER COA
-   rptBukaDetail sekarang bekerja karena #r-modal-detail ada di DOM
+   MODAL DETAIL TRANSAKSI PER COA
+   PERBAIKAN v8: Fungsi sekarang bisa bekerja karena
+   elemen #r-modal-detail sudah ada di DOM di atas.
 ═══════════════════════════════════════════════════════════ */
 function rptBukaDetail(encodedNama, tipe) {
   var nama = decodeURIComponent(encodedNama);
   var src  = _kasMap[tipe] && _kasMap[tipe][nama];
   if (!src) return;
 
+  /* ── Isi header modal ── */
   var titleEl = document.getElementById('r-modal-title');
   if (titleEl) titleEl.innerText = nama;
 
+  /* ── Badge tipe ── */
+  var badgeEl = document.getElementById('r-modal-tipe-badge');
+  if (badgeEl) {
+    var isKeluar = (tipe === 'keluar');
+    badgeEl.className = 'r-modal-tipe-badge ' + (isKeluar ? 'badge-keluar' : 'badge-masuk');
+    badgeEl.innerHTML = '<i class="fa-solid fa-arrow-' + (isKeluar ? 'up' : 'down') +
+      '" style="font-size:0.4375rem;"></i> ' + (isKeluar ? 'Pengeluaran' : 'Pemasukan');
+  }
+
+  /* ── Reset search & sort ── */
   var cariEl = document.getElementById('r-modal-cari');
   var sortEl = document.getElementById('r-modal-sort');
   if (cariEl) cariEl.value = '';
@@ -1895,26 +2050,31 @@ function rptBukaDetail(encodedNama, tipe) {
   _modalRowsAll      = rows;
   _modalRowsFiltered = rows.slice();
 
-  // Hitung summary
+  /* ── Hitung summary ── */
   var sumM = rows.reduce(function(s, r) { return s + (parseFloat(r[6]) || 0); }, 0);
   var sumK = rows.reduce(function(s, r) { return s + (parseFloat(r[7]) || 0); }, 0);
   var msM  = document.getElementById('r-ms-masuk');
   var msK  = document.getElementById('r-ms-keluar');
   var msC  = document.getElementById('r-ms-count');
-  if (msM) msM.innerText = rFmt(sumM, true);
-  if (msK) msK.innerText = rFmt(sumK, true);
+  if (msM) msM.innerText = sumM > 0 ? rFmt(sumM, true) : 'Rp 0';
+  if (msK) msK.innerText = sumK > 0 ? rFmt(sumK, true) : 'Rp 0';
   if (msC) msC.innerText = rows.length;
 
   _rptModalApplySort();
 
-  // Tampilkan modal
+  /* ── Tampilkan modal ── */
   var modal = document.getElementById('r-modal-detail');
-  if (modal) modal.classList.remove('hidden');
+  if (modal) {
+    modal.classList.remove('hidden');
+    // Cegah scroll halaman di belakang modal
+    document.body.style.overflow = 'hidden';
+  }
 }
 
 function rptTutupModal() {
   var modal = document.getElementById('r-modal-detail');
   if (modal) modal.classList.add('hidden');
+  document.body.style.overflow = '';
 }
 
 function _rptModalApplySort() {
@@ -1957,7 +2117,9 @@ function _rptRenderModalList(rows) {
   if (!container) return;
   if (!rows.length) {
     container.innerHTML =
-      '<div class="r-empty"><span class="r-empty-icon">📭</span><p>Tidak ada transaksi</p></div>';
+      '<div class="r-empty"><span class="r-empty-icon">📭</span>' +
+      '<p>Tidak ada transaksi ditemukan</p>' +
+      '<span>Coba ubah kata kunci pencarian</span></div>';
     return;
   }
   container.innerHTML = rows.map(function(r) {
@@ -1969,15 +2131,19 @@ function _rptRenderModalList(rows) {
     var bg     = isIn ? 'var(--r-green-xs)' : 'var(--r-red-xs)';
     var tglStr  = rFmtTgl(r[1]);
     var catatan = r[5] || '-';
+    var periode = rNormPeriode(r[2] || '');
     return '<div class="r-modal-row">' +
       '<div class="r-modal-row-icon" style="background:' + bg + ';">' +
-        '<i class="fa-solid fa-' + (isIn ? 'arrow-down' : 'arrow-up') + '" style="color:' + color + ';"></i>' +
+        '<i class="fa-solid fa-' + (isIn ? 'arrow-down' : 'arrow-up') + '" style="color:' + color + '; font-size:0.625rem;"></i>' +
       '</div>' +
       '<div class="r-modal-row-info">' +
-        '<p class="r-modal-row-main">' + rEsc(catatan) + '</p>' +
-        '<p class="r-modal-row-sub">' + tglStr + ' · ' + rNormPeriode(r[2] || '') + '</p>' +
+        '<p class="r-modal-row-main">' + rEsc(catatan !== '-' ? catatan : 'Transaksi kas') + '</p>' +
+        '<p class="r-modal-row-sub">' + rEsc(tglStr) + (periode ? ' · ' + rEsc(periode) : '') + '</p>' +
       '</div>' +
-      '<span class="r-modal-row-amount" style="color:' + color + ';">' + (isIn ? '+' : '-') + rFmt(nom, true) + '</span>' +
+      '<div style="text-align:right; flex-shrink:0;">' +
+        '<span class="r-modal-row-amount" style="color:' + color + ';">' + (isIn ? '+' : '-') + rFmt(nom, true) + '</span>' +
+        '<span class="r-modal-row-date">' + rEsc(tglStr) + '</span>' +
+      '</div>' +
     '</div>';
   }).join('');
 }
