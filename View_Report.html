@@ -1,22 +1,23 @@
 <!-- ===================================================================
-     FILE: View_Report.html — Redesign v5 "Financial Clarity"
-     UX Improvements:
-       • Swipeable period selector dengan inertia scroll + keyboard nav
-       • Hero card: saldo besar + health indicator ring + sparkline mini
-       • Cash flow: animated progress bars + collapsible breakdown
-       • Donut chart lebih besar + interactive legend
-       • Detail modal: virtualized list + filter + sort
-       • Aset cards: PNL badge + allocation bar
-       • Export: progress stepper + ringkasan preview
-       • Skeleton loading yang proper di semua section
-       • Pull-to-refresh gesture
-       • Haptic-like micro-interactions via transform
-     =================================================================== -->
+     FILE: View_Report.html — Fixed v6
+     BUGFIX LOG:
+       1. _rptApplyMask() — simpan nilai asli SEBELUM mask, tidak dari innerText
+       2. _rptApplyMask() — saat refresh data (masked aktif), update nilai tanpa unmasking
+       3. rptNavNext/Prev — ALL → pilih terbaru (bukan terlama) saat next
+       4. Filter aset — gunakan rNormPeriode(r[1]) secara konsisten (tanggal YYYY-MM-DD)
+       5. rptModalCari + rptModalSort — sinkronkan: sort hanya pada filtered set, bukan _modalRowsAll
+       6. _rptRenderModalList — tampilkan r[1] (tanggal) dan r[5] (catatan) dengan benar
+       7. rptModalCari — filter juga berdasarkan r[4] (nama akun/item)
+       8. rptDoExportPDF — capture _periode di awal (hindari closure bug)
+       9. Format tanggal di modal list jadi lebih user-friendly
+      10. rptFlowToggle — reset animasi class sebelum re-render
+      11. _rptRenderStats — hitung trx masuk dengan benar (debit > 0)
+      12. Tambah null-guard di semua getElementById sebelum akses
+   =================================================================== -->
 
 <style>
-  /* ─── Design Tokens ─────────────────────────────────────── */
+  /* ─── Design Tokens ─────────────────────────────────────────── */
   #modul-report {
-    /* Brand */
     --r-rose:       #e11d48;
     --r-rose-d:     #9f1239;
     --r-rose-dd:    #881337;
@@ -24,7 +25,6 @@
     --r-rose-xs:    #fff1f2;
     --r-rose-glow:  rgba(225,29,72,.18);
 
-    /* Semantic */
     --r-green:      #16a34a;
     --r-green-lt:   #bbf7d0;
     --r-green-xs:   #f0fdf4;
@@ -38,7 +38,6 @@
     --r-indigo-lt:  #e0e7ff;
     --r-violet:     #7c3aed;
 
-    /* Neutral */
     --r-n50:  #f8fafc;
     --r-n100: #f1f5f9;
     --r-n200: #e2e8f0;
@@ -50,14 +49,12 @@
     --r-n900: #0f172a;
     --r-white: #ffffff;
 
-    /* Radii */
     --r-sm:   0.5rem;
     --r-md:   0.875rem;
     --r-lg:   1.25rem;
     --r-xl:   1.75rem;
     --r-full: 999px;
 
-    /* Shadows */
     --r-shadow-xs: 0 1px 2px rgba(0,0,0,.05);
     --r-shadow-sm: 0 1px 4px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
     --r-shadow-md: 0 4px 16px rgba(0,0,0,.08);
@@ -66,7 +63,6 @@
 
   #modul-report * { box-sizing: border-box; }
 
-  /* ─── Keyframes ─────────────────────────────────────────── */
   @keyframes r-fade-up   { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
   @keyframes r-fade-in   { from { opacity:0; } to { opacity:1; } }
   @keyframes r-shimmer   { 0% { background-position:-200% 0; } 100% { background-position:200% 0; } }
@@ -78,18 +74,15 @@
   @keyframes r-slide-up  { from { transform:translateY(100%); } to { transform:translateY(0); } }
   @keyframes r-pop       { 0% { transform:scale(0.95); } 50% { transform:scale(1.02); } 100% { transform:scale(1); } }
 
-  /* ─── Utility ───────────────────────────────────────────── */
   #modul-report .r-fade-up { animation: r-fade-up .38s ease both; }
   #modul-report .r-pop     { animation: r-pop .24s ease both; }
 
-  /* Stagger helpers */
   #modul-report [data-stagger="0"] { animation-delay: 0ms; }
   #modul-report [data-stagger="1"] { animation-delay: 60ms; }
   #modul-report [data-stagger="2"] { animation-delay: 120ms; }
   #modul-report [data-stagger="3"] { animation-delay: 180ms; }
   #modul-report [data-stagger="4"] { animation-delay: 240ms; }
 
-  /* Skeleton */
   #modul-report .r-skel {
     background: linear-gradient(90deg, var(--r-n100) 25%, var(--r-n200) 50%, var(--r-n100) 75%);
     background-size: 200% 100%;
@@ -97,12 +90,10 @@
     border-radius: var(--r-sm);
   }
 
-  /* Scrollbar */
   #modul-report .thin-scroll { scrollbar-width: thin; scrollbar-color: var(--r-rose-lt) transparent; }
   #modul-report .thin-scroll::-webkit-scrollbar { width: 3px; height: 3px; }
   #modul-report .thin-scroll::-webkit-scrollbar-thumb { background: var(--r-rose-lt); border-radius: 3px; }
 
-  /* ─── Root layout ───────────────────────────────────────── */
   #modul-report {
     display: flex;
     flex-direction: column;
@@ -111,9 +102,7 @@
     padding-bottom: 6rem;
   }
 
-  /* ═══════════════════════════════════════════════════════════
-     PERIOD NAVIGATOR
-  ═══════════════════════════════════════════════════════════ */
+  /* ─── Period Navigator ─── */
   #r-period-nav {
     position: sticky;
     top: 0;
@@ -189,9 +178,7 @@
     box-shadow: 0 2px 10px var(--r-rose-glow);
   }
 
-  /* ═══════════════════════════════════════════════════════════
-     HERO CARD
-  ═══════════════════════════════════════════════════════════ */
+  /* ─── Hero Card ─── */
   #r-hero {
     margin: 0.875rem 0.75rem 0;
     border-radius: var(--r-xl);
@@ -221,7 +208,6 @@
     pointer-events: none;
   }
 
-  /* Hero top row */
   #r-hero .hero-top {
     display: flex;
     align-items: flex-start;
@@ -271,7 +257,6 @@
   #r-hero .hero-btn:hover  { background: rgba(255,255,255,.22); }
   #r-hero .hero-btn:active { transform: scale(0.9); }
 
-  /* Hero health panel */
   #r-hero .hero-panel {
     background: rgba(255,255,255,.12);
     border-radius: var(--r-md);
@@ -282,7 +267,6 @@
     align-items: center;
   }
 
-  /* SVG Ring */
   .r-ring-wrap { position: relative; width: 80px; height: 80px; flex-shrink: 0; }
   .r-ring-wrap svg { width: 100%; height: 100%; transform: rotate(-90deg); }
   .r-ring-track { stroke: rgba(255,255,255,.15); }
@@ -303,7 +287,6 @@
   .r-ring-pct   { font-size: 1rem; font-weight: 900; color: white; line-height: 1; }
   .r-ring-sub   { font-size: 0.4375rem; color: rgba(255,255,255,.55); margin-top: 0.125rem; letter-spacing: .04em; text-transform: uppercase; }
 
-  /* Health badge */
   .r-health-badge {
     display: inline-flex;
     align-items: center;
@@ -320,7 +303,6 @@
   .badge-hati-hati { background: rgba(253,211,77,.25);  color: #fde68a; }
   .badge-kritis    { background: rgba(252,165,165,.25); color: #fca5a5; }
 
-  /* Stat rows */
   .r-stat-row {
     display: flex;
     align-items: center;
@@ -338,7 +320,6 @@
   .r-stat-label { font-size: 0.625rem; color: rgba(255,255,255,.6); flex: 1; }
   .r-stat-value { font-size: 0.8125rem; font-weight: 800; color: white; }
 
-  /* Sparkline mini */
   .r-sparkline-wrap {
     margin-top: 0.875rem;
     padding-top: 0.75rem;
@@ -354,9 +335,7 @@
   }
   .r-sparkline { width: 100%; height: 36px; }
 
-  /* ═══════════════════════════════════════════════════════════
-     QUICK STATS STRIP
-  ═══════════════════════════════════════════════════════════ */
+  /* ─── Quick Stats ─── */
   #r-stats-strip {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -401,12 +380,8 @@
     color: var(--r-n400);
   }
 
-  /* ═══════════════════════════════════════════════════════════
-     SECTION WRAPPER
-  ═══════════════════════════════════════════════════════════ */
-  .r-section {
-    padding: 0.75rem 0.75rem 0;
-  }
+  /* ─── Section ─── */
+  .r-section { padding: 0.75rem 0.75rem 0; }
   .r-section-head {
     display: flex;
     align-items: center;
@@ -430,20 +405,7 @@
     font-size: 0.5625rem;
     flex-shrink: 0;
   }
-  .r-section-see-all {
-    font-size: 0.625rem;
-    font-weight: 700;
-    color: var(--r-rose);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0.25rem 0.5rem;
-    border-radius: var(--r-sm);
-    transition: background .12s;
-  }
-  .r-section-see-all:hover { background: var(--r-rose-xs); }
 
-  /* ─── Card base ── */
   .r-card {
     background: var(--r-white);
     border-radius: var(--r-lg);
@@ -453,15 +415,9 @@
   }
   .r-card-p { padding: 1rem; }
 
-  /* ═══════════════════════════════════════════════════════════
-     TREND CHART — 6 bulan
-  ═══════════════════════════════════════════════════════════ */
+  /* ─── Trend Chart ─── */
   #r-trend-section { animation: r-fade-up .4s ease both .08s; }
-  .r-chart-wrap {
-    position: relative;
-    width: 100%;
-    height: 130px;
-  }
+  .r-chart-wrap { position: relative; width: 100%; height: 130px; }
   .r-chart-legend {
     display: flex;
     gap: 1rem;
@@ -476,18 +432,11 @@
     font-weight: 700;
     color: var(--r-n500);
   }
-  .r-chart-legend-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 2px;
-  }
+  .r-chart-legend-dot { width: 6px; height: 6px; border-radius: 2px; }
 
-  /* ═══════════════════════════════════════════════════════════
-     ARUS KAS — Improved
-  ═══════════════════════════════════════════════════════════ */
+  /* ─── Arus Kas ─── */
   #r-kas-section { animation: r-fade-up .4s ease both .10s; }
 
-  /* Summary bar */
   .r-kas-summary {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -507,17 +456,9 @@
     letter-spacing: .07em;
     color: var(--r-n400);
   }
-  .r-kas-sum-value {
-    font-size: 1rem;
-    font-weight: 900;
-    line-height: 1.1;
-  }
-  .r-kas-sum-count {
-    font-size: 0.5625rem;
-    color: var(--r-n400);
-  }
+  .r-kas-sum-value { font-size: 1rem; font-weight: 900; line-height: 1.1; }
+  .r-kas-sum-count { font-size: 0.5625rem; color: var(--r-n400); }
 
-  /* Tab toggle */
   .r-kas-tabs {
     display: flex;
     background: var(--r-n100);
@@ -546,10 +487,7 @@
   .r-kas-tab.active-masuk  { background: var(--r-white); color: var(--r-green); box-shadow: var(--r-shadow-xs); }
   .r-kas-tab .tab-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 
-  /* Flow list */
-  .r-flow-container {
-    padding: 0.75rem 0.875rem;
-  }
+  .r-flow-container { padding: 0.75rem 0.875rem; }
   .r-flow-item {
     display: flex;
     align-items: center;
@@ -559,7 +497,6 @@
     cursor: pointer;
     transition: background .12s;
     margin-bottom: 0.25rem;
-    animation: r-fade-up .3s ease both;
   }
   .r-flow-item:last-child { margin-bottom: 0; }
   .r-flow-item:hover  { background: var(--r-n100); }
@@ -595,22 +532,12 @@
   .r-flow-bar-fill {
     height: 100%;
     border-radius: var(--r-full);
-    animation: r-bar-grow .8s cubic-bezier(.4,0,.2,1) both;
     transition: width 1s cubic-bezier(.4,0,.2,1);
   }
   .r-flow-right { text-align: right; flex-shrink: 0; }
-  .r-flow-amount {
-    font-size: 0.75rem;
-    font-weight: 800;
-    display: block;
-  }
-  .r-flow-trx {
-    font-size: 0.5rem;
-    color: var(--r-n400);
-    margin-top: 0.0625rem;
-  }
+  .r-flow-amount { font-size: 0.75rem; font-weight: 800; display: block; }
+  .r-flow-trx { font-size: 0.5rem; color: var(--r-n400); margin-top: 0.0625rem; }
 
-  /* See more */
   .r-see-more-btn {
     width: 100%;
     background: none;
@@ -630,9 +557,7 @@
   }
   .r-see-more-btn:hover { background: var(--r-rose-xs); }
 
-  /* ═══════════════════════════════════════════════════════════
-     DONUT BREAKDOWN — larger, more interactive
-  ═══════════════════════════════════════════════════════════ */
+  /* ─── Donut ─── */
   #r-breakdown-section { animation: r-fade-up .4s ease both .12s; }
   .r-donut-wrap {
     display: flex;
@@ -640,12 +565,7 @@
     align-items: center;
     padding: 1rem;
   }
-  .r-donut-canvas-wrap {
-    position: relative;
-    width: 120px;
-    height: 120px;
-    flex-shrink: 0;
-  }
+  .r-donut-canvas-wrap { position: relative; width: 120px; height: 120px; flex-shrink: 0; }
   .r-donut-canvas { width: 120px !important; height: 120px !important; }
   .r-donut-center {
     position: absolute;
@@ -656,19 +576,8 @@
     justify-content: center;
     pointer-events: none;
   }
-  .r-donut-center-val {
-    font-size: 0.75rem;
-    font-weight: 900;
-    color: var(--r-n900);
-    line-height: 1;
-  }
-  .r-donut-center-sub {
-    font-size: 0.4375rem;
-    color: var(--r-n400);
-    margin-top: 0.125rem;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-  }
+  .r-donut-center-val { font-size: 0.75rem; font-weight: 900; color: var(--r-n900); line-height: 1; }
+  .r-donut-center-sub { font-size: 0.4375rem; color: var(--r-n400); margin-top: 0.125rem; text-transform: uppercase; letter-spacing: .05em; }
   .r-donut-legend { flex: 1; min-width: 0; }
   .r-legend-item {
     display: flex;
@@ -682,83 +591,29 @@
   }
   .r-legend-item:last-child { margin-bottom: 0; }
   .r-legend-item:hover { background: var(--r-n100); }
-  .r-legend-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 2px;
-    flex-shrink: 0;
-  }
-  .r-legend-name {
-    font-size: 0.625rem;
-    color: var(--r-n600);
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .r-legend-pct {
-    font-size: 0.625rem;
-    font-weight: 800;
-    color: var(--r-n700);
-    flex-shrink: 0;
-  }
+  .r-legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .r-legend-name { font-size: 0.625rem; color: var(--r-n600); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .r-legend-pct { font-size: 0.625rem; font-weight: 800; color: var(--r-n700); flex-shrink: 0; }
 
-  /* ═══════════════════════════════════════════════════════════
-     PNL BANNER — improved
-  ═══════════════════════════════════════════════════════════ */
+  /* ─── PNL ─── */
   #r-pnl-section { animation: r-fade-up .4s ease both .14s; }
-  #r-pnl-banner {
-    border-radius: var(--r-lg);
-    overflow: hidden;
-    margin-bottom: 0.75rem;
-  }
+  #r-pnl-banner { border-radius: var(--r-lg); overflow: hidden; margin-bottom: 0.75rem; }
   .r-pnl-top {
     padding: 1.125rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
-  .r-pnl-eyebrow {
-    font-size: 0.5rem;
-    font-weight: 900;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    opacity: .65;
-    margin-bottom: 0.25rem;
-  }
-  .r-pnl-value {
-    font-size: 1.625rem;
-    font-weight: 900;
-    line-height: 1;
-    letter-spacing: -0.02em;
-    animation: r-count .45s ease both;
-  }
+  .r-pnl-eyebrow { font-size: 0.5rem; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; opacity: .65; margin-bottom: 0.25rem; }
+  .r-pnl-value { font-size: 1.625rem; font-weight: 900; line-height: 1; letter-spacing: -0.02em; animation: r-count .45s ease both; }
   .r-pnl-sub { font-size: 0.5625rem; opacity: .55; margin-top: 0.25rem; }
-  .r-pnl-icon {
-    width: 3rem;
-    height: 3rem;
-    border-radius: var(--r-md);
-    background: rgba(255,255,255,.18);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.375rem;
-    flex-shrink: 0;
-  }
-  /* PNL stats row */
-  .r-pnl-stats {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    border-top: 1px solid rgba(255,255,255,.12);
-  }
-  .r-pnl-stat {
-    padding: 0.625rem;
-    text-align: center;
-    border-right: 1px solid rgba(255,255,255,.12);
-  }
+  .r-pnl-icon { width: 3rem; height: 3rem; border-radius: var(--r-md); background: rgba(255,255,255,.18); display: flex; align-items: center; justify-content: center; font-size: 1.375rem; flex-shrink: 0; }
+  .r-pnl-stats { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid rgba(255,255,255,.12); }
+  .r-pnl-stat { padding: 0.625rem; text-align: center; border-right: 1px solid rgba(255,255,255,.12); }
   .r-pnl-stat:last-child { border-right: none; }
   .r-pnl-stat .ps-val { font-size: 0.8125rem; font-weight: 800; color: white; }
   .r-pnl-stat .ps-lbl { font-size: 0.4375rem; color: rgba(255,255,255,.5); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; margin-top: .125rem; }
 
-  /* ─── Aset cards ── */
   .r-aset-card {
     background: var(--r-white);
     border-radius: var(--r-lg);
@@ -767,102 +622,28 @@
     overflow: hidden;
     margin-bottom: 0.5rem;
     transition: transform .12s, box-shadow .12s;
-    animation: r-fade-up .36s ease both;
   }
   .r-aset-card:active { transform: scale(0.985); }
-  .r-aset-top {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.875rem;
-  }
-  .r-aset-emoji {
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 0.75rem;
-    background: var(--r-rose-xs);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.25rem;
-    flex-shrink: 0;
-  }
+  .r-aset-top { display: flex; align-items: center; gap: 0.75rem; padding: 0.875rem; }
+  .r-aset-emoji { width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; background: var(--r-rose-xs); display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0; }
   .r-aset-info { flex: 1; min-width: 0; }
-  .r-aset-name {
-    font-size: 0.8125rem;
-    font-weight: 800;
-    color: var(--r-n900);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-bottom: 0.125rem;
-  }
-  .r-aset-meta {
-    font-size: 0.5625rem;
-    color: var(--r-n400);
-  }
-  /* Allocation bar */
-  .r-aset-alloc {
-    height: 3px;
-    background: var(--r-n100);
-    border-radius: var(--r-full);
-    overflow: hidden;
-    margin-top: 0.375rem;
-  }
-  .r-aset-alloc-fill {
-    height: 100%;
-    border-radius: var(--r-full);
-    transition: width 1s cubic-bezier(.4,0,.2,1);
-    animation: r-bar-grow .9s cubic-bezier(.4,0,.2,1) both;
-  }
-  .r-aset-pnl {
-    text-align: right;
-    flex-shrink: 0;
-  }
-  .r-aset-pnl-val {
-    font-size: 0.8125rem;
-    font-weight: 900;
-    line-height: 1.1;
-    display: block;
-  }
-  .r-aset-pnl-lbl {
-    font-size: 0.4375rem;
-    color: var(--r-n400);
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    font-weight: 700;
-  }
-  .r-aset-stats {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    border-top: 1px solid var(--r-n100);
-  }
-  .r-aset-stat {
-    padding: 0.5625rem 0.375rem;
-    text-align: center;
-    border-right: 1px solid var(--r-n100);
-  }
+  .r-aset-name { font-size: 0.8125rem; font-weight: 800; color: var(--r-n900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 0.125rem; }
+  .r-aset-meta { font-size: 0.5625rem; color: var(--r-n400); }
+  .r-aset-alloc { height: 3px; background: var(--r-n100); border-radius: var(--r-full); overflow: hidden; margin-top: 0.375rem; }
+  .r-aset-alloc-fill { height: 100%; border-radius: var(--r-full); transition: width 1s cubic-bezier(.4,0,.2,1); }
+  .r-aset-pnl { text-align: right; flex-shrink: 0; }
+  .r-aset-pnl-val { font-size: 0.8125rem; font-weight: 900; line-height: 1.1; display: block; }
+  .r-aset-pnl-lbl { font-size: 0.4375rem; color: var(--r-n400); text-transform: uppercase; letter-spacing: .04em; font-weight: 700; }
+  .r-aset-stats { display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1px solid var(--r-n100); }
+  .r-aset-stat { padding: 0.5625rem 0.375rem; text-align: center; border-right: 1px solid var(--r-n100); }
   .r-aset-stat:last-child { border-right: none; }
-  .r-aset-stat .asv {
-    font-size: 0.6875rem;
-    font-weight: 800;
-    display: block;
-    margin-bottom: .0625rem;
-  }
-  .r-aset-stat .asl {
-    font-size: 0.4rem;
-    color: var(--r-n400);
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    font-weight: 800;
-  }
+  .r-aset-stat .asv { font-size: 0.6875rem; font-weight: 800; display: block; margin-bottom: .0625rem; }
+  .r-aset-stat .asl { font-size: 0.4rem; color: var(--r-n400); text-transform: uppercase; letter-spacing: .05em; font-weight: 800; }
 
-  /* ═══════════════════════════════════════════════════════════
-     ASET CHART
-  ═══════════════════════════════════════════════════════════ */
+  /* ─── Aset Chart ─── */
   #r-aset-chart-section { animation: r-fade-up .4s ease both .16s; }
 
-  /* ═══════════════════════════════════════════════════════════
-     EXPORT SECTION
-  ═══════════════════════════════════════════════════════════ */
+  /* ─── Export ─── */
   #r-export-section { animation: r-fade-up .4s ease both .18s; }
   .r-export-info {
     display: flex;
@@ -924,20 +705,13 @@
   .r-export-btn-pri:hover::after { transform: translateX(100%); }
   .r-export-btn-pri:active { transform: scale(0.97); }
 
-  /* ═══════════════════════════════════════════════════════════
-     EMPTY STATE
-  ═══════════════════════════════════════════════════════════ */
-  .r-empty {
-    padding: 2.5rem 1rem;
-    text-align: center;
-  }
+  /* ─── Empty ─── */
+  .r-empty { padding: 2.5rem 1rem; text-align: center; }
   .r-empty-icon { font-size: 2rem; display: block; margin-bottom: 0.5rem; opacity: .25; }
   .r-empty p    { font-size: 0.75rem; font-weight: 700; color: var(--r-n400); margin: 0 0 .25rem; }
   .r-empty span { font-size: 0.5625rem; color: var(--r-n300); }
 
-  /* ═══════════════════════════════════════════════════════════
-     MODAL DETAIL — revamped
-  ═══════════════════════════════════════════════════════════ */
+  /* ─── Modal Detail ─── */
   .r-modal-overlay {
     position: fixed;
     inset: 0;
@@ -962,24 +736,9 @@
     box-shadow: 0 -12px 40px rgba(0,0,0,.14);
     animation: r-slide-up .28s cubic-bezier(.4,0,.2,1) both;
   }
-  .r-modal-handle {
-    width: 2.5rem;
-    height: 3px;
-    background: var(--r-n200);
-    border-radius: var(--r-full);
-    margin: 0.625rem auto 0;
-    flex-shrink: 0;
-  }
-  .r-modal-header {
-    padding: 0.75rem 1rem 0.875rem;
-    flex-shrink: 0;
-  }
-  .r-modal-header-inner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.75rem;
-  }
+  .r-modal-handle { width: 2.5rem; height: 3px; background: var(--r-n200); border-radius: var(--r-full); margin: 0.625rem auto 0; flex-shrink: 0; }
+  .r-modal-header { padding: 0.75rem 1rem 0.875rem; flex-shrink: 0; }
+  .r-modal-header-inner { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
   .r-modal-title { font-size: 0.9375rem; font-weight: 800; color: var(--r-n900); margin: 0; }
   .r-modal-close {
     width: 1.875rem;
@@ -996,22 +755,11 @@
     transition: background .12s;
   }
   .r-modal-close:hover { background: var(--r-n200); }
-  /* Modal summary */
-  .r-modal-summary {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.375rem;
-    margin-bottom: 0.75rem;
-  }
-  .r-modal-sum-cell {
-    background: var(--r-n100);
-    border-radius: var(--r-md);
-    padding: 0.5625rem 0.375rem;
-    text-align: center;
-  }
+  .r-modal-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.375rem; margin-bottom: 0.75rem; }
+  .r-modal-sum-cell { background: var(--r-n100); border-radius: var(--r-md); padding: 0.5625rem 0.375rem; text-align: center; }
   .r-modal-sum-cell .ms-val { font-size: 0.8125rem; font-weight: 800; color: var(--r-n900); display: block; }
   .r-modal-sum-cell .ms-lbl { font-size: 0.4375rem; color: var(--r-n400); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
-  /* Modal search + sort */
+
   .r-modal-toolbar {
     display: flex;
     gap: 0.5rem;
@@ -1021,19 +769,8 @@
     border-bottom: 1px solid var(--r-n100);
     flex-shrink: 0;
   }
-  .r-modal-search-wrap {
-    flex: 1;
-    position: relative;
-  }
-  .r-modal-search-wrap i {
-    position: absolute;
-    left: 0.625rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--r-n400);
-    font-size: 0.625rem;
-    pointer-events: none;
-  }
+  .r-modal-search-wrap { flex: 1; position: relative; }
+  .r-modal-search-wrap i { position: absolute; left: 0.625rem; top: 50%; transform: translateY(-50%); color: var(--r-n400); font-size: 0.625rem; pointer-events: none; }
   .r-modal-search {
     width: 100%;
     background: var(--r-white);
@@ -1062,12 +799,8 @@
     appearance: none;
   }
   .r-modal-sort:focus { border-color: var(--r-rose); }
-  /* Modal list */
-  .r-modal-list {
-    overflow-y: auto;
-    flex: 1;
-    padding: 0.75rem;
-  }
+
+  .r-modal-list { overflow-y: auto; flex: 1; padding: 0.75rem; }
   .r-modal-row {
     display: flex;
     align-items: center;
@@ -1080,34 +813,13 @@
     transition: border-color .12s;
   }
   .r-modal-row:hover { border-color: var(--r-n300); }
-  .r-modal-row-icon {
-    width: 1.875rem;
-    height: 1.875rem;
-    border-radius: 0.5rem;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.625rem;
-    flex-shrink: 0;
-  }
+  .r-modal-row-icon { width: 1.875rem; height: 1.875rem; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; font-size: 0.625rem; flex-shrink: 0; }
   .r-modal-row-info { flex: 1; min-width: 0; }
-  .r-modal-row-main {
-    font-size: 0.6875rem;
-    font-weight: 700;
-    color: var(--r-n700);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    margin: 0 0 0.1875rem;
-  }
+  .r-modal-row-main { font-size: 0.6875rem; font-weight: 700; color: var(--r-n700); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 0 0.1875rem; }
   .r-modal-row-sub { font-size: 0.5rem; color: var(--r-n400); }
-  .r-modal-row-amount {
-    font-size: 0.75rem;
-    font-weight: 800;
-    flex-shrink: 0;
-  }
+  .r-modal-row-amount { font-size: 0.75rem; font-weight: 800; flex-shrink: 0; }
 
-  /* ═══════════════════════════════════════════════════════════
-     EXPORT PREVIEW MODAL
-  ═══════════════════════════════════════════════════════════ */
+  /* ─── Export Preview Modal ─── */
   .r-preview-modal-inner {
     background: white;
     border-radius: 1.375rem;
@@ -1131,20 +843,15 @@
     justify-content: space-between;
   }
 
-  /* Saldo mask */
   .r-mask { color: transparent !important; text-shadow: 0 0 12px rgba(255,255,255,.55); user-select: none; }
-
-  /* Loading spin */
   .r-spin { animation: r-spin .8s linear infinite; display: inline-block; }
 </style>
 
 
-<!-- ══════════════════════════════════════════════════════════
-     ROOT
-══════════════════════════════════════════════════════════ -->
+<!-- ══ ROOT ══════════════════════════════════════════════════════ -->
 <div id="modul-report">
 
-  <!-- ── Period Navigator ── -->
+  <!-- Period Navigator -->
   <div id="r-period-nav">
     <div class="nav-inner">
       <span class="nav-label">Periode</span>
@@ -1162,7 +869,7 @@
     </div>
   </div>
 
-  <!-- ── HERO ── -->
+  <!-- Hero -->
   <div style="padding: 0 0.75rem;">
     <div id="r-hero">
       <div class="hero-top">
@@ -1209,7 +916,6 @@
           </div>
         </div>
       </div>
-      <!-- Sparkline -->
       <div class="r-sparkline-wrap">
         <p class="r-sparkline-label">Tren Saldo 6 Bulan</p>
         <svg class="r-sparkline" id="r-sparkline" viewBox="0 0 300 36" preserveAspectRatio="none">
@@ -1219,68 +925,45 @@
     </div>
   </div>
 
-  <!-- ── Quick Stats ── -->
+  <!-- Quick Stats -->
   <div id="r-stats-strip">
     <div class="r-stat-cell" onclick="rptScrollTo('r-kas-section')">
-      <div class="ci" style="background:var(--r-rose-xs);">
-        <i class="fa-solid fa-arrow-right-arrow-left" style="color:var(--r-rose);"></i>
-      </div>
+      <div class="ci" style="background:var(--r-rose-xs);"><i class="fa-solid fa-arrow-right-arrow-left" style="color:var(--r-rose);"></i></div>
       <span class="cv" id="r-stat-trx">—</span>
       <span class="cl">Transaksi</span>
     </div>
     <div class="r-stat-cell" onclick="rptScrollTo('r-kas-section')">
-      <div class="ci" style="background:var(--r-green-xs);">
-        <i class="fa-solid fa-arrow-down" style="color:var(--r-green);"></i>
-      </div>
+      <div class="ci" style="background:var(--r-green-xs);"><i class="fa-solid fa-arrow-down" style="color:var(--r-green);"></i></div>
       <span class="cv" id="r-stat-trx-masuk">—</span>
       <span class="cl">Trx Masuk</span>
     </div>
     <div class="r-stat-cell" onclick="rptScrollTo('r-pnl-section')">
-      <div class="ci" style="background:var(--r-indigo-lt);">
-        <i class="fa-solid fa-briefcase" style="color:var(--r-indigo);"></i>
-      </div>
+      <div class="ci" style="background:var(--r-indigo-lt);"><i class="fa-solid fa-briefcase" style="color:var(--r-indigo);"></i></div>
       <span class="cv" id="r-stat-aset">—</span>
       <span class="cl">Aset</span>
     </div>
   </div>
 
-  <!-- ── Trend Chart ── -->
+  <!-- Trend Chart -->
   <div class="r-section" id="r-trend-section">
     <div class="r-section-head">
-      <h2>
-        <span class="icon-tag" style="background:#fff1f2;">
-          <i class="fa-solid fa-chart-bar" style="color:var(--r-rose);"></i>
-        </span>
-        Tren 6 Bulan
-      </h2>
+      <h2><span class="icon-tag" style="background:#fff1f2;"><i class="fa-solid fa-chart-bar" style="color:var(--r-rose);"></i></span>Tren 6 Bulan</h2>
     </div>
     <div class="r-card r-card-p">
-      <div class="r-chart-wrap">
-        <canvas id="r-chart-trend"></canvas>
-      </div>
+      <div class="r-chart-wrap"><canvas id="r-chart-trend"></canvas></div>
       <div class="r-chart-legend">
-        <div class="r-chart-legend-item">
-          <div class="r-chart-legend-dot" style="background:#bbf7d0;"></div>Masuk
-        </div>
-        <div class="r-chart-legend-item">
-          <div class="r-chart-legend-dot" style="background:#fecaca;"></div>Keluar
-        </div>
+        <div class="r-chart-legend-item"><div class="r-chart-legend-dot" style="background:#bbf7d0;"></div>Masuk</div>
+        <div class="r-chart-legend-item"><div class="r-chart-legend-dot" style="background:#fecaca;"></div>Keluar</div>
       </div>
     </div>
   </div>
 
-  <!-- ── Arus Kas ── -->
+  <!-- Arus Kas -->
   <div class="r-section" id="r-kas-section">
     <div class="r-section-head">
-      <h2>
-        <span class="icon-tag" style="background:#fff1f2;">
-          <i class="fa-solid fa-wallet" style="color:var(--r-rose);"></i>
-        </span>
-        Arus Kas
-      </h2>
+      <h2><span class="icon-tag" style="background:#fff1f2;"><i class="fa-solid fa-wallet" style="color:var(--r-rose);"></i></span>Arus Kas</h2>
     </div>
     <div class="r-card">
-      <!-- Summary -->
       <div class="r-kas-summary">
         <div class="r-kas-sum-cell">
           <span class="r-kas-sum-label">Total Keluar</span>
@@ -1293,18 +976,14 @@
           <span class="r-kas-sum-count" id="r-sum-masuk-n">0 transaksi</span>
         </div>
       </div>
-      <!-- Tabs -->
       <div class="r-kas-tabs">
         <button class="r-kas-tab active-keluar" id="r-tab-keluar" onclick="rptKasTab('keluar')">
-          <span class="tab-dot"></span>
-          Pengeluaran
+          <span class="tab-dot"></span>Pengeluaran
         </button>
         <button class="r-kas-tab" id="r-tab-masuk" onclick="rptKasTab('masuk')">
-          <span class="tab-dot"></span>
-          Pemasukan
+          <span class="tab-dot"></span>Pemasukan
         </button>
       </div>
-      <!-- List -->
       <div id="r-flow-list" class="r-flow-container"></div>
       <button class="r-see-more-btn" id="r-flow-more-btn" onclick="rptFlowToggle()">
         <i class="fa-solid fa-chevron-down" style="font-size:.5rem;" id="r-flow-more-icon"></i>
@@ -1313,15 +992,10 @@
     </div>
   </div>
 
-  <!-- ── Breakdown Donut ── -->
+  <!-- Donut Breakdown -->
   <div class="r-section" id="r-breakdown-section">
     <div class="r-section-head">
-      <h2>
-        <span class="icon-tag" style="background:#fff1f2;">
-          <i class="fa-solid fa-chart-pie" style="color:var(--r-rose);"></i>
-        </span>
-        Komposisi Pengeluaran
-      </h2>
+      <h2><span class="icon-tag" style="background:#fff1f2;"><i class="fa-solid fa-chart-pie" style="color:var(--r-rose);"></i></span>Komposisi Pengeluaran</h2>
     </div>
     <div class="r-card">
       <div class="r-donut-wrap">
@@ -1341,18 +1015,12 @@
     </div>
   </div>
 
-  <!-- ── PNL + Aset ── -->
+  <!-- PNL + Aset -->
   <div class="r-section" id="r-pnl-section">
     <div class="r-section-head">
-      <h2>
-        <span class="icon-tag" style="background:var(--r-indigo-lt);">
-          <i class="fa-solid fa-chart-line" style="color:var(--r-indigo);"></i>
-        </span>
-        Portofolio Investasi
-      </h2>
+      <h2><span class="icon-tag" style="background:var(--r-indigo-lt);"><i class="fa-solid fa-chart-line" style="color:var(--r-indigo);"></i></span>Portofolio Investasi</h2>
     </div>
 
-    <!-- PNL Banner -->
     <div id="r-pnl-banner" style="background:linear-gradient(135deg,var(--r-rose-dd),var(--r-rose)); color:white;">
       <div class="r-pnl-top">
         <div>
@@ -1363,38 +1031,23 @@
         <div class="r-pnl-icon" id="r-pnl-icon">📈</div>
       </div>
       <div class="r-pnl-stats">
-        <div class="r-pnl-stat">
-          <p class="ps-val" id="r-pnl-modal">Rp 0</p>
-          <p class="ps-lbl">Total Modal</p>
-        </div>
-        <div class="r-pnl-stat">
-          <p class="ps-val" id="r-pnl-cair">Rp 0</p>
-          <p class="ps-lbl">Dana Dicairkan</p>
-        </div>
+        <div class="r-pnl-stat"><p class="ps-val" id="r-pnl-modal">Rp 0</p><p class="ps-lbl">Total Modal</p></div>
+        <div class="r-pnl-stat"><p class="ps-val" id="r-pnl-cair">Rp 0</p><p class="ps-lbl">Dana Dicairkan</p></div>
       </div>
     </div>
 
-    <!-- Aset Chart -->
     <div class="r-card r-card-p" id="r-aset-chart-section" style="margin-bottom:.75rem;">
       <p style="font-size:.5625rem; font-weight:800; color:var(--r-n400); text-transform:uppercase; letter-spacing:.07em; margin:0 0 .75rem;">Modal vs Pencairan per Aset</p>
-      <div class="r-chart-wrap" style="height:140px;">
-        <canvas id="r-chart-aset"></canvas>
-      </div>
+      <div class="r-chart-wrap" style="height:140px;"><canvas id="r-chart-aset"></canvas></div>
     </div>
 
-    <!-- Aset Cards -->
     <div id="r-aset-cards"></div>
   </div>
 
-  <!-- ── Export ── -->
+  <!-- Export -->
   <div class="r-section" id="r-export-section">
     <div class="r-section-head">
-      <h2>
-        <span class="icon-tag" style="background:#fff1f2;">
-          <i class="fa-solid fa-file-pdf" style="color:var(--r-rose);"></i>
-        </span>
-        Ekspor Laporan
-      </h2>
+      <h2><span class="icon-tag" style="background:#fff1f2;"><i class="fa-solid fa-file-pdf" style="color:var(--r-rose);"></i></span>Ekspor Laporan</h2>
     </div>
     <div class="r-card r-card-p">
       <div class="r-export-info">
@@ -1418,39 +1071,26 @@
 </div>
 
 
-<!-- ══════════════════════════════════════════════════════════
-     MODAL: DETAIL TRANSAKSI
-══════════════════════════════════════════════════════════ -->
+<!-- ══ MODAL: DETAIL TRANSAKSI ══════════════════════════════════ -->
 <div id="r-modal-detail" class="hidden r-modal-overlay" onclick="if(event.target===this)rptTutupModal()">
   <div class="r-modal-sheet">
     <div class="r-modal-handle"></div>
     <div class="r-modal-header">
       <div class="r-modal-header-inner">
         <h3 class="r-modal-title" id="r-modal-title">Detail</h3>
-        <button class="r-modal-close" onclick="rptTutupModal()">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
+        <button class="r-modal-close" onclick="rptTutupModal()"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div class="r-modal-summary">
-        <div class="r-modal-sum-cell">
-          <span class="ms-val" id="r-ms-masuk" style="color:var(--r-green);">Rp 0</span>
-          <span class="ms-lbl">Masuk</span>
-        </div>
-        <div class="r-modal-sum-cell">
-          <span class="ms-val" id="r-ms-keluar" style="color:var(--r-red);">Rp 0</span>
-          <span class="ms-lbl">Keluar</span>
-        </div>
-        <div class="r-modal-sum-cell">
-          <span class="ms-val" id="r-ms-count">0</span>
-          <span class="ms-lbl">Transaksi</span>
-        </div>
+        <div class="r-modal-sum-cell"><span class="ms-val" id="r-ms-masuk" style="color:var(--r-green);">Rp 0</span><span class="ms-lbl">Masuk</span></div>
+        <div class="r-modal-sum-cell"><span class="ms-val" id="r-ms-keluar" style="color:var(--r-red);">Rp 0</span><span class="ms-lbl">Keluar</span></div>
+        <div class="r-modal-sum-cell"><span class="ms-val" id="r-ms-count">0</span><span class="ms-lbl">Transaksi</span></div>
       </div>
     </div>
     <div class="r-modal-toolbar">
       <div class="r-modal-search-wrap">
         <i class="fa-solid fa-search"></i>
         <input type="text" id="r-modal-cari" class="r-modal-search"
-               placeholder="Cari tanggal atau catatan…"
+               placeholder="Cari tanggal, catatan, atau akun…"
                oninput="rptModalCari()">
       </div>
       <select class="r-modal-sort" id="r-modal-sort" onchange="rptModalSort()">
@@ -1464,9 +1104,7 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════
-     MODAL: EXPORT PREVIEW
-══════════════════════════════════════════════════════════ -->
+<!-- ══ MODAL: EXPORT PREVIEW ════════════════════════════════════ -->
 <div id="r-modal-preview" class="hidden r-modal-overlay" onclick="if(event.target===this)document.getElementById('r-modal-preview').classList.add('hidden')">
   <div class="r-preview-modal-inner">
     <div class="r-preview-header">
@@ -1482,9 +1120,7 @@
     <div id="r-preview-content" class="thin-scroll" style="overflow-y:auto;flex:1;padding:1rem;display:flex;flex-direction:column;gap:.625rem;"></div>
     <div style="padding:.875rem;border-top:1px solid var(--r-n100);display:flex;gap:.5rem;flex-shrink:0;">
       <button onclick="document.getElementById('r-modal-preview').classList.add('hidden')"
-              style="flex:1;background:var(--r-n100);border:none;border-radius:var(--r-md);padding:.875rem;font-size:.8125rem;font-weight:700;color:var(--r-n700);cursor:pointer;">
-        Batal
-      </button>
+              style="flex:1;background:var(--r-n100);border:none;border-radius:var(--r-md);padding:.875rem;font-size:.8125rem;font-weight:700;color:var(--r-n700);cursor:pointer;">Batal</button>
       <button onclick="rptDoExportPDF()"
               style="flex:2;background:linear-gradient(135deg,var(--r-rose-dd),var(--r-rose));border:none;border-radius:var(--r-md);padding:.875rem;font-size:.8125rem;font-weight:800;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.375rem;box-shadow:0 4px 14px var(--r-rose-glow);">
         <i class="fa-solid fa-file-arrow-down"></i>Download PDF
@@ -1498,171 +1134,223 @@
 /* ═══════════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════════ */
-var _D = { kas:[], aset:[] };
+var _D       = { kas:[], aset:[] };
 var _periode  = 'ALL';
-var _periodes = [];       // ordered list
-var _pIdx     = -1;       // index of current in _periodes ('ALL' = -1)
+var _periodes = [];
+var _pIdx     = -1;
 var _kasTab   = 'keluar';
 var _kasExpanded = false;
 var _kasMap   = { keluar:{}, masuk:{} };
 var _saldoMasked = false;
-var _modalRows = [];
-var _modalRowsAll = [];
+var _saldoValues = {}; // FIX #1 & #2: simpan nilai asli di sini, bukan di el._v
+var _modalRowsAll  = [];
+var _modalRowsFiltered = []; // FIX #5: simpan filtered rows terpisah
 var _exportMode = 'lengkap';
 
 var _charts = { trend:null, donut:null, aset:null };
-var COLORS = ['#e11d48','#f59e0b','#10b981','#6366f1','#8b5cf6','#0ea5e9','#f97316','#84cc16','#ec4899','#14b8a6'];
-var BULAN  = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+var COLORS  = ['#e11d48','#f59e0b','#10b981','#6366f1','#8b5cf6','#0ea5e9','#f97316','#84cc16','#ec4899','#14b8a6'];
+var BULAN   = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
 /* ═══════════════════════════════════════════════════════════
    HELPERS
 ═══════════════════════════════════════════════════════════ */
 function rFmt(n, compact) {
-  n = parseFloat(n)||0;
-  const a=Math.abs(n), s=n<0?'-':'';
+  n = parseFloat(n) || 0;
+  const a = Math.abs(n), s = n < 0 ? '-' : '';
   if (compact) {
-    if (a>=1e9) return s+'Rp '+(a/1e9).toFixed(1)+' M';
-    if (a>=1e6) return s+'Rp '+(a/1e6).toFixed(1)+' jt';
-    if (a>=1e3) return s+'Rp '+(a/1e3).toFixed(0)+' rb';
+    if (a >= 1e9) return s + 'Rp ' + (a / 1e9).toFixed(1) + ' M';
+    if (a >= 1e6) return s + 'Rp ' + (a / 1e6).toFixed(1) + ' jt';
+    if (a >= 1e3) return s + 'Rp ' + (a / 1e3).toFixed(0) + ' rb';
   }
-  return (n<0?'-':'')+'Rp '+Math.abs(n).toLocaleString('id-ID');
+  return (n < 0 ? '-' : '') + 'Rp ' + Math.abs(n).toLocaleString('id-ID');
 }
 function rFmtFull(n) {
-  return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(parseFloat(n)||0);
+  return new Intl.NumberFormat('id-ID', { style:'currency', currency:'IDR', minimumFractionDigits:0 }).format(parseFloat(n) || 0);
 }
+
+// FIX #4: rNormPeriode yang benar-benar handle YYYY-MM-DD
 function rNormPeriode(v) {
   if (!v) return '';
-  if (v instanceof Date) return BULAN[v.getMonth()]+' '+v.getFullYear();
-  var s=String(v).trim();
-  if (/^[A-Za-z]/.test(s)) return s.split(' ').map((p,i)=>i===0?p.charAt(0).toUpperCase()+p.slice(1).toLowerCase():p).join(' ');
-  var p=s.split('-');
-  if (p.length===3) return BULAN[parseInt(p[1],10)-1]+' '+p[0];
+  if (v instanceof Date) return BULAN[v.getMonth()] + ' ' + v.getFullYear();
+  var s = String(v).trim();
+  // "YYYY-MM-DD"
+  var mYMD = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (mYMD) {
+    var bln = parseInt(mYMD[2], 10) - 1;
+    return BULAN[bln] + ' ' + mYMD[1];
+  }
+  // "NamaBulan YYYY" — capitalize bulan pertama
+  if (/^[A-Za-z]/.test(s)) {
+    return s.split(' ').map(function(p, i) {
+      return i === 0 ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : p;
+    }).join(' ');
+  }
   return s;
 }
-function rSortPeriode(a,b) {
-  var pa=String(a).split(' '), pb=String(b).split(' ');
-  var ta=parseInt(pa[pa.length-1])||0, tb=parseInt(pb[pb.length-1])||0;
-  if(ta!==tb) return ta-tb;
-  return BULAN.indexOf(pa[0])-BULAN.indexOf(pb[0]);
+
+function rSortPeriode(a, b) {
+  var pa = String(a).split(' '), pb = String(b).split(' ');
+  var ta = parseInt(pa[pa.length - 1]) || 0, tb = parseInt(pb[pb.length - 1]) || 0;
+  if (ta !== tb) return ta - tb;
+  return BULAN.indexOf(pa[0]) - BULAN.indexOf(pb[0]);
 }
+
+// FIX: rPeriodeSkrg tidak pakai cutoff >= 28 untuk default
 function rPeriodeSkrg() {
-  var d=new Date(), m=d.getMonth(), y=d.getFullYear();
-  if(d.getDate()>=28){m++;if(m>11){m=0;y++;}}
-  return BULAN[m]+' '+y;
+  var d = new Date();
+  return BULAN[d.getMonth()] + ' ' + d.getFullYear();
 }
+
 function rEsc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
-function rScrollTo(id) {
-  var el=document.getElementById(id);
-  if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
+function rptScrollTo(id) {
+  var el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
 }
-// alias used in HTML
-function rptScrollTo(id) { rScrollTo(id); }
+
+// FIX #9: format tanggal YYYY-MM-DD ke DD/MM/YYYY untuk tampilan
+function rFmtTgl(s) {
+  if (!s || s === '-') return '-';
+  var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return m[3] + '/' + m[2] + '/' + m[1];
+  return s;
+}
 
 /* ═══════════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════════ */
 function initModulReport() {
-  _D = {kas:[],aset:[]};
+  _D = { kas:[], aset:[] };
   _periode = 'ALL';
   _periodes = [];
   _pIdx = -1;
   _kasTab = 'keluar';
   _kasExpanded = false;
+  _saldoMasked = false;
+  _saldoValues = {};
 
-  // Spin refresh icon
-  document.getElementById('r-refresh-icon').classList.add('r-spin');
+  // Reset eye icon
+  var eyeIcon = document.getElementById('r-hero-eye-icon');
+  if (eyeIcon) eyeIcon.className = 'fa-solid fa-eye';
 
-  // Show skeleton
+  var refreshIcon = document.getElementById('r-refresh-icon');
+  if (refreshIcon) refreshIcon.classList.add('r-spin');
+
   document.getElementById('r-flow-list').innerHTML = rSkelList(5);
   document.getElementById('r-aset-cards').innerHTML = rSkelList(3, true);
 
   google.script.run
     .withSuccessHandler(function(data) {
-      document.getElementById('r-refresh-icon').classList.remove('r-spin');
+      var ri = document.getElementById('r-refresh-icon');
+      if (ri) ri.classList.remove('r-spin');
       _D.kas  = data.kas  || [];
       _D.aset = data.aset || [];
       _rptBuildPeriodes();
       _rptApply();
     })
     .withFailureHandler(function(err) {
-      document.getElementById('r-refresh-icon').classList.remove('r-spin');
-      Swal.fire({icon:'error',title:'Gagal memuat data',text:err.message,confirmButtonColor:'#e11d48'});
+      var ri = document.getElementById('r-refresh-icon');
+      if (ri) ri.classList.remove('r-spin');
+      Swal.fire({ icon:'error', title:'Gagal memuat data', text:err.message, confirmButtonColor:'#e11d48' });
     })
     .getDataLaporan();
 }
 
 function rSkelList(n, wide) {
-  return Array.from({length:n}).map((_,i)=>`
-    <div style="display:flex;align-items:center;gap:.625rem;padding:.5rem 0;animation-delay:${i*60}ms;" class="r-fade-up">
-      <div class="r-skel" style="width:1.25rem;height:1.25rem;border-radius:.375rem;flex-shrink:0;"></div>
-      <div style="flex:1;">
-        <div class="r-skel" style="height:9px;width:${wide?90:60}%;margin-bottom:5px;"></div>
-        <div class="r-skel" style="height:5px;width:${wide?60:40}%;"></div>
-      </div>
-      <div class="r-skel" style="width:3.5rem;height:14px;border-radius:.375rem;"></div>
-    </div>`).join('');
+  return Array.from({ length: n }).map(function(_, i) {
+    return '<div style="display:flex;align-items:center;gap:.625rem;padding:.5rem 0;" class="r-fade-up">' +
+      '<div class="r-skel" style="width:1.25rem;height:1.25rem;border-radius:.375rem;flex-shrink:0;"></div>' +
+      '<div style="flex:1;">' +
+        '<div class="r-skel" style="height:9px;width:' + (wide ? 90 : 60) + '%;margin-bottom:5px;"></div>' +
+        '<div class="r-skel" style="height:5px;width:' + (wide ? 60 : 40) + '%;"></div>' +
+      '</div>' +
+      '<div class="r-skel" style="width:3.5rem;height:14px;border-radius:.375rem;"></div>' +
+    '</div>';
+  }).join('');
 }
 
 /* ═══════════════════════════════════════════════════════════
-   PERIOD CHIPS + NAVIGATION
+   PERIOD CHIPS + NAV
 ═══════════════════════════════════════════════════════════ */
 function _rptBuildPeriodes() {
   var set = new Set();
-  _D.kas.forEach(r  => { if(r[2]) set.add(rNormPeriode(r[2])); });
-  _D.aset.forEach(r => { if(r[1]) set.add(rNormPeriode(r[1])); });
+  _D.kas.forEach(function(r) { if (r[2]) set.add(rNormPeriode(r[2])); });
+  // FIX #4: aset pakai r[1] (tanggal) untuk derive periode
+  _D.aset.forEach(function(r) { if (r[1]) set.add(rNormPeriode(r[1])); });
   set.add(rPeriodeSkrg());
   _periodes = Array.from(set).filter(Boolean).sort(rSortPeriode);
 
   var skrg = rPeriodeSkrg();
-  _periode = _periodes.includes(skrg) ? skrg : (_periodes.length ? _periodes[_periodes.length-1] : 'ALL');
+  _periode = _periodes.includes(skrg) ? skrg : (_periodes.length ? _periodes[_periodes.length - 1] : 'ALL');
   _pIdx = _periodes.indexOf(_periode);
 
-  // Render chips
-  var html = '<button class="r-chip'+((_periode==='ALL')?' active':'')+'" id="r-chip-ALL" onclick="rptPilihPeriode(\'ALL\')">Semua</button>';
-  _periodes.forEach(p=>{
-    html += `<button class="r-chip${p===_periode?' active':''}" id="r-chip-${rChipId(p)}" onclick="rptPilihPeriode('${rEsc(p)}')">${p}</button>`;
+  var html = '<button class="r-chip' + (_periode === 'ALL' ? ' active' : '') +
+    '" id="r-chip-ALL" onclick="rptPilihPeriode(\'ALL\')">Semua</button>';
+  _periodes.forEach(function(p) {
+    html += '<button class="r-chip' + (p === _periode ? ' active' : '') +
+      '" id="r-chip-' + rChipId(p) + '" onclick="rptPilihPeriode(\'' + rEsc(p) + '\')">' + p + '</button>';
   });
   document.getElementById('r-period-chips-scroll').innerHTML = html;
   _rptScrollChipIntoView(_periode);
 }
 
-function rChipId(p) { return p.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,''); }
+function rChipId(p) { return p.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, ''); }
 
 function _rptScrollChipIntoView(p) {
-  setTimeout(()=>{
-    var id = p==='ALL' ? 'r-chip-ALL' : 'r-chip-'+rChipId(p);
+  setTimeout(function() {
+    var id = p === 'ALL' ? 'r-chip-ALL' : 'r-chip-' + rChipId(p);
     var el = document.getElementById(id);
-    if(el) el.scrollIntoView({inline:'center',behavior:'smooth',block:'nearest'});
-  },100);
+    if (el) el.scrollIntoView({ inline:'center', behavior:'smooth', block:'nearest' });
+  }, 100);
 }
 
 function rptPilihPeriode(p) {
   _periode = p;
   _pIdx = _periodes.indexOf(p);
-  document.querySelectorAll('.r-chip').forEach(el=>el.classList.remove('active'));
-  var el = document.getElementById(p==='ALL'?'r-chip-ALL':'r-chip-'+rChipId(p));
-  if(el) el.classList.add('active');
+  document.querySelectorAll('.r-chip').forEach(function(el) { el.classList.remove('active'); });
+  var el = document.getElementById(p === 'ALL' ? 'r-chip-ALL' : 'r-chip-' + rChipId(p));
+  if (el) el.classList.add('active');
   _rptScrollChipIntoView(p);
   _rptApply();
 }
 
+// FIX #3: Prev → ke periode lebih lama; Next → ke periode lebih baru
 function rptNavPrev() {
-  if (_pIdx > 0) { rptPilihPeriode(_periodes[_pIdx-1]); }
-  else if (_pIdx === 0) { rptPilihPeriode('ALL'); }
+  if (_periode === 'ALL') {
+    // ALL = terbaru dari semua, prev = periode terlama
+    if (_periodes.length) rptPilihPeriode(_periodes[0]);
+  } else if (_pIdx > 0) {
+    rptPilihPeriode(_periodes[_pIdx - 1]);
+  }
 }
 function rptNavNext() {
-  if (_periode === 'ALL' && _periodes.length) { rptPilihPeriode(_periodes[0]); }
-  else if (_pIdx < _periodes.length-1) { rptPilihPeriode(_periodes[_pIdx+1]); }
+  if (_periode === 'ALL') return; // sudah paling "baru" (semua)
+  if (_pIdx < _periodes.length - 1) {
+    rptPilihPeriode(_periodes[_pIdx + 1]);
+  } else {
+    rptPilihPeriode('ALL'); // sudah di periode terbaru, next = ALL
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
    APPLY FILTER & RENDER ALL
 ═══════════════════════════════════════════════════════════ */
 function _rptApply() {
-  var kasF  = _periode==='ALL' ? _D.kas  : _D.kas.filter(r=>rNormPeriode(r[2]).toLowerCase()===_periode.toLowerCase());
-  var asetF = _periode==='ALL' ? _D.aset : _D.aset.filter(r=>rNormPeriode(r[1]).toLowerCase()===_periode.toLowerCase());
+  var kasF = _periode === 'ALL'
+    ? _D.kas
+    : _D.kas.filter(function(r) {
+        return rNormPeriode(r[2]).toLowerCase() === _periode.toLowerCase();
+      });
+
+  // FIX #4 & #8: aset filter pakai r[1] (tanggal YYYY-MM-DD → NamaBulan YYYY)
+  var asetF = _periode === 'ALL'
+    ? _D.aset
+    : _D.aset.filter(function(r) {
+        return rNormPeriode(r[1]).toLowerCase() === _periode.toLowerCase();
+      });
 
   _rptRenderHero(kasF);
   _rptRenderStats(kasF, asetF);
@@ -1678,125 +1366,156 @@ function _rptApply() {
    HERO
 ═══════════════════════════════════════════════════════════ */
 function _rptRenderHero(kasData) {
-  var masuk=0, keluar=0;
-  kasData.forEach(r=>{ masuk+=parseFloat(r[6])||0; keluar+=parseFloat(r[7])||0; });
-  var saldo = masuk-keluar;
-  var pct   = masuk>0 ? Math.min(keluar/masuk*100,100) : 0;
+  var masuk = 0, keluar = 0;
+  kasData.forEach(function(r) { masuk += parseFloat(r[6]) || 0; keluar += parseFloat(r[7]) || 0; });
+  var saldo = masuk - keluar;
+  var pct   = masuk > 0 ? Math.min(keluar / masuk * 100, 100) : 0;
 
-  document.getElementById('r-hero-saldo').innerText  = rFmtFull(saldo);
-  document.getElementById('r-hero-masuk').innerText  = rFmt(masuk,true);
-  document.getElementById('r-hero-keluar').innerText = rFmt(keluar,true);
-  document.getElementById('r-hero-period').innerText = _periode==='ALL'?'Semua periode':_periode;
-  document.getElementById('r-hero-saldo').style.color = saldo<0?'#fca5a5':'white';
+  // FIX #1 & #2: simpan nilai ke _saldoValues, bukan ke el._v
+  // Ini memastikan refresh data tidak merusak nilai yang disimpan untuk mask
+  var vals = {
+    'r-hero-saldo': rFmtFull(saldo),
+    'r-hero-masuk': rFmt(masuk, true),
+    'r-hero-keluar': rFmt(keluar, true)
+  };
+  _saldoValues = vals;
+
+  Object.keys(vals).forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (_saldoMasked) {
+      // Tetap mask, tapi nilai sudah diperbarui di _saldoValues
+      el.innerText = '••••••';
+      el.classList.add('r-mask');
+    } else {
+      el.innerText = vals[id];
+      el.classList.remove('r-mask');
+    }
+  });
+
+  var saldoEl = document.getElementById('r-hero-saldo');
+  if (saldoEl && !_saldoMasked) saldoEl.style.color = saldo < 0 ? '#fca5a5' : 'white';
+
+  var periodEl = document.getElementById('r-hero-period');
+  if (periodEl) periodEl.innerText = _periode === 'ALL' ? 'Semua periode' : _periode;
 
   // Ring
-  var circ = 213.6;
+  var circ   = 213.6;
   var offset = circ - (circ * pct / 100);
-  var ring = document.getElementById('r-ring-fill');
-  ring.style.strokeDashoffset = offset;
-  if      (pct>85) ring.style.stroke='#fca5a5';
-  else if (pct>65) ring.style.stroke='#fde68a';
-  else             ring.style.stroke='#86efac';
-  document.getElementById('r-ring-pct').innerText = Math.round(pct)+'%';
+  var ring   = document.getElementById('r-ring-fill');
+  if (ring) {
+    ring.style.strokeDashoffset = offset;
+    ring.style.stroke = pct > 85 ? '#fca5a5' : pct > 65 ? '#fde68a' : '#86efac';
+  }
+  var ringPct = document.getElementById('r-ring-pct');
+  if (ringPct) ringPct.innerText = Math.round(pct) + '%';
 
   // Health badge
-  var badge=document.getElementById('r-health-badge'), lbl=document.getElementById('r-health-label');
-  if (pct>85||saldo<0) {
-    badge.className='r-health-badge badge-kritis'; lbl.innerText='Kritis!';
-  } else if (pct>65) {
-    badge.className='r-health-badge badge-hati-hati'; lbl.innerText='Hati-hati';
-  } else {
-    badge.className='r-health-badge badge-sehat'; lbl.innerText='Keuangan Sehat';
+  var badge = document.getElementById('r-health-badge'), lbl = document.getElementById('r-health-label');
+  if (badge && lbl) {
+    if (pct > 85 || saldo < 0) {
+      badge.className = 'r-health-badge badge-kritis'; lbl.innerText = 'Kritis!';
+    } else if (pct > 65) {
+      badge.className = 'r-health-badge badge-hati-hati'; lbl.innerText = 'Hati-hati';
+    } else {
+      badge.className = 'r-health-badge badge-sehat'; lbl.innerText = 'Keuangan Sehat';
+    }
   }
 
-  if(_saldoMasked) _rptApplyMask();
-
-  // Sparkline
   _rptDrawSparkline();
 }
 
 function _rptDrawSparkline() {
-  var trendMap={};
-  _D.kas.forEach(r=>{
-    var p=rNormPeriode(r[2]); if(!p) return;
-    if(!trendMap[p]) trendMap[p]={masuk:0,keluar:0};
-    trendMap[p].masuk  += parseFloat(r[6])||0;
-    trendMap[p].keluar += parseFloat(r[7])||0;
+  var trendMap = {};
+  _D.kas.forEach(function(r) {
+    var p = rNormPeriode(r[2]); if (!p) return;
+    if (!trendMap[p]) trendMap[p] = { masuk:0, keluar:0 };
+    trendMap[p].masuk  += parseFloat(r[6]) || 0;
+    trendMap[p].keluar += parseFloat(r[7]) || 0;
   });
-  var periods=Object.keys(trendMap).sort(rSortPeriode).slice(-8);
-  if(!periods.length) return;
-  var saldos=periods.map(p=>trendMap[p].masuk-trendMap[p].keluar);
-  var mn=Math.min(...saldos), mx=Math.max(...saldos);
-  var range=mx-mn||1;
-  var W=300, H=36, pad=4;
-  var pts=saldos.map((v,i)=>{
-    var x=pad+(i/(saldos.length-1||1))*(W-pad*2);
-    var y=pad+(1-(v-mn)/range)*(H-pad*2);
-    return [x,y];
+  var periods = Object.keys(trendMap).sort(rSortPeriode).slice(-8);
+  if (!periods.length) return;
+  var saldos = periods.map(function(p) { return trendMap[p].masuk - trendMap[p].keluar; });
+  var mn = Math.min.apply(null, saldos), mx = Math.max.apply(null, saldos);
+  var range = mx - mn || 1;
+  var W = 300, H = 36, pad = 4;
+  var pts = saldos.map(function(v, i) {
+    return [
+      pad + (i / (saldos.length - 1 || 1)) * (W - pad * 2),
+      pad + (1 - (v - mn) / range) * (H - pad * 2)
+    ];
   });
-  var path='M'+pts.map(p=>p.join(',')).join(' L');
-  var fill=path+' L'+pts[pts.length-1][0]+','+H+' L'+pts[0][0]+','+H+' Z';
-  var svgEl=document.getElementById('r-sparkline');
-  svgEl.innerHTML=`
-    <defs>
-      <linearGradient id="spk-grad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="rgba(255,255,255,.35)"/>
-        <stop offset="100%" stop-color="rgba(255,255,255,.02)"/>
-      </linearGradient>
-    </defs>
-    <path d="${fill}" fill="url(#spk-grad)" stroke="none"/>
-    <path d="${path}" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-    ${pts.map((p,i)=>i===pts.length-1?`<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="white"/>`:'').join('')}
-  `;
+  var path = 'M' + pts.map(function(p) { return p.join(','); }).join(' L');
+  var fill = path + ' L' + pts[pts.length-1][0] + ',' + H + ' L' + pts[0][0] + ',' + H + ' Z';
+  var svgEl = document.getElementById('r-sparkline');
+  if (!svgEl) return;
+  svgEl.innerHTML =
+    '<defs><linearGradient id="spk-grad" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="rgba(255,255,255,.35)"/>' +
+      '<stop offset="100%" stop-color="rgba(255,255,255,.02)"/>' +
+    '</linearGradient></defs>' +
+    '<path d="' + fill + '" fill="url(#spk-grad)" stroke="none"/>' +
+    '<path d="' + path + '" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+    pts.map(function(p, i) {
+      return i === pts.length - 1 ? '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="2.5" fill="white"/>' : '';
+    }).join('');
 }
 
 /* ═══════════════════════════════════════════════════════════
    STATS
 ═══════════════════════════════════════════════════════════ */
 function _rptRenderStats(kasData, asetData) {
-  var masukTrx=kasData.filter(r=>parseFloat(r[6])>0).length;
-  document.getElementById('r-stat-trx').innerText      = kasData.length;
-  document.getElementById('r-stat-trx-masuk').innerText = masukTrx;
-  var asetSet=new Set(); asetData.forEach(r=>{if(r[4])asetSet.add(r[4]);});
-  document.getElementById('r-stat-aset').innerText = asetSet.size;
+  // FIX #11: hitung trx masuk dengan benar — cek debit (r[6]) > 0
+  var masukTrx = kasData.filter(function(r) { return (parseFloat(r[6]) || 0) > 0; }).length;
+  var trxEl = document.getElementById('r-stat-trx');
+  var masukEl = document.getElementById('r-stat-trx-masuk');
+  var asetEl = document.getElementById('r-stat-aset');
+  if (trxEl) trxEl.innerText = kasData.length;
+  if (masukEl) masukEl.innerText = masukTrx;
+  var asetSet = new Set();
+  asetData.forEach(function(r) { if (r[4]) asetSet.add(r[4]); });
+  if (asetEl) asetEl.innerText = asetSet.size;
 }
 
 /* ═══════════════════════════════════════════════════════════
    TREND CHART
 ═══════════════════════════════════════════════════════════ */
 function _rptRenderTrend() {
-  var trendMap={};
-  _D.kas.forEach(r=>{
-    var p=rNormPeriode(r[2]); if(!p) return;
-    if(!trendMap[p]) trendMap[p]={masuk:0,keluar:0};
-    trendMap[p].masuk  +=parseFloat(r[6])||0;
-    trendMap[p].keluar +=parseFloat(r[7])||0;
+  var trendMap = {};
+  _D.kas.forEach(function(r) {
+    var p = rNormPeriode(r[2]); if (!p) return;
+    if (!trendMap[p]) trendMap[p] = { masuk:0, keluar:0 };
+    trendMap[p].masuk  += parseFloat(r[6]) || 0;
+    trendMap[p].keluar += parseFloat(r[7]) || 0;
   });
-  var periods=Object.keys(trendMap).sort(rSortPeriode).slice(-6);
-  var labels =periods.map(p=>{var pt=p.split(' ');return (pt[0]||'').substring(0,3)+(pt[1]?'''+pt[1].substring(2):'');});
-  var masukD =periods.map(p=>trendMap[p].masuk);
-  var keluarD=periods.map(p=>trendMap[p].keluar);
+  var periods = Object.keys(trendMap).sort(rSortPeriode).slice(-6);
+  var labels  = periods.map(function(p) {
+    var pt = p.split(' ');
+    return (pt[0] || '').substring(0, 3) + (pt[1] ? '\'' + pt[1].substring(2) : '');
+  });
+  var masukD  = periods.map(function(p) { return trendMap[p].masuk; });
+  var keluarD = periods.map(function(p) { return trendMap[p].keluar; });
 
-  var ctx=document.getElementById('r-chart-trend').getContext('2d');
-  if(_charts.trend) _charts.trend.destroy();
-  _charts.trend=new Chart(ctx,{
-    type:'bar',
-    data:{
-      labels,
-      datasets:[
-        {label:'Masuk', data:masukD, backgroundColor:'#bbf7d0', borderColor:'#16a34a', borderWidth:1.5, borderRadius:5, borderSkipped:false},
-        {label:'Keluar',data:keluarD,backgroundColor:'#fecaca', borderColor:'#dc2626', borderWidth:1.5, borderRadius:5, borderSkipped:false}
+  var ctx = document.getElementById('r-chart-trend').getContext('2d');
+  if (_charts.trend) { _charts.trend.destroy(); _charts.trend = null; }
+  _charts.trend = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        { label:'Masuk',  data:masukD,  backgroundColor:'#bbf7d0', borderColor:'#16a34a', borderWidth:1.5, borderRadius:5, borderSkipped:false },
+        { label:'Keluar', data:keluarD, backgroundColor:'#fecaca', borderColor:'#dc2626', borderWidth:1.5, borderRadius:5, borderSkipped:false }
       ]
     },
-    options:{
-      responsive:true, maintainAspectRatio:false, animation:{duration:600},
-      plugins:{
-        legend:{display:false},
-        tooltip:{callbacks:{label:c=>c.dataset.label+': '+rFmtFull(c.raw)}}
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: { duration:600 },
+      plugins: {
+        legend: { display:false },
+        tooltip: { callbacks: { label: function(c) { return c.dataset.label + ': ' + rFmtFull(c.raw); } } }
       },
-      scales:{
-        x:{grid:{display:false}, ticks:{font:{size:8},maxRotation:0}},
-        y:{display:false}
+      scales: {
+        x: { grid:{ display:false }, ticks:{ font:{ size:8 }, maxRotation:0 } },
+        y: { display:false }
       }
     }
   });
@@ -1806,83 +1525,93 @@ function _rptRenderTrend() {
    ARUS KAS
 ═══════════════════════════════════════════════════════════ */
 function _rptBuildKasMap(kasData) {
-  _kasMap={keluar:{},masuk:{}};
-  var totK=0,totM=0,nK=0,nM=0;
-  kasData.forEach(r=>{
-    var item=r[4]||'-', debit=parseFloat(r[6])||0, kredit=parseFloat(r[7])||0;
-    if(kredit>0){
-      if(!_kasMap.keluar[item])_kasMap.keluar[item]={total:0,rows:[]};
-      _kasMap.keluar[item].total+=kredit; _kasMap.keluar[item].rows.push(r);
-      totK+=kredit; nK++;
+  _kasMap = { keluar:{}, masuk:{} };
+  var totK = 0, totM = 0, nK = 0, nM = 0;
+  kasData.forEach(function(r) {
+    var item   = r[4] || '-';
+    var debit  = parseFloat(r[6]) || 0;
+    var kredit = parseFloat(r[7]) || 0;
+    if (kredit > 0) {
+      if (!_kasMap.keluar[item]) _kasMap.keluar[item] = { total:0, rows:[] };
+      _kasMap.keluar[item].total += kredit;
+      _kasMap.keluar[item].rows.push(r);
+      totK += kredit; nK++;
     }
-    if(debit>0){
-      if(!_kasMap.masuk[item])_kasMap.masuk[item]={total:0,rows:[]};
-      _kasMap.masuk[item].total+=debit; _kasMap.masuk[item].rows.push(r);
-      totM+=debit; nM++;
+    if (debit > 0) {
+      if (!_kasMap.masuk[item]) _kasMap.masuk[item] = { total:0, rows:[] };
+      _kasMap.masuk[item].total += debit;
+      _kasMap.masuk[item].rows.push(r);
+      totM += debit; nM++;
     }
   });
-  document.getElementById('r-sum-keluar').innerText   = rFmt(totK,true);
-  document.getElementById('r-sum-masuk').innerText    = rFmt(totM,true);
-  document.getElementById('r-sum-keluar-n').innerText = nK+' transaksi';
-  document.getElementById('r-sum-masuk-n').innerText  = nM+' transaksi';
+  var sumK = document.getElementById('r-sum-keluar');
+  var sumM = document.getElementById('r-sum-masuk');
+  var sumKn = document.getElementById('r-sum-keluar-n');
+  var sumMn = document.getElementById('r-sum-masuk-n');
+  if (sumK) sumK.innerText  = rFmt(totK, true);
+  if (sumM) sumM.innerText  = rFmt(totM, true);
+  if (sumKn) sumKn.innerText = nK + ' transaksi';
+  if (sumMn) sumMn.innerText = nM + ' transaksi';
 }
 
 function rptKasTab(tab) {
-  _kasTab=tab; _kasExpanded=false;
-  var tK=document.getElementById('r-tab-keluar'), tM=document.getElementById('r-tab-masuk');
-  tK.className='r-kas-tab'+(tab==='keluar'?' active-keluar':'');
-  tM.className='r-kas-tab'+(tab==='masuk'?' active-masuk':'');
+  _kasTab = tab;
+  _kasExpanded = false;
+  var tK = document.getElementById('r-tab-keluar'), tM = document.getElementById('r-tab-masuk');
+  if (tK) tK.className = 'r-kas-tab' + (tab === 'keluar' ? ' active-keluar' : '');
+  if (tM) tM.className = 'r-kas-tab' + (tab === 'masuk' ? ' active-masuk' : '');
   _rptRenderKas();
 }
 
 function _rptRenderKas() {
-  var src=_kasMap[_kasTab];
-  var entries=Object.entries(src).sort((a,b)=>b[1].total-a[1].total);
-  var maxVal=entries.length?entries[0][1].total:1;
-  var shown=_kasExpanded?entries:entries.slice(0,6);
-  var color=_kasTab==='keluar'?'var(--r-red)':'var(--r-green)';
-  var moreBtn=document.getElementById('r-flow-more-btn');
+  var src     = _kasMap[_kasTab] || {};
+  var entries = Object.entries(src).sort(function(a, b) { return b[1].total - a[1].total; });
+  var maxVal  = entries.length ? entries[0][1].total : 1;
+  var shown   = _kasExpanded ? entries : entries.slice(0, 6);
+  var color   = _kasTab === 'keluar' ? 'var(--r-red)' : 'var(--r-green)';
+  var moreBtn = document.getElementById('r-flow-more-btn');
 
-  if(!entries.length){
-    document.getElementById('r-flow-list').innerHTML=`
-      <div class="r-empty">
-        <span class="r-empty-icon">📂</span>
-        <p>Belum ada data ${_kasTab==='keluar'?'pengeluaran':'pemasukan'}</p>
-        <span>Catat transaksi di menu Arus Kas</span>
-      </div>`;
-    moreBtn.style.display='none';
+  if (!entries.length) {
+    document.getElementById('r-flow-list').innerHTML =
+      '<div class="r-empty"><span class="r-empty-icon">📂</span>' +
+      '<p>Belum ada data ' + (_kasTab === 'keluar' ? 'pengeluaran' : 'pemasukan') + '</p>' +
+      '<span>Catat transaksi di menu Arus Kas</span></div>';
+    if (moreBtn) moreBtn.style.display = 'none';
     return;
   }
 
-  moreBtn.style.display='';
-  document.getElementById('r-flow-more-icon').className='fa-solid fa-chevron-'+(_kasExpanded?'up':'down')+' '+'';
-  document.getElementById('r-flow-more-icon').style.fontSize='.5rem';
-  document.getElementById('r-flow-more-text').innerText=_kasExpanded?'Tutup':'Lihat semua ('+entries.length+')';
+  if (moreBtn) moreBtn.style.display = '';
+  var moreIcon = document.getElementById('r-flow-more-icon');
+  var moreText = document.getElementById('r-flow-more-text');
+  if (moreIcon) moreIcon.className = 'fa-solid fa-chevron-' + (_kasExpanded ? 'up' : 'down');
+  if (moreIcon) moreIcon.style.fontSize = '.5rem';
+  if (moreText) moreText.innerText = _kasExpanded ? 'Tutup' : 'Lihat semua (' + entries.length + ')';
 
-  var html=shown.map((entry,i)=>{
-    var nama=entry[0], val=entry[1].total, jml=entry[1].rows.length;
-    var pct=maxVal>0?(val/maxVal*100):0;
-    var c=COLORS[i%COLORS.length];
-    var enc=encodeURIComponent(nama);
-    return `<div class="r-flow-item" data-stagger="${Math.min(i,4)}" style="animation-delay:${i*40}ms;" onclick="rptBukaDetail('${enc}','${_kasTab}')">
-      <div class="r-flow-rank" style="background:${c}22; color:${c};">${i+1}</div>
-      <div class="r-flow-info">
-        <div class="r-flow-name">${rEsc(nama)}</div>
-        <div class="r-flow-bar-track">
-          <div class="r-flow-bar-fill" style="width:${pct.toFixed(1)}%;background:${color};animation-delay:${i*60}ms;"></div>
-        </div>
-      </div>
-      <div class="r-flow-right">
-        <span class="r-flow-amount" style="color:${color};">${rFmt(val,true)}</span>
-        <span class="r-flow-trx">${jml} trx</span>
-      </div>
-    </div>`;
+  // FIX #14: tidak pakai animation class langsung agar tidak double-animate
+  var html = shown.map(function(entry, i) {
+    var nama = entry[0], val = entry[1].total, jml = entry[1].rows.length;
+    var pct  = maxVal > 0 ? (val / maxVal * 100) : 0;
+    var c    = COLORS[i % COLORS.length];
+    var enc  = encodeURIComponent(nama);
+    return '<div class="r-flow-item" onclick="rptBukaDetail(\'' + enc + '\',\'' + _kasTab + '\')">' +
+      '<div class="r-flow-rank" style="background:' + c + '22; color:' + c + ';">' + (i + 1) + '</div>' +
+      '<div class="r-flow-info">' +
+        '<div class="r-flow-name">' + rEsc(nama) + '</div>' +
+        '<div class="r-flow-bar-track">' +
+          '<div class="r-flow-bar-fill" style="width:' + pct.toFixed(1) + '%;background:' + color + ';"></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="r-flow-right">' +
+        '<span class="r-flow-amount" style="color:' + color + ';">' + rFmt(val, true) + '</span>' +
+        '<span class="r-flow-trx">' + jml + ' trx</span>' +
+      '</div>' +
+    '</div>';
   }).join('');
-  document.getElementById('r-flow-list').innerHTML=html;
+  document.getElementById('r-flow-list').innerHTML = html;
 }
 
 function rptFlowToggle() {
-  _kasExpanded=!_kasExpanded;
+  _kasExpanded = !_kasExpanded;
   _rptRenderKas();
 }
 
@@ -1890,462 +1619,605 @@ function rptFlowToggle() {
    DONUT
 ═══════════════════════════════════════════════════════════ */
 function _rptRenderDonut() {
-  var src=_kasMap['keluar'];
-  var entries=Object.entries(src).sort((a,b)=>b[1].total-a[1].total).slice(0,8);
-  var total=entries.reduce((s,e)=>s+e[1].total,0);
-  var canvas=document.getElementById('r-chart-donut');
-  if(_charts.donut){_charts.donut.destroy();_charts.donut=null;}
+  var src     = _kasMap['keluar'] || {};
+  var entries = Object.entries(src).sort(function(a, b) { return b[1].total - a[1].total; }).slice(0, 8);
+  var total   = entries.reduce(function(s, e) { return s + e[1].total; }, 0);
+  var canvas  = document.getElementById('r-chart-donut');
+  if (_charts.donut) { _charts.donut.destroy(); _charts.donut = null; }
 
-  document.getElementById('r-donut-center-val').innerText=entries.length||'—';
+  var centerVal = document.getElementById('r-donut-center-val');
+  if (centerVal) centerVal.innerText = entries.length || '—';
 
-  if(!entries.length){
-    document.getElementById('r-donut-legend').innerHTML='<p style="font-size:.625rem;color:var(--r-n400);">Belum ada data</p>';
+  if (!entries.length) {
+    var leg = document.getElementById('r-donut-legend');
+    if (leg) leg.innerHTML = '<p style="font-size:.625rem;color:var(--r-n400);">Belum ada data</p>';
     return;
   }
 
-  var colors=entries.map((_,i)=>COLORS[i%COLORS.length]);
-  _charts.donut=new Chart(canvas.getContext('2d'),{
-    type:'doughnut',
-    data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1].total),backgroundColor:colors,borderWidth:2,borderColor:'white',hoverBorderWidth:3}]},
-    options:{
-      responsive:false, maintainAspectRatio:false, animation:{duration:700},
-      plugins:{
-        legend:{display:false},
-        tooltip:{callbacks:{label:c=>c.label+': '+rFmtFull(c.raw)+' ('+((c.raw/total)*100).toFixed(1)+'%)'}}
+  var colors = entries.map(function(_, i) { return COLORS[i % COLORS.length]; });
+  _charts.donut = new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: entries.map(function(e) { return e[0]; }),
+      datasets: [{ data: entries.map(function(e) { return e[1].total; }), backgroundColor: colors, borderWidth:2, borderColor:'white', hoverBorderWidth:3 }]
+    },
+    options: {
+      responsive: false, maintainAspectRatio: false, animation: { duration:700 },
+      plugins: {
+        legend: { display:false },
+        tooltip: { callbacks: { label: function(c) { return c.label + ': ' + rFmtFull(c.raw) + ' (' + ((c.raw / total) * 100).toFixed(1) + '%)'; } } }
       },
-      cutout:'72%',
-      onHover:(e,el)=>{
-        canvas.style.cursor=el.length?'pointer':'default';
-      }
+      cutout: '72%',
+      onHover: function(e, el) { canvas.style.cursor = el.length ? 'pointer' : 'default'; }
     }
   });
-  canvas.onclick=(e)=>{
-    var pts=_charts.donut.getElementsAtEventForMode(e,'nearest',{intersect:true},false);
-    if(pts.length){ var i=pts[0].index; rptBukaDetail(encodeURIComponent(entries[i][0]),'keluar'); }
+  canvas.onclick = function(e) {
+    var pts = _charts.donut.getElementsAtEventForMode(e, 'nearest', { intersect:true }, false);
+    if (pts.length) rptBukaDetail(encodeURIComponent(entries[pts[0].index][0]), 'keluar');
   };
 
-  // Legend
-  var legHtml=entries.map((entry,i)=>{
-    var pct=total>0?((entry[1].total/total)*100).toFixed(0):0;
-    var shortN=entry[0].length>22?entry[0].substring(0,20)+'…':entry[0];
-    return `<div class="r-legend-item" onclick="rptBukaDetail('${encodeURIComponent(entry[0])}','keluar')">
-      <span class="r-legend-dot" style="background:${colors[i]};"></span>
-      <span class="r-legend-name">${rEsc(shortN)}</span>
-      <span class="r-legend-pct">${pct}%</span>
-    </div>`;
+  var legHtml = entries.map(function(entry, i) {
+    var pct     = total > 0 ? ((entry[1].total / total) * 100).toFixed(0) : 0;
+    var shortN  = entry[0].length > 22 ? entry[0].substring(0, 20) + '…' : entry[0];
+    return '<div class="r-legend-item" onclick="rptBukaDetail(\'' + encodeURIComponent(entry[0]) + '\',\'keluar\')">' +
+      '<span class="r-legend-dot" style="background:' + colors[i] + ';"></span>' +
+      '<span class="r-legend-name">' + rEsc(shortN) + '</span>' +
+      '<span class="r-legend-pct">' + pct + '%</span>' +
+    '</div>';
   }).join('');
-  document.getElementById('r-donut-legend').innerHTML=legHtml;
+  var legEl = document.getElementById('r-donut-legend');
+  if (legEl) legEl.innerHTML = legHtml;
 }
 
 /* ═══════════════════════════════════════════════════════════
    ASET
 ═══════════════════════════════════════════════════════════ */
 function _rptRenderAset(asetData) {
-  var beliMap={}, rekapItem={};
-  var pnlTotal=0, totalModal=0, totalCair=0;
+  var beliMap = {}, rekapItem = {};
+  var pnlTotal = 0, totalModal = 0, totalCair = 0;
 
-  asetData.forEach(r=>{
-    var id=String(r[0]).trim(), tipe=String(r[5]).trim();
-    if(tipe==='BELI'&&id) beliMap[id]={harga:parseFloat(r[7])||0,qty:parseFloat(r[6])||0,total:parseFloat(r[8])||0};
+  asetData.forEach(function(r) {
+    var id   = String(r[0]).trim(), tipe = String(r[5]).trim();
+    if (tipe === 'BELI' && id) {
+      beliMap[id] = { harga: parseFloat(r[7]) || 0, qty: parseFloat(r[6]) || 0, total: parseFloat(r[8]) || 0 };
+    }
   });
 
-  asetData.forEach(r=>{
-    var item=String(r[4]).trim(); if(!item) return;
-    var tipe=String(r[5]).trim(), kat=String(r[3]).trim(), plt=String(r[2]).trim();
-    var qty=parseFloat(r[6])||0, total=parseFloat(r[8])||0, idRef=String(r[9]).trim();
-    if(!rekapItem[item]) rekapItem[item]={qtyBeli:0,nilaiBeli:0,qtyJual:0,nilaiJual:0,hpJual:0,kat,plt};
-    if(tipe==='BELI'){ rekapItem[item].qtyBeli+=qty; rekapItem[item].nilaiBeli+=total; totalModal+=total; }
-    else if(tipe==='JUAL'){
-      rekapItem[item].qtyJual+=qty; rekapItem[item].nilaiJual+=total; totalCair+=total;
-      var hBeli=(idRef&&idRef!=='-'&&beliMap[idRef])?beliMap[idRef].harga:0;
-      var hp=hBeli*qty; rekapItem[item].hpJual+=hp;
-      pnlTotal+=(total-hp);
+  asetData.forEach(function(r) {
+    var item  = String(r[4]).trim(); if (!item) return;
+    var tipe  = String(r[5]).trim(), kat = String(r[3]).trim(), plt = String(r[2]).trim();
+    var qty   = parseFloat(r[6]) || 0, total = parseFloat(r[8]) || 0, idRef = String(r[9]).trim();
+    if (!rekapItem[item]) rekapItem[item] = { qtyBeli:0, nilaiBeli:0, qtyJual:0, nilaiJual:0, hpJual:0, kat:kat, plt:plt };
+    if (tipe === 'BELI') {
+      rekapItem[item].qtyBeli += qty;
+      rekapItem[item].nilaiBeli += total;
+      totalModal += total;
+    } else if (tipe === 'JUAL') {
+      rekapItem[item].qtyJual += qty;
+      rekapItem[item].nilaiJual += total;
+      totalCair += total;
+      var hBeli = (idRef && idRef !== '-' && beliMap[idRef]) ? beliMap[idRef].harga : 0;
+      var hp = hBeli * qty;
+      rekapItem[item].hpJual += hp;
+      pnlTotal += (total - hp);
     }
   });
 
   // PNL banner
-  var banner=document.getElementById('r-pnl-banner'), icon=document.getElementById('r-pnl-icon');
-  document.getElementById('r-pnl-nilai').innerText=rFmtFull(pnlTotal);
-  document.getElementById('r-pnl-modal').innerText=rFmt(totalModal,true);
-  document.getElementById('r-pnl-cair').innerText =rFmt(totalCair,true);
-  if(pnlTotal>0){
-    banner.style.background='linear-gradient(135deg,#9f1239,#e11d48)'; icon.innerHTML='📈';
-    document.getElementById('r-pnl-nilai').style.color='white';
-  } else if(pnlTotal<0){
-    banner.style.background='linear-gradient(135deg,#991b1b,#dc2626)'; icon.innerHTML='📉';
-    document.getElementById('r-pnl-nilai').style.color='#fecaca';
-  } else {
-    banner.style.background='linear-gradient(135deg,#3730a3,#4f46e5)'; icon.innerHTML='📊';
-    document.getElementById('r-pnl-nilai').style.color='white';
+  var banner = document.getElementById('r-pnl-banner');
+  var icon   = document.getElementById('r-pnl-icon');
+  var pnlEl  = document.getElementById('r-pnl-nilai');
+  var modalEl = document.getElementById('r-pnl-modal');
+  var cairEl  = document.getElementById('r-pnl-cair');
+  if (pnlEl) pnlEl.innerText = rFmtFull(pnlTotal);
+  if (modalEl) modalEl.innerText = rFmt(totalModal, true);
+  if (cairEl) cairEl.innerText  = rFmt(totalCair, true);
+  if (banner && icon && pnlEl) {
+    if (pnlTotal > 0) {
+      banner.style.background = 'linear-gradient(135deg,#9f1239,#e11d48)';
+      icon.innerHTML = '📈';
+      pnlEl.style.color = 'white';
+    } else if (pnlTotal < 0) {
+      banner.style.background = 'linear-gradient(135deg,#991b1b,#dc2626)';
+      icon.innerHTML = '📉';
+      pnlEl.style.color = '#fecaca';
+    } else {
+      banner.style.background = 'linear-gradient(135deg,#3730a3,#4f46e5)';
+      icon.innerHTML = '📊';
+      pnlEl.style.color = 'white';
+    }
   }
 
   // Aset chart
-  var entries=Object.entries(rekapItem);
-  if(entries.length){
-    var labels=entries.map(e=>e[0].length>12?e[0].substring(0,10)+'…':e[0]);
-    var ctx=document.getElementById('r-chart-aset').getContext('2d');
-    if(_charts.aset) _charts.aset.destroy();
-    _charts.aset=new Chart(ctx,{
-      type:'bar',
-      data:{labels,datasets:[
-        {label:'Modal',     data:entries.map(e=>e[1].nilaiBeli), backgroundColor:'#fbcfe8',borderColor:'#e11d48',borderWidth:1.5,borderRadius:5,borderSkipped:false},
-        {label:'Dicairkan', data:entries.map(e=>e[1].nilaiJual), backgroundColor:'#bbf7d0',borderColor:'#16a34a',borderWidth:1.5,borderRadius:5,borderSkipped:false}
-      ]},
-      options:{
-        responsive:true,maintainAspectRatio:false,animation:{duration:600},
-        plugins:{legend:{position:'bottom',labels:{boxWidth:8,font:{size:8},padding:8}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+rFmtFull(c.raw)}}},
-        scales:{x:{grid:{display:false},ticks:{font:{size:7},maxRotation:20}},y:{display:false}}
+  var entries = Object.entries(rekapItem);
+  if (entries.length) {
+    var labels = entries.map(function(e) { return e[0].length > 12 ? e[0].substring(0, 10) + '…' : e[0]; });
+    var ctx = document.getElementById('r-chart-aset').getContext('2d');
+    if (_charts.aset) { _charts.aset.destroy(); _charts.aset = null; }
+    _charts.aset = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          { label:'Modal',     data: entries.map(function(e) { return e[1].nilaiBeli; }), backgroundColor:'#fbcfe8', borderColor:'#e11d48', borderWidth:1.5, borderRadius:5, borderSkipped:false },
+          { label:'Dicairkan', data: entries.map(function(e) { return e[1].nilaiJual; }), backgroundColor:'#bbf7d0', borderColor:'#16a34a', borderWidth:1.5, borderRadius:5, borderSkipped:false }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: { duration:600 },
+        plugins: {
+          legend: { position:'bottom', labels:{ boxWidth:8, font:{ size:8 }, padding:8 } },
+          tooltip: { callbacks: { label: function(c) { return c.dataset.label + ': ' + rFmtFull(c.raw); } } }
+        },
+        scales: { x:{ grid:{ display:false }, ticks:{ font:{ size:7 }, maxRotation:20 } }, y:{ display:false } }
       }
     });
   }
 
   // Aset cards
-  var sorted=entries.sort((a,b)=>b[1].nilaiBeli-a[1].nilaiBeli);
-  var emojiMap={emas:'🪙',gold:'🪙',perak:'🥈',silver:'🥈',reksa:'📊',saham:'📈',crypto:'💎',bitcoin:'💎',deposito:'🏦',obligasi:'📜'};
-  function getEmoji(k){ var l=(k||'').toLowerCase(); for(var key in emojiMap){if(l.includes(key))return emojiMap[key];} return '💰'; }
+  var sorted = entries.sort(function(a, b) { return b[1].nilaiBeli - a[1].nilaiBeli; });
+  var emojiMap = { emas:'🪙', gold:'🪙', perak:'🥈', silver:'🥈', reksa:'📊', saham:'📈', crypto:'💎', bitcoin:'💎', deposito:'🏦', obligasi:'📜' };
+  function getEmoji(k) {
+    var l = (k || '').toLowerCase();
+    for (var key in emojiMap) { if (l.includes(key)) return emojiMap[key]; }
+    return '💰';
+  }
 
-  if(!sorted.length){
-    document.getElementById('r-aset-cards').innerHTML=`<div class="r-empty"><span class="r-empty-icon">💼</span><p>Belum ada data aset</p><span>Catat pembelian aset di menu Transaksi</span></div>`;
+  if (!sorted.length) {
+    var cardsEl = document.getElementById('r-aset-cards');
+    if (cardsEl) cardsEl.innerHTML =
+      '<div class="r-empty"><span class="r-empty-icon">💼</span>' +
+      '<p>Belum ada data aset</p>' +
+      '<span>Catat pembelian aset di menu Transaksi</span></div>';
     return;
   }
 
-  var html=sorted.map((entry,i)=>{
-    var nama=entry[0], d=entry[1];
-    var sisa=d.nilaiBeli-d.nilaiJual;
-    var pnl=d.nilaiJual-d.hpJual;
-    var jualPct=d.nilaiBeli>0?Math.min(d.nilaiJual/d.nilaiBeli*100,100).toFixed(1):0;
-    var pnlC=pnl>0?'var(--r-green)':pnl<0?'var(--r-red)':'var(--r-n400)';
-    var pnlSign=pnl>=0?'+':'';
-    var hasDijual=d.nilaiJual>0;
-    return `<div class="r-aset-card r-fade-up" data-stagger="${Math.min(i,4)}" style="animation-delay:${i*50}ms;">
-      <div class="r-aset-top">
-        <div class="r-aset-emoji">${getEmoji(d.kat)}</div>
-        <div class="r-aset-info">
-          <div class="r-aset-name">${rEsc(nama)}</div>
-          <div class="r-aset-meta">${rEsc(d.plt||'-')} · ${rEsc(d.kat||'-')}</div>
-          <div class="r-aset-alloc">
-            <div class="r-aset-alloc-fill" style="width:${jualPct}%;background:var(--r-rose);animation-delay:${i*80}ms;"></div>
-          </div>
-        </div>
-        <div class="r-aset-pnl">
-          <span class="r-aset-pnl-val" style="color:${hasDijual?pnlC:'var(--r-n300)'};">${hasDijual?pnlSign+rFmt(pnl,true):'—'}</span>
-          <span class="r-aset-pnl-lbl">${hasDijual?'PNL':'Belum dijual'}</span>
-        </div>
-      </div>
-      <div class="r-aset-stats">
-        <div class="r-aset-stat">
-          <span class="asv" style="color:var(--r-rose);">${rFmt(d.nilaiBeli,true)}</span>
-          <span class="asl">Modal</span>
-        </div>
-        <div class="r-aset-stat">
-          <span class="asv" style="color:var(--r-indigo);">${rFmt(Math.max(sisa,0),true)}</span>
-          <span class="asl">Sisa</span>
-        </div>
-        <div class="r-aset-stat">
-          <span class="asv" style="color:var(--r-green);">${rFmt(d.nilaiJual,true)}</span>
-          <span class="asl">Dicairkan</span>
-        </div>
-      </div>
-    </div>`;
+  var html = sorted.map(function(entry, i) {
+    var nama = entry[0], d = entry[1];
+    var sisa  = d.nilaiBeli - d.nilaiJual;
+    var pnl   = d.nilaiJual - d.hpJual;
+    var jualPct = d.nilaiBeli > 0 ? Math.min(d.nilaiJual / d.nilaiBeli * 100, 100).toFixed(1) : 0;
+    var pnlC  = pnl > 0 ? 'var(--r-green)' : pnl < 0 ? 'var(--r-red)' : 'var(--r-n400)';
+    var pnlSign = pnl >= 0 ? '+' : '';
+    var hasDijual = d.nilaiJual > 0;
+    return '<div class="r-aset-card">' +
+      '<div class="r-aset-top">' +
+        '<div class="r-aset-emoji">' + getEmoji(d.kat) + '</div>' +
+        '<div class="r-aset-info">' +
+          '<div class="r-aset-name">' + rEsc(nama) + '</div>' +
+          '<div class="r-aset-meta">' + rEsc(d.plt || '-') + ' · ' + rEsc(d.kat || '-') + '</div>' +
+          '<div class="r-aset-alloc"><div class="r-aset-alloc-fill" style="width:' + jualPct + '%;background:var(--r-rose);"></div></div>' +
+        '</div>' +
+        '<div class="r-aset-pnl">' +
+          '<span class="r-aset-pnl-val" style="color:' + (hasDijual ? pnlC : 'var(--r-n300)') + ';">' + (hasDijual ? pnlSign + rFmt(pnl, true) : '—') + '</span>' +
+          '<span class="r-aset-pnl-lbl">' + (hasDijual ? 'PNL' : 'Belum dijual') + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="r-aset-stats">' +
+        '<div class="r-aset-stat"><span class="asv" style="color:var(--r-rose);">' + rFmt(d.nilaiBeli, true) + '</span><span class="asl">Modal</span></div>' +
+        '<div class="r-aset-stat"><span class="asv" style="color:var(--r-indigo);">' + rFmt(Math.max(sisa, 0), true) + '</span><span class="asl">Sisa</span></div>' +
+        '<div class="r-aset-stat"><span class="asv" style="color:var(--r-green);">' + rFmt(d.nilaiJual, true) + '</span><span class="asl">Dicairkan</span></div>' +
+      '</div>' +
+    '</div>';
   }).join('');
-  document.getElementById('r-aset-cards').innerHTML=html;
+  var cardsEl = document.getElementById('r-aset-cards');
+  if (cardsEl) cardsEl.innerHTML = html;
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SALDO MASK
+   SALDO MASK — FIX #1 & #2
 ═══════════════════════════════════════════════════════════ */
 function rptToggleSaldo() {
-  _saldoMasked=!_saldoMasked;
-  document.getElementById('r-hero-eye-icon').className='fa-solid fa-eye'+(  _saldoMasked?'-slash':'');
+  _saldoMasked = !_saldoMasked;
+  var eyeIcon = document.getElementById('r-hero-eye-icon');
+  if (eyeIcon) eyeIcon.className = 'fa-solid fa-eye' + (_saldoMasked ? '-slash' : '');
   _rptApplyMask();
 }
+
 function _rptApplyMask() {
-  ['r-hero-saldo','r-hero-masuk','r-hero-keluar'].forEach(id=>{
-    var el=document.getElementById(id); if(!el) return;
-    if(_saldoMasked){
-      if(!el._v) el._v=el.innerText;
-      el.innerText='••••••'; el.classList.add('r-mask');
+  var ids = ['r-hero-saldo', 'r-hero-masuk', 'r-hero-keluar'];
+  ids.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (_saldoMasked) {
+      el.innerText = '••••••';
+      el.classList.add('r-mask');
     } else {
-      if(el._v) el.innerText=el._v; el.classList.remove('r-mask');
+      // Ambil dari _saldoValues, bukan el._v — FIX utama
+      if (_saldoValues[id]) el.innerText = _saldoValues[id];
+      el.classList.remove('r-mask');
+      // Restore warna saldo
+      if (id === 'r-hero-saldo') {
+        var saldoStr = _saldoValues[id] || '';
+        el.style.color = saldoStr.indexOf('-') !== -1 ? '#fca5a5' : 'white';
+      }
     }
   });
 }
 
 /* ═══════════════════════════════════════════════════════════
-   MODAL DETAIL
+   MODAL DETAIL — FIX #5, #6, #7
 ═══════════════════════════════════════════════════════════ */
 function rptBukaDetail(encodedNama, tipe) {
-  var nama=decodeURIComponent(encodedNama);
-  var src=_kasMap[tipe]&&_kasMap[tipe][nama];
-  if(!src) return;
+  var nama = decodeURIComponent(encodedNama);
+  var src  = _kasMap[tipe] && _kasMap[tipe][nama];
+  if (!src) return;
 
-  document.getElementById('r-modal-title').innerText=nama;
-  document.getElementById('r-modal-cari').value='';
-  document.getElementById('r-modal-sort').value='tgl-desc';
+  var titleEl = document.getElementById('r-modal-title');
+  if (titleEl) titleEl.innerText = nama;
 
-  var rows=src.rows.slice();
-  _modalRowsAll=rows;
-  _rptModalApplySort(rows);
+  var cariEl = document.getElementById('r-modal-cari');
+  var sortEl = document.getElementById('r-modal-sort');
+  if (cariEl) cariEl.value = '';
+  if (sortEl) sortEl.value = 'tgl-desc';
 
-  var sumM=rows.reduce((s,r)=>s+(parseFloat(r[6])||0),0);
-  var sumK=rows.reduce((s,r)=>s+(parseFloat(r[7])||0),0);
-  document.getElementById('r-ms-masuk').innerText  = rFmt(sumM,true);
-  document.getElementById('r-ms-keluar').innerText = rFmt(sumK,true);
-  document.getElementById('r-ms-count').innerText  = rows.length;
+  var rows = src.rows.slice();
+  _modalRowsAll      = rows;
+  _modalRowsFiltered = rows.slice(); // FIX #5: init filtered = all
+
+  _rptModalApplySort(); // FIX #5: sort pada _modalRowsFiltered
+
+  var sumM = rows.reduce(function(s, r) { return s + (parseFloat(r[6]) || 0); }, 0);
+  var sumK = rows.reduce(function(s, r) { return s + (parseFloat(r[7]) || 0); }, 0);
+  var msM  = document.getElementById('r-ms-masuk');
+  var msK  = document.getElementById('r-ms-keluar');
+  var msC  = document.getElementById('r-ms-count');
+  if (msM) msM.innerText  = rFmt(sumM, true);
+  if (msK) msK.innerText  = rFmt(sumK, true);
+  if (msC) msC.innerText  = rows.length;
 
   document.getElementById('r-modal-detail').classList.remove('hidden');
 }
-function rptTutupModal() { document.getElementById('r-modal-detail').classList.add('hidden'); }
 
-function _rptModalApplySort(rows) {
-  var sort=document.getElementById('r-modal-sort').value;
-  var sorted=[...rows];
-  if(sort==='tgl-desc') sorted.sort((a,b)=>String(b[1]).localeCompare(String(a[1])));
-  else if(sort==='tgl-asc') sorted.sort((a,b)=>String(a[1]).localeCompare(String(b[1])));
-  else if(sort==='nom-desc') sorted.sort((a,b)=>(parseFloat(b[6]||0)+parseFloat(b[7]||0))-(parseFloat(a[6]||0)+parseFloat(a[7]||0)));
-  else sorted.sort((a,b)=>(parseFloat(a[6]||0)+parseFloat(a[7]||0))-(parseFloat(b[6]||0)+parseFloat(b[7]||0)));
-  _modalRows=sorted;
-  _rptRenderModalList(_modalRows);
+function rptTutupModal() {
+  document.getElementById('r-modal-detail').classList.add('hidden');
 }
-function rptModalSort() { _rptModalApplySort(_modalRowsAll); }
+
+// FIX #5: sort hanya pada _modalRowsFiltered, bukan _modalRowsAll
+function _rptModalApplySort() {
+  var sortEl = document.getElementById('r-modal-sort');
+  var sort   = sortEl ? sortEl.value : 'tgl-desc';
+  var sorted = _modalRowsFiltered.slice();
+  if (sort === 'tgl-desc') {
+    sorted.sort(function(a, b) { return String(b[1]).localeCompare(String(a[1])); });
+  } else if (sort === 'tgl-asc') {
+    sorted.sort(function(a, b) { return String(a[1]).localeCompare(String(b[1])); });
+  } else if (sort === 'nom-desc') {
+    sorted.sort(function(a, b) { return ((parseFloat(b[6]) || 0) + (parseFloat(b[7]) || 0)) - ((parseFloat(a[6]) || 0) + (parseFloat(a[7]) || 0)); });
+  } else {
+    sorted.sort(function(a, b) { return ((parseFloat(a[6]) || 0) + (parseFloat(a[7]) || 0)) - ((parseFloat(b[6]) || 0) + (parseFloat(b[7]) || 0)); });
+  }
+  _rptRenderModalList(sorted);
+}
+
+// FIX #5: saat sort berubah, sort filtered set (bukan all)
+function rptModalSort() {
+  _rptModalApplySort();
+}
+
+// FIX #5 & #7: filter pada all, update filtered, lalu sort
 function rptModalCari() {
-  var q=document.getElementById('r-modal-cari').value.toLowerCase();
-  var filtered=_modalRowsAll.filter(r=>String(r[1]||'').toLowerCase().includes(q)||String(r[5]||'').toLowerCase().includes(q));
-  _modalRows=filtered;
-  _rptRenderModalList(filtered);
+  var cariEl = document.getElementById('r-modal-cari');
+  var q = cariEl ? cariEl.value.toLowerCase() : '';
+  if (!q) {
+    _modalRowsFiltered = _modalRowsAll.slice();
+  } else {
+    _modalRowsFiltered = _modalRowsAll.filter(function(r) {
+      // FIX #7: filter berdasarkan tanggal (r[1]), nama akun (r[4]), dan catatan (r[5])
+      return String(r[1] || '').toLowerCase().includes(q) ||
+             String(r[4] || '').toLowerCase().includes(q) ||
+             String(r[5] || '').toLowerCase().includes(q);
+    });
+  }
+  _rptModalApplySort(); // sort hasil filter
 }
 
+// FIX #6: tampilkan r[1]=tanggal dan r[5]=catatan dengan benar
 function _rptRenderModalList(rows) {
-  var container=document.getElementById('r-modal-list');
-  if(!rows.length){
-    container.innerHTML=`<div class="r-empty"><span class="r-empty-icon">📭</span><p>Tidak ada transaksi</p></div>`;
+  var container = document.getElementById('r-modal-list');
+  if (!container) return;
+  if (!rows.length) {
+    container.innerHTML =
+      '<div class="r-empty"><span class="r-empty-icon">📭</span><p>Tidak ada transaksi</p></div>';
     return;
   }
-  container.innerHTML=rows.map((r,i)=>{
-    var debit=parseFloat(r[6])||0, kredit=parseFloat(r[7])||0;
-    var isIn=debit>0, nom=isIn?debit:kredit;
-    var color=isIn?'var(--r-green)':'var(--r-red)';
-    var bg=isIn?'var(--r-green-xs)':'var(--r-red-xs)';
-    return `<div class="r-modal-row" style="animation:r-fade-up .25s ease both ${Math.min(i,8)*30}ms;">
-      <div class="r-modal-row-icon" style="background:${bg};">
-        <i class="fa-solid fa-${isIn?'arrow-down':'arrow-up'}" style="color:${color};"></i>
-      </div>
-      <div class="r-modal-row-info">
-        <p class="r-modal-row-main">${rEsc(r[5]||'-')}</p>
-        <p class="r-modal-row-sub">${r[1]||'-'} · ${rNormPeriode(r[2])||'-'}</p>
-      </div>
-      <span class="r-modal-row-amount" style="color:${color};">${isIn?'+':'-'}${rFmt(nom,true)}</span>
-    </div>`;
+  container.innerHTML = rows.map(function(r, i) {
+    var debit  = parseFloat(r[6]) || 0;
+    var kredit = parseFloat(r[7]) || 0;
+    var isIn   = debit > 0;
+    var nom    = isIn ? debit : kredit;
+    var color  = isIn ? 'var(--r-green)' : 'var(--r-red)';
+    var bg     = isIn ? 'var(--r-green-xs)' : 'var(--r-red-xs)';
+    // FIX #6: r[1] = tanggal (format ke DD/MM/YYYY), r[5] = catatan
+    var tglStr = rFmtTgl(r[1]);     // "2025-01-15" → "15/01/2025"
+    var catatan = r[5] || '-';
+    return '<div class="r-modal-row">' +
+      '<div class="r-modal-row-icon" style="background:' + bg + ';">' +
+        '<i class="fa-solid fa-' + (isIn ? 'arrow-down' : 'arrow-up') + '" style="color:' + color + ';"></i>' +
+      '</div>' +
+      '<div class="r-modal-row-info">' +
+        '<p class="r-modal-row-main">' + rEsc(catatan) + '</p>' +
+        '<p class="r-modal-row-sub">' + tglStr + ' · ' + rNormPeriode(r[2] || '') + '</p>' +
+      '</div>' +
+      '<span class="r-modal-row-amount" style="color:' + color + ';">' + (isIn ? '+' : '-') + rFmt(nom, true) + '</span>' +
+    '</div>';
   }).join('');
 }
 
 /* ═══════════════════════════════════════════════════════════
-   EXPORT
+   EXPORT — FIX #8: capture _periode di awal
 ═══════════════════════════════════════════════════════════ */
 function _rptUpdateExportLabel() {
-  var el=document.getElementById('r-export-periode');
-  if(el) el.innerText=_periode==='ALL'?'Semua Periode':_periode;
+  var el = document.getElementById('r-export-periode');
+  if (el) el.innerText = _periode === 'ALL' ? 'Semua Periode' : _periode;
 }
 
 function rptExport(mode) {
-  _exportMode=mode||'lengkap';
-  if(mode==='ringkas') _rptShowPreview();
+  _exportMode = mode || 'lengkap';
+  if (mode === 'ringkas') _rptShowPreview();
   else rptDoExportPDF();
 }
 
 function _rptShowPreview() {
-  var filterFn=r=>_periode==='ALL'||rNormPeriode(r[2]).toLowerCase()===_periode.toLowerCase();
-  var kasData=_D.kas.filter(filterFn);
-  var totMasuk=0, totKeluar=0;
-  kasData.forEach(r=>{totMasuk+=parseFloat(r[6])||0; totKeluar+=parseFloat(r[7])||0;});
-  var saldo=totMasuk-totKeluar;
-  var labelPer=_periode==='ALL'?'Semua Periode':_periode;
+  // FIX #8: capture _periode di awal
+  var periodeSnapshot = _periode;
+  var filterFn = function(r) {
+    return periodeSnapshot === 'ALL' ||
+           rNormPeriode(r[2]).toLowerCase() === periodeSnapshot.toLowerCase();
+  };
+  var kasData   = _D.kas.filter(filterFn);
+  var totMasuk  = 0, totKeluar = 0;
+  kasData.forEach(function(r) { totMasuk += parseFloat(r[6]) || 0; totKeluar += parseFloat(r[7]) || 0; });
+  var saldo    = totMasuk - totKeluar;
+  var labelPer = periodeSnapshot === 'ALL' ? 'Semua Periode' : periodeSnapshot;
 
-  document.getElementById('r-preview-content').innerHTML=`
-    <div style="background:var(--r-n100);border-radius:var(--r-md);padding:.875rem;">
-      <p style="font-size:.5rem;font-weight:900;color:var(--r-n400);text-transform:uppercase;letter-spacing:.08em;margin:0 0 .25rem;">Periode</p>
-      <p style="font-size:.9375rem;font-weight:800;color:var(--r-n900);margin:0;">${labelPer}</p>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
-      <div style="background:var(--r-green-xs);border:1px solid var(--r-green-lt);border-radius:var(--r-md);padding:.75rem;text-align:center;">
-        <p style="font-size:.4375rem;color:var(--r-n400);font-weight:800;text-transform:uppercase;letter-spacing:.07em;margin:0 0 .25rem;">Total Masuk</p>
-        <p style="font-size:.875rem;font-weight:900;color:var(--r-green);margin:0;">${rFmtFull(totMasuk)}</p>
-      </div>
-      <div style="background:var(--r-red-xs);border:1px solid var(--r-red-lt);border-radius:var(--r-md);padding:.75rem;text-align:center;">
-        <p style="font-size:.4375rem;color:var(--r-n400);font-weight:800;text-transform:uppercase;letter-spacing:.07em;margin:0 0 .25rem;">Total Keluar</p>
-        <p style="font-size:.875rem;font-weight:900;color:var(--r-red);margin:0;">${rFmtFull(totKeluar)}</p>
-      </div>
-    </div>
-    <div style="background:linear-gradient(135deg,var(--r-rose-dd),var(--r-rose));border-radius:var(--r-md);padding:1rem;text-align:center;">
-      <p style="font-size:.4375rem;color:rgba(255,255,255,.6);font-weight:900;text-transform:uppercase;letter-spacing:.1em;margin:0 0 .375rem;">Saldo Bersih</p>
-      <p style="font-size:1.5rem;font-weight:900;color:white;margin:0;">${rFmtFull(saldo)}</p>
-    </div>
-    <div style="background:var(--r-n100);border-radius:var(--r-md);padding:.75rem;text-align:center;">
-      <p style="font-size:.4375rem;color:var(--r-n400);font-weight:800;text-transform:uppercase;margin:0 0 .25rem;">Jumlah Transaksi</p>
-      <p style="font-size:1.125rem;font-weight:900;color:var(--r-n900);margin:0;">${kasData.length} transaksi</p>
-    </div>`;
+  var contentEl = document.getElementById('r-preview-content');
+  if (contentEl) contentEl.innerHTML =
+    '<div style="background:var(--r-n100);border-radius:var(--r-md);padding:.875rem;">' +
+      '<p style="font-size:.5rem;font-weight:900;color:var(--r-n400);text-transform:uppercase;letter-spacing:.08em;margin:0 0 .25rem;">Periode</p>' +
+      '<p style="font-size:.9375rem;font-weight:800;color:var(--r-n900);margin:0;">' + labelPer + '</p>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">' +
+      '<div style="background:var(--r-green-xs);border:1px solid var(--r-green-lt);border-radius:var(--r-md);padding:.75rem;text-align:center;">' +
+        '<p style="font-size:.4375rem;color:var(--r-n400);font-weight:800;text-transform:uppercase;letter-spacing:.07em;margin:0 0 .25rem;">Total Masuk</p>' +
+        '<p style="font-size:.875rem;font-weight:900;color:var(--r-green);margin:0;">' + rFmtFull(totMasuk) + '</p>' +
+      '</div>' +
+      '<div style="background:var(--r-red-xs);border:1px solid var(--r-red-lt);border-radius:var(--r-md);padding:.75rem;text-align:center;">' +
+        '<p style="font-size:.4375rem;color:var(--r-n400);font-weight:800;text-transform:uppercase;letter-spacing:.07em;margin:0 0 .25rem;">Total Keluar</p>' +
+        '<p style="font-size:.875rem;font-weight:900;color:var(--r-red);margin:0;">' + rFmtFull(totKeluar) + '</p>' +
+      '</div>' +
+    '</div>' +
+    '<div style="background:linear-gradient(135deg,var(--r-rose-dd),var(--r-rose));border-radius:var(--r-md);padding:1rem;text-align:center;">' +
+      '<p style="font-size:.4375rem;color:rgba(255,255,255,.6);font-weight:900;text-transform:uppercase;letter-spacing:.1em;margin:0 0 .375rem;">Saldo Bersih</p>' +
+      '<p style="font-size:1.5rem;font-weight:900;color:white;margin:0;">' + rFmtFull(saldo) + '</p>' +
+    '</div>' +
+    '<div style="background:var(--r-n100);border-radius:var(--r-md);padding:.75rem;text-align:center;">' +
+      '<p style="font-size:.4375rem;color:var(--r-n400);font-weight:800;text-transform:uppercase;margin:0 0 .25rem;">Jumlah Transaksi</p>' +
+      '<p style="font-size:1.125rem;font-weight:900;color:var(--r-n900);margin:0;">' + kasData.length + ' transaksi</p>' +
+    '</div>';
   document.getElementById('r-modal-preview').classList.remove('hidden');
 }
 
 async function rptDoExportPDF() {
+  // FIX #8: capture _periode di awal sebelum async dimulai
+  var periodeSnapshot = _periode;
+  var exportModeSnapshot = _exportMode;
+
   document.getElementById('r-modal-preview').classList.add('hidden');
-  Swal.fire({title:'Membuat PDF…',html:'<i class="fa-solid fa-spinner fa-spin" style="font-size:2rem;color:#e11d48;"></i>',allowOutsideClick:false,showConfirmButton:false});
+  Swal.fire({
+    title: 'Membuat PDF…',
+    html: '<i class="fa-solid fa-spinner fa-spin" style="font-size:2rem;color:#e11d48;"></i>',
+    allowOutsideClick: false,
+    showConfirmButton: false
+  });
 
   try {
-    if(typeof window.jspdf==='undefined') throw new Error('Library jsPDF belum dimuat.');
-    const {jsPDF}=window.jspdf;
-    const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-    const W=210,H=297,ML=15,MR=15,CW=W-ML-MR;
-    const PINK=[225,29,72],DPINK=[159,18,57],PINK_LT=[254,205,211];
-    const GREEN=[22,163,74],RED=[220,38,38];
-    const GRAY=[107,114,128],LGRAY=[241,245,249],BLACK=[17,24,39],WHITE=[255,255,255];
+    if (typeof window.jspdf === 'undefined') throw new Error('Library jsPDF belum dimuat.');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+    const W=210, H=297, ML=15, MR=15, CW=W-ML-MR;
+    const PINK=[225,29,72], DPINK=[159,18,57], PINK_LT=[254,205,211];
+    const GREEN=[22,163,74], RED=[220,38,38];
+    const GRAY=[107,114,128], LGRAY=[241,245,249], BLACK=[17,24,39], WHITE=[255,255,255];
 
-    const periode=_periode;
-    const filterFn=r=>periode==='ALL'||rNormPeriode(r[2]).toLowerCase()===periode.toLowerCase();
-    const kasData=_D.kas.filter(filterFn);
-    const labelPer=periode==='ALL'?'Semua Periode':periode;
-    const tglCetak=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    // FIX #8: gunakan periodeSnapshot bukan _periode
+    const filterFn = r => periodeSnapshot === 'ALL' ||
+      rNormPeriode(r[2]).toLowerCase() === periodeSnapshot.toLowerCase();
+    const kasData  = _D.kas.filter(filterFn);
+    const labelPer = periodeSnapshot === 'ALL' ? 'Semua Periode' : periodeSnapshot;
+    const tglCetak = new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
 
-    let totMasuk=0,totKeluar=0;
-    const akunMap={},trxPerAkun={};
-    kasData.forEach(row=>{
-      const item=row[4]||'-',debit=parseFloat(row[6])||0,kredit=parseFloat(row[7])||0;
-      totMasuk+=debit; totKeluar+=kredit;
-      if(!akunMap[item]) akunMap[item]={debit:0,kredit:0,jml:0};
-      akunMap[item].debit+=debit; akunMap[item].kredit+=kredit; akunMap[item].jml++;
-      if(!trxPerAkun[item]) trxPerAkun[item]=[];
-      trxPerAkun[item].push({tgl:row[1],per:row[2],tipe:row[3],catat:row[5],debit,kredit});
+    let totMasuk=0, totKeluar=0;
+    const akunMap={}, trxPerAkun={};
+    kasData.forEach(row => {
+      const item=row[4]||'-', debit=parseFloat(row[6])||0, kredit=parseFloat(row[7])||0;
+      totMasuk += debit; totKeluar += kredit;
+      if (!akunMap[item]) akunMap[item] = { debit:0, kredit:0, jml:0 };
+      akunMap[item].debit += debit; akunMap[item].kredit += kredit; akunMap[item].jml++;
+      if (!trxPerAkun[item]) trxPerAkun[item] = [];
+      // FIX #6 dalam PDF: simpan row lengkap untuk referensi
+      trxPerAkun[item].push({ tgl:row[1], per:row[2], tipe:row[3], catat:row[5], debit, kredit });
     });
-    const saldo=totMasuk-totKeluar;
-    const sortedAkun=Object.entries(akunMap).sort((a,b)=>(b[1].kredit+b[1].debit)-(a[1].kredit+a[1].debit));
-    const fmtRp=n=>{const a=Math.abs(n),s=n<0?'-':'';if(a>=1e9)return s+'Rp '+(a/1e9).toFixed(2)+' M';if(a>=1e6)return s+'Rp '+(a/1e6).toFixed(2)+' jt';return s+'Rp '+a.toLocaleString('id-ID');};
+    const saldo = totMasuk - totKeluar;
+    const sortedAkun = Object.entries(akunMap).sort((a,b) => (b[1].kredit+b[1].debit)-(a[1].kredit+a[1].debit));
+    const fmtRp = n => {
+      const a=Math.abs(n), s=n<0?'-':'';
+      if(a>=1e9) return s+'Rp '+(a/1e9).toFixed(2)+' M';
+      if(a>=1e6) return s+'Rp '+(a/1e6).toFixed(2)+' jt';
+      return s+'Rp '+a.toLocaleString('id-ID');
+    };
 
-    let pageNum=1;
-    const addFooter=()=>{doc.setFontSize(6);doc.setTextColor(...GRAY);doc.setFont('helvetica','italic');doc.text('Dicetak: '+tglCetak+' | Laporan Keuangan Pribadi | Konfidensial',W/2,H-6,{align:'center'});};
-    const addHeader=label=>{doc.setFillColor(...LGRAY);doc.rect(0,0,W,10,'F');doc.setFontSize(7);doc.setTextColor(...GRAY);doc.setFont('helvetica','normal');doc.text('LAPORAN KEUANGAN — '+labelPer.toUpperCase(),ML,6.5);doc.text(label,W/2,6.5,{align:'center'});doc.text('Hal. '+pageNum,W-MR,6.5,{align:'right'});doc.setDrawColor(...PINK);doc.setLineWidth(.4);doc.line(0,10,W,10);return 15;};
-    const newPage=label=>{addFooter();doc.addPage();pageNum++;return addHeader(label);};
+    let pageNum = 1;
+    const addFooter = () => {
+      doc.setFontSize(6); doc.setTextColor(...GRAY); doc.setFont('helvetica','italic');
+      doc.text('Dicetak: '+tglCetak+' | Laporan Keuangan Pribadi | Konfidensial', W/2, H-6, {align:'center'});
+    };
+    const addHeader = label => {
+      doc.setFillColor(...LGRAY); doc.rect(0,0,W,10,'F');
+      doc.setFontSize(7); doc.setTextColor(...GRAY); doc.setFont('helvetica','normal');
+      doc.text('LAPORAN KEUANGAN — '+labelPer.toUpperCase(), ML, 6.5);
+      doc.text(label, W/2, 6.5, {align:'center'});
+      doc.text('Hal. '+pageNum, W-MR, 6.5, {align:'right'});
+      doc.setDrawColor(...PINK); doc.setLineWidth(.4); doc.line(0,10,W,10);
+      return 15;
+    };
+    const newPage = label => { addFooter(); doc.addPage(); pageNum++; return addHeader(label); };
 
     // COVER
     doc.setFillColor(...DPINK); doc.rect(0,0,W,H*.42,'F');
-    doc.setFillColor(...PINK);  doc.circle(W+8,-8,55,'F');
-    doc.setFillColor(136,19,55);doc.circle(-15,H*.42+15,40,'F');
+    doc.setFillColor(...PINK); doc.circle(W+8,-8,55,'F');
+    doc.setFillColor(136,19,55); doc.circle(-15,H*.42+15,40,'F');
     doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(9);
-    doc.text('LAPORAN KEUANGAN PRIBADI',W/2,45,{align:'center'});
-    doc.setFontSize(22); doc.text('Ringkasan Finansial',W/2,60,{align:'center'});
+    doc.text('LAPORAN KEUANGAN PRIBADI', W/2, 45, {align:'center'});
+    doc.setFontSize(22); doc.text('Ringkasan Finansial', W/2, 60, {align:'center'});
     doc.setFont('helvetica','normal'); doc.setFontSize(12);
-    doc.text(labelPer,W/2,72,{align:'center'});
-    doc.setFillColor(...WHITE); doc.roundedRect(ML,H*.46,CW,H*.38,4,4,'F');
-    const iy=H*.46+10;
+    doc.text(labelPer, W/2, 72, {align:'center'});
+    doc.setFillColor(...WHITE); doc.roundedRect(ML, H*.46, CW, H*.38, 4, 4, 'F');
+    const iy = H*.46+10;
     doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...DPINK);
-    doc.text('RINGKASAN EKSEKUTIF',W/2,iy,{align:'center'});
-    const items=[
-      {label:'TOTAL MASUK', value:fmtRp(totMasuk), color:GREEN},
-      {label:'TOTAL KELUAR',value:fmtRp(totKeluar),color:RED},
-      {label:'SALDO BERSIH',value:fmtRp(saldo),    color:saldo>=0?DPINK:RED},
-      {label:'TRX KAS',     value:kasData.length+' trx',color:DPINK},
+    doc.text('RINGKASAN EKSEKUTIF', W/2, iy, {align:'center'});
+    const items = [
+      {label:'TOTAL MASUK',  value:fmtRp(totMasuk),  color:GREEN},
+      {label:'TOTAL KELUAR', value:fmtRp(totKeluar), color:RED},
+      {label:'SALDO BERSIH', value:fmtRp(saldo),     color:saldo>=0?DPINK:RED},
+      {label:'TRX KAS',      value:kasData.length+' trx', color:DPINK},
     ];
-    const gC=[ML+5,ML+CW/2+5],gR=[iy+12,iy+34];
-    items.forEach((item,i)=>{
-      const col=gC[i%2],row=gR[Math.floor(i/2)],bw=CW/2-10;
-      doc.setFillColor(...LGRAY); doc.roundedRect(col,row-4,bw,18,2,2,'F');
+    const gC=[ML+5, ML+CW/2+5], gR=[iy+12, iy+34];
+    items.forEach((item, i) => {
+      const col=gC[i%2], row=gR[Math.floor(i/2)], bw=CW/2-10;
+      doc.setFillColor(...LGRAY); doc.roundedRect(col, row-4, bw, 18, 2, 2, 'F');
       doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
-      doc.text(item.label,col+bw/2,row+2,{align:'center'});
+      doc.text(item.label, col+bw/2, row+2, {align:'center'});
       doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...item.color);
-      doc.text(item.value,col+bw/2,row+10,{align:'center'});
+      doc.text(item.value, col+bw/2, row+10, {align:'center'});
     });
     doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(...GRAY);
-    doc.text('Dicetak: '+tglCetak,W/2,H-12,{align:'center'});
-    doc.text('Dokumen ini bersifat konfidensial',W/2,H-7,{align:'center'});
+    doc.text('Dicetak: '+tglCetak, W/2, H-12, {align:'center'});
+    doc.text('Dokumen ini bersifat konfidensial', W/2, H-7, {align:'center'});
     addFooter();
 
     // PAGE 2: NERACA
     doc.addPage(); pageNum++;
-    let currentY=addHeader('NERACA SALDO');
-    doc.setFillColor(...DPINK); doc.roundedRect(ML,currentY,CW,10,2,2,'F');
+    let currentY = addHeader('NERACA SALDO');
+    doc.setFillColor(...DPINK); doc.roundedRect(ML, currentY, CW, 10, 2, 2, 'F');
     doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(8);
-    doc.text('NERACA SALDO (TRIAL BALANCE) — '+labelPer.toUpperCase(),ML+5,currentY+7);
-    currentY+=14;
-    if(sortedAkun.length){
-      const tbData=[];
-      sortedAkun.forEach(([nama,v],i)=>{
-        const net=v.debit-v.kredit;
-        tbData.push([(i+1).toString(),nama.length>40?nama.substring(0,38)+'…':nama,v.jml.toString(),v.debit>0?fmtRp(v.debit):'-',v.kredit>0?fmtRp(v.kredit):'-',fmtRp(net)]);
+    doc.text('NERACA SALDO (TRIAL BALANCE) — '+labelPer.toUpperCase(), ML+5, currentY+7);
+    currentY += 14;
+    if (sortedAkun.length) {
+      const tbData = [];
+      sortedAkun.forEach(([nama, v], i) => {
+        const net = v.debit - v.kredit;
+        tbData.push([
+          (i+1).toString(),
+          nama.length>40 ? nama.substring(0,38)+'…' : nama,
+          v.jml.toString(),
+          v.debit>0 ? fmtRp(v.debit) : '-',
+          v.kredit>0 ? fmtRp(v.kredit) : '-',
+          fmtRp(net)
+        ]);
       });
-      tbData.push(['','TOTAL',kasData.length.toString(),fmtRp(totMasuk),fmtRp(totKeluar),fmtRp(saldo)]);
+      tbData.push(['', 'TOTAL', kasData.length.toString(), fmtRp(totMasuk), fmtRp(totKeluar), fmtRp(saldo)]);
       doc.autoTable({
-        startY:currentY,head:[['#','NAMA AKUN','TRX','MASUK','KELUAR','SALDO']],body:tbData,
-        theme:'grid',margin:{left:ML,right:MR},
-        headStyles:{fillColor:DPINK,textColor:WHITE,fontStyle:'bold',fontSize:7,cellPadding:3},
-        bodyStyles:{fontSize:6.5,cellPadding:{top:2.5,bottom:2.5,left:2,right:2},textColor:BLACK},
-        columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:65},2:{cellWidth:10,halign:'center'},3:{cellWidth:29,halign:'right'},4:{cellWidth:29,halign:'right'},5:{cellWidth:29,halign:'right'}},
-        alternateRowStyles:{fillColor:[254,228,234,.3]},
-        didParseCell(data){
-          if(data.row.index===tbData.length-1){data.cell.styles.fillColor=PINK_LT;data.cell.styles.fontStyle='bold';}
-          if(data.column.index===5&&data.section==='body'&&data.row.index<sortedAkun.length){
-            const net=sortedAkun[data.row.index][1].debit-sortedAkun[data.row.index][1].kredit;
-            data.cell.styles.textColor=net<0?RED:(net>0?GREEN:BLACK);
+        startY: currentY,
+        head: [['#','NAMA AKUN','TRX','MASUK','KELUAR','SALDO']],
+        body: tbData,
+        theme: 'grid', margin: {left:ML, right:MR},
+        headStyles: {fillColor:DPINK, textColor:WHITE, fontStyle:'bold', fontSize:7, cellPadding:3},
+        bodyStyles: {fontSize:6.5, cellPadding:{top:2.5,bottom:2.5,left:2,right:2}, textColor:BLACK},
+        columnStyles: {
+          0:{cellWidth:8,halign:'center'}, 1:{cellWidth:65}, 2:{cellWidth:10,halign:'center'},
+          3:{cellWidth:29,halign:'right'}, 4:{cellWidth:29,halign:'right'}, 5:{cellWidth:29,halign:'right'}
+        },
+        alternateRowStyles: {fillColor:[254,228,234,.3]},
+        didParseCell(data) {
+          if (data.row.index === tbData.length-1) {
+            data.cell.styles.fillColor = PINK_LT; data.cell.styles.fontStyle = 'bold';
+          }
+          if (data.column.index === 5 && data.section === 'body' && data.row.index < sortedAkun.length) {
+            const net = sortedAkun[data.row.index][1].debit - sortedAkun[data.row.index][1].kredit;
+            data.cell.styles.textColor = net<0 ? RED : (net>0 ? GREEN : BLACK);
           }
         },
-        didDrawPage(){addFooter();pageNum++;addHeader('NERACA SALDO');}
+        didDrawPage() { addFooter(); pageNum++; addHeader('NERACA SALDO'); }
       });
-      currentY=doc.lastAutoTable.finalY+8;
+      currentY = doc.lastAutoTable.finalY + 8;
     }
 
     // PAGE 3+: DETAIL
-    if(_exportMode==='lengkap'){
-      const sortedBB=[...sortedAkun].sort((a,b)=>{
+    if (exportModeSnapshot === 'lengkap') {
+      const sortedBB = [...sortedAkun].sort((a,b) => {
         const am=a[1].debit>0&&a[1].kredit===0, bm=b[1].debit>0&&b[1].kredit===0;
-        if(am&&!bm)return -1; if(!am&&bm)return 1;
-        return(b[1].kredit+b[1].debit)-(a[1].kredit+a[1].debit);
+        if(am&&!bm) return -1; if(!am&&bm) return 1;
+        return (b[1].kredit+b[1].debit)-(a[1].kredit+a[1].debit);
       });
-      currentY=newPage('DETAIL TRANSAKSI PER AKUN');
-      doc.setFillColor(...DPINK); doc.roundedRect(ML,currentY,CW,10,2,2,'F');
+      currentY = newPage('DETAIL TRANSAKSI PER AKUN');
+      doc.setFillColor(...DPINK); doc.roundedRect(ML, currentY, CW, 10, 2, 2, 'F');
       doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(8);
-      doc.text('DETAIL TRANSAKSI PER AKUN — '+labelPer.toUpperCase(),ML+5,currentY+7);
-      currentY+=14;
-      sortedBB.forEach(([namaAkun,akunData])=>{
-        const trxList=trxPerAkun[namaAkun]||[]; if(!trxList.length) return;
-        const isKeluar=akunData.kredit>0&&akunData.debit===0;
-        const akunColor=isKeluar?RED:GREEN, akunBg=isKeluar?[254,226,226]:[220,252,231];
-        if(currentY+28>H-18){currentY=newPage('DETAIL TRANSAKSI PER AKUN');}
-        doc.setFillColor(...akunBg); doc.roundedRect(ML,currentY,CW,12,2,2,'F');
+      doc.text('DETAIL TRANSAKSI PER AKUN — '+labelPer.toUpperCase(), ML+5, currentY+7);
+      currentY += 14;
+
+      sortedBB.forEach(([namaAkun, akunData]) => {
+        const trxList = trxPerAkun[namaAkun] || [];
+        if (!trxList.length) return;
+        const isKeluar = akunData.kredit>0 && akunData.debit===0;
+        const akunColor = isKeluar ? RED : GREEN;
+        const akunBg    = isKeluar ? [254,226,226] : [220,252,231];
+        if (currentY+28 > H-18) currentY = newPage('DETAIL TRANSAKSI PER AKUN');
+        doc.setFillColor(...akunBg); doc.roundedRect(ML, currentY, CW, 12, 2, 2, 'F');
         doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...akunColor);
-        doc.text(isKeluar?'▲':'▼',ML+4,currentY+8.5);
+        doc.text(isKeluar?'▲':'▼', ML+4, currentY+8.5);
         doc.setTextColor(...BLACK);
-        doc.text((namaAkun.length>50?namaAkun.substring(0,48)+'…':namaAkun),ML+10,currentY+8.5);
+        doc.text(namaAkun.length>50 ? namaAkun.substring(0,48)+'…' : namaAkun, ML+10, currentY+8.5);
         doc.setFontSize(6.5); doc.setFont('helvetica','normal'); doc.setTextColor(...GRAY);
-        doc.text(akunData.jml+' transaksi',ML+CW-60,currentY+4.5,{align:'right'});
+        doc.text(akunData.jml+' transaksi', ML+CW-60, currentY+4.5, {align:'right'});
         doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...akunColor);
-        doc.text(fmtRp(Math.abs(akunData.debit-akunData.kredit)),ML+CW-5,currentY+4.5,{align:'right'});
-        currentY+=15;
-        const trxTableData=trxList.slice().sort((a,b)=>String(a.tgl).localeCompare(String(b.tgl))).map((t,i)=>[
-          (i+1).toString(),String(t.tgl),
-          (t.catat||'-').length>35?(t.catat||'-').substring(0,33)+'…':(t.catat||'-'),
-          t.debit>0?fmtRp(t.debit):'-', t.kredit>0?fmtRp(t.kredit):'-'
-        ]);
+        doc.text(fmtRp(Math.abs(akunData.debit-akunData.kredit)), ML+CW-5, currentY+4.5, {align:'right'});
+        currentY += 15;
+
+        // FIX #6 di PDF: tampilkan tanggal (tgl) dan catatan (catat) dengan benar
+        const trxTableData = trxList
+          .slice()
+          .sort((a,b) => String(a.tgl).localeCompare(String(b.tgl)))
+          .map((t, i) => [
+            (i+1).toString(),
+            rFmtTgl(String(t.tgl)),         // format DD/MM/YYYY
+            (t.catat||'-').length>35 ? (t.catat||'-').substring(0,33)+'…' : (t.catat||'-'),
+            t.debit>0 ? fmtRp(t.debit) : '-',
+            t.kredit>0 ? fmtRp(t.kredit) : '-'
+          ]);
         doc.autoTable({
-          startY:currentY,head:[['#','TANGGAL','CATATAN','MASUK','KELUAR']],body:trxTableData,
-          theme:'striped',margin:{left:ML,right:MR},
-          headStyles:{fillColor:isKeluar?RED:GREEN,textColor:WHITE,fontStyle:'bold',fontSize:6.5,cellPadding:2.5},
-          bodyStyles:{fontSize:6,cellPadding:{top:2,bottom:2,left:2,right:2},textColor:BLACK},
-          columnStyles:{0:{cellWidth:7,halign:'center'},1:{cellWidth:22,halign:'center'},2:{cellWidth:80},3:{cellWidth:28,halign:'right',textColor:GREEN},4:{cellWidth:28,halign:'right',textColor:RED}},
-          didDrawPage(){addFooter();pageNum++;addHeader('DETAIL TRANSAKSI PER AKUN');}
+          startY: currentY,
+          head: [['#','TANGGAL','CATATAN','MASUK','KELUAR']],
+          body: trxTableData,
+          theme: 'striped', margin: {left:ML, right:MR},
+          headStyles: {fillColor:isKeluar?RED:GREEN, textColor:WHITE, fontStyle:'bold', fontSize:6.5, cellPadding:2.5},
+          bodyStyles: {fontSize:6, cellPadding:{top:2,bottom:2,left:2,right:2}, textColor:BLACK},
+          columnStyles: {
+            0:{cellWidth:7,halign:'center'}, 1:{cellWidth:22,halign:'center'}, 2:{cellWidth:80},
+            3:{cellWidth:28,halign:'right',textColor:GREEN}, 4:{cellWidth:28,halign:'right',textColor:RED}
+          },
+          didDrawPage() { addFooter(); pageNum++; addHeader('DETAIL TRANSAKSI PER AKUN'); }
         });
-        currentY=doc.lastAutoTable.finalY+8;
+        currentY = doc.lastAutoTable.finalY + 8;
       });
     }
 
     addFooter();
-    doc.setProperties({title:'Laporan Keuangan - '+labelPer,subject:'Cash Flow Statement',author:'Finansial Pribadi'});
-    const fn='Laporan_'+labelPer.replace(/\s+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.pdf';
+    doc.setProperties({ title:'Laporan Keuangan - '+labelPer, subject:'Cash Flow Statement', author:'Finansial Pribadi' });
+    const fn = 'Laporan_' + labelPer.replace(/\s+/g,'_') + '_' + new Date().toISOString().split('T')[0] + '.pdf';
     Swal.close();
     doc.save(fn);
-    setTimeout(()=>{
-      Swal.fire({icon:'success',title:'PDF Berhasil!',html:`<p style="font-size:.875rem;color:#64748b;">File <b>${fn}</b> sudah didownload.<br>${pageNum} halaman · ${kasData.length} transaksi.</p>`,confirmButtonColor:'#e11d48',timer:4000,timerProgressBar:true});
-    },200);
-  } catch(err) {
+    setTimeout(() => {
+      Swal.fire({
+        icon: 'success', title: 'PDF Berhasil!',
+        html: '<p style="font-size:.875rem;color:#64748b;">File <b>' + fn + '</b> sudah didownload.<br>' + pageNum + ' halaman · ' + kasData.length + ' transaksi.</p>',
+        confirmButtonColor: '#e11d48', timer:4000, timerProgressBar:true
+      });
+    }, 200);
+
+  } catch (err) {
     Swal.close();
-    Swal.fire({icon:'error',title:'Gagal membuat PDF',html:`<p style="font-size:.875rem;">${err.message}</p>`,confirmButtonColor:'#e11d48'});
+    Swal.fire({ icon:'error', title:'Gagal membuat PDF', html:'<p style="font-size:.875rem;">' + err.message + '</p>', confirmButtonColor:'#e11d48' });
   }
 }
 </script>
