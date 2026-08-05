@@ -1,11 +1,14 @@
 <!-- ===================================================================
-     FILE: View_Report.html — Fixed v8
-     PERBAIKAN v8:
-       1. TAMBAH elemen #r-modal-detail ke DOM (sebelumnya hanya ada CSS-nya)
-       2. Semua ID yang dipakai JS: r-modal-title, r-ms-masuk, r-ms-keluar,
-          r-ms-count, r-modal-cari, r-modal-sort, r-modal-list → sudah ada
-       3. Recent 15 transaksi (getRecentArusKas())
-       4. Default saldo hidden (_saldoMasked = true)
+     FILE: View_Report.html — Fixed v9
+     PERBAIKAN v9:
+       1. Modal #r-modal-detail: tambah class "hidden" + inline style "display:none"
+          agar TIDAK muncul saat halaman pertama dibuka
+       2. rptBukaDetail(): gunakan _modalNamaAktif (state global) bukan
+          encodeURIComponent agar matching nama akun selalu tepat
+       3. _rptRenderKas(): onclick tidak lagi encode/decode URI, tapi pakai
+          data-idx untuk lookup langsung ke _kasFlowEntries
+       4. Modal ukuran 3/4 layar (75dvh), font lebih besar, padding lebih lega
+       5. Tutup modal saat backdrop diklik, bukan saat modul dibuka
    =================================================================== -->
 
 <style>
@@ -753,177 +756,291 @@
   .r-empty span { font-size: 0.5625rem; color: var(--r-n300); }
 
   /* ═══════════════════════════════════════════════════════════
-     ─── Modal Detail Transaksi per COA ───
-     PERBAIKAN v8: Semua CSS sudah ada, sekarang elemen HTML-nya
-     juga ditambahkan ke DOM di bawah.
+     ─── MODAL DETAIL TRANSAKSI PER COA ───
+     FIX v9:
+     - Tinggi 75dvh (3/4 layar) agar cukup ruang baca
+     - Font lebih besar dan readable
+     - Display none secara default
   ═══════════════════════════════════════════════════════════ */
-  .r-modal-overlay {
+  #r-modal-detail {
     position: fixed;
     inset: 0;
-    z-index: 60;
-    display: flex;
+    z-index: 9999;
+    display: flex;           /* Akan di-toggle via JS */
     align-items: flex-end;
     justify-content: center;
-    background: rgba(15,23,42,.6);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    background: rgba(15,23,42,.65);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
-  .r-modal-sheet {
+  /* KUNCI FIX: hidden class set display:none agar tidak muncul otomatis */
+  #r-modal-detail.hidden {
+    display: none !important;
+  }
+
+  #r-modal-detail .r-modal-sheet {
     background: white;
     border-radius: 1.5rem 1.5rem 0 0;
     width: 100%;
-    max-width: 32rem;
-    max-height: 90dvh;
-    max-height: 90vh;
+    max-width: 36rem;
+    /* FIX: 75dvh = 3/4 halaman layar, cukup lega untuk baca */
+    height: 75dvh;
+    height: 75vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 -12px 40px rgba(0,0,0,.14);
-    animation: r-slide-up .28s cubic-bezier(.4,0,.2,1) both;
+    box-shadow: 0 -12px 48px rgba(0,0,0,.22);
+    animation: r-slide-up .3s cubic-bezier(.4,0,.2,1) both;
   }
-  .r-modal-handle {
-    width: 2.5rem; height: 3px;
+
+  #r-modal-detail .r-modal-handle {
+    width: 2.5rem; height: 4px;
     background: var(--r-n200);
     border-radius: var(--r-full);
-    margin: 0.625rem auto 0;
+    margin: 0.75rem auto 0;
     flex-shrink: 0;
   }
-  .r-modal-header { padding: 0.75rem 1rem 0.875rem; flex-shrink: 0; }
-  .r-modal-header-inner {
-    display: flex; align-items: center;
+
+  #r-modal-detail .r-modal-header {
+    padding: 0.875rem 1.125rem 0.75rem;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--r-n100);
+  }
+
+  #r-modal-detail .r-modal-header-inner {
+    display: flex;
+    align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 0.75rem;
+    gap: 0.75rem;
+    margin-bottom: 0.875rem;
   }
-  .r-modal-title { font-size: 0.9375rem; font-weight: 800; color: var(--r-n900); margin: 0; }
-  .r-modal-close {
-    width: 1.875rem; height: 1.875rem;
-    border-radius: 0.5rem;
+
+  /* FIX: judul lebih besar agar mudah dibaca */
+  #r-modal-detail .r-modal-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--r-n900);
+    margin: 0 0 0.25rem;
+    line-height: 1.3;
+    word-break: break-word;
+  }
+
+  #r-modal-detail .r-modal-close {
+    width: 2rem; height: 2rem;
+    border-radius: 0.625rem;
     background: var(--r-n100);
-    border: none; color: var(--r-n500);
+    border: none;
+    color: var(--r-n500);
     cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
     transition: background .12s;
+    flex-shrink: 0;
+    margin-top: 0.125rem;
   }
-  .r-modal-close:hover { background: var(--r-n200); }
+  #r-modal-detail .r-modal-close:hover { background: var(--r-n200); }
 
-  .r-modal-summary {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.375rem;
-    margin-bottom: 0.75rem;
-  }
-  .r-modal-sum-cell {
-    background: var(--r-n100);
-    border-radius: var(--r-md);
-    padding: 0.5625rem 0.375rem;
-    text-align: center;
-  }
-  .r-modal-sum-cell .ms-val {
-    font-size: 0.8125rem; font-weight: 800;
-    color: var(--r-n900); display: block;
-  }
-  .r-modal-sum-cell .ms-lbl {
-    font-size: 0.4375rem; color: var(--r-n400);
-    text-transform: uppercase; letter-spacing: .06em; font-weight: 700;
-  }
-
-  /* Badge tipe di modal header */
-  .r-modal-tipe-badge {
+  /* FIX: Badge lebih besar */
+  #r-modal-detail .r-modal-tipe-badge {
     display: inline-flex;
     align-items: center;
-    gap: 0.25rem;
-    font-size: 0.5625rem;
+    gap: 0.3rem;
+    font-size: 0.6875rem;
     font-weight: 800;
-    padding: 0.25rem 0.625rem;
+    padding: 0.3rem 0.75rem;
     border-radius: var(--r-full);
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03em;
   }
-  .r-modal-tipe-badge.badge-keluar {
+  #r-modal-detail .badge-keluar {
     background: var(--r-red-xs);
     color: var(--r-red);
     border: 1.5px solid var(--r-red-lt);
   }
-  .r-modal-tipe-badge.badge-masuk {
+  #r-modal-detail .badge-masuk {
     background: var(--r-green-xs);
     color: var(--r-green);
     border: 1.5px solid var(--r-green-lt);
   }
 
-  .r-modal-toolbar {
+  /* FIX: Summary card lebih besar font-nya */
+  #r-modal-detail .r-modal-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+  #r-modal-detail .r-modal-sum-cell {
+    background: var(--r-n50);
+    border: 1px solid var(--r-n100);
+    border-radius: var(--r-md);
+    padding: 0.625rem 0.5rem;
+    text-align: center;
+  }
+  #r-modal-detail .r-modal-sum-cell .ms-val {
+    font-size: 0.9375rem;
+    font-weight: 900;
+    color: var(--r-n900);
+    display: block;
+    line-height: 1.1;
+    margin-bottom: 0.1875rem;
+  }
+  #r-modal-detail .r-modal-sum-cell .ms-lbl {
+    font-size: 0.5625rem;
+    color: var(--r-n400);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-weight: 700;
+  }
+
+  /* Toolbar search + sort */
+  #r-modal-detail .r-modal-toolbar {
     display: flex;
     gap: 0.5rem;
     align-items: center;
-    padding: 0.625rem 1rem;
+    padding: 0.75rem 1rem;
     background: var(--r-n50);
     border-bottom: 1px solid var(--r-n100);
     flex-shrink: 0;
   }
-  .r-modal-search-wrap { flex: 1; position: relative; }
-  .r-modal-search-wrap i {
-    position: absolute; left: 0.625rem; top: 50%;
-    transform: translateY(-50%);
-    color: var(--r-n400); font-size: 0.625rem; pointer-events: none;
+  #r-modal-detail .r-modal-search-wrap {
+    flex: 1;
+    position: relative;
   }
-  .r-modal-search {
+  #r-modal-detail .r-modal-search-wrap i {
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--r-n400);
+    font-size: 0.75rem;
+    pointer-events: none;
+  }
+  /* FIX: Input search font 16px agar tidak zoom di iOS */
+  #r-modal-detail .r-modal-search {
     width: 100%;
     background: var(--r-white);
     border: 1.5px solid var(--r-n200);
     border-radius: var(--r-full);
-    padding: 0.5rem 0.625rem 0.5rem 1.875rem;
-    font-size: 0.75rem;
-    outline: none; color: var(--r-n700);
+    padding: 0.625rem 0.75rem 0.625rem 2.25rem;
+    font-size: 16px !important;
+    font-weight: 500;
+    outline: none;
+    color: var(--r-n700);
     transition: border-color .15s;
+    box-sizing: border-box;
   }
-  .r-modal-search:focus { border-color: var(--r-rose); }
-  .r-modal-sort {
+  #r-modal-detail .r-modal-search:focus {
+    border-color: var(--r-rose);
+    box-shadow: 0 0 0 3px var(--r-rose-xs);
+  }
+  /* FIX: Select sort font 16px */
+  #r-modal-detail .r-modal-sort {
     background: var(--r-white);
     border: 1.5px solid var(--r-n200);
     border-radius: var(--r-full);
-    padding: 0.5rem 0.75rem;
-    font-size: 0.6875rem; font-weight: 700;
+    padding: 0.625rem 0.875rem;
+    font-size: 16px !important;
+    font-weight: 700;
     color: var(--r-n600);
-    cursor: pointer; white-space: nowrap;
+    cursor: pointer;
+    white-space: nowrap;
     transition: border-color .15s;
     outline: none;
-    -webkit-appearance: none; appearance: none;
+    -webkit-appearance: none;
+    appearance: none;
   }
-  .r-modal-sort:focus { border-color: var(--r-rose); }
+  #r-modal-detail .r-modal-sort:focus { border-color: var(--r-rose); }
 
-  .r-modal-list { overflow-y: auto; flex: 1; padding: 0.75rem; }
-  .r-modal-list::-webkit-scrollbar { width: 3px; }
-  .r-modal-list::-webkit-scrollbar-thumb { background: var(--r-rose-lt); border-radius: 3px; }
+  /* FIX: List area scrollable, mengisi sisa ruang */
+  #r-modal-detail .r-modal-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 0.875rem 1rem;
+    -webkit-overflow-scrolling: touch;
+  }
+  #r-modal-detail .r-modal-list::-webkit-scrollbar { width: 4px; }
+  #r-modal-detail .r-modal-list::-webkit-scrollbar-thumb { background: var(--r-rose-lt); border-radius: 4px; }
 
-  .r-modal-row {
+  /* FIX: Row transaksi lebih besar dan mudah dibaca */
+  #r-modal-detail .r-modal-row {
     display: flex;
     align-items: center;
-    gap: 0.625rem;
-    padding: 0.625rem 0.5rem;
+    gap: 0.75rem;
+    padding: 0.875rem 0.75rem;
     background: var(--r-white);
     border: 1px solid var(--r-n100);
-    border-radius: var(--r-md);
-    margin-bottom: 0.3125rem;
-    transition: border-color .12s, background .12s;
+    border-radius: 0.875rem;
+    margin-bottom: 0.5rem;
+    transition: border-color .12s, background .12s, transform .1s;
   }
-  .r-modal-row:hover { border-color: var(--r-n300); background: var(--r-n50); }
-  .r-modal-row-icon {
-    width: 1.875rem; height: 1.875rem;
-    border-radius: 0.5rem;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.625rem; flex-shrink: 0;
+  #r-modal-detail .r-modal-row:last-child { margin-bottom: 0; }
+  #r-modal-detail .r-modal-row:hover {
+    border-color: var(--r-n300);
+    background: var(--r-n50);
+    transform: translateX(2px);
   }
-  .r-modal-row-info { flex: 1; min-width: 0; }
-  .r-modal-row-main {
-    font-size: 0.6875rem; font-weight: 700; color: var(--r-n700);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    margin: 0 0 0.1875rem;
+  #r-modal-detail .r-modal-row-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    flex-shrink: 0;
   }
-  .r-modal-row-sub { font-size: 0.5rem; color: var(--r-n400); }
-  .r-modal-row-amount { font-size: 0.75rem; font-weight: 800; flex-shrink: 0; }
-  .r-modal-row-date {
-    font-size: 0.4375rem; color: var(--r-n400);
-    display: block; text-align: right; margin-top: 0.0625rem;
+  #r-modal-detail .r-modal-row-info { flex: 1; min-width: 0; }
+  /* FIX: teks catatan lebih besar */
+  #r-modal-detail .r-modal-row-main {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--r-n700);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin: 0 0 0.25rem;
+    line-height: 1.3;
   }
+  #r-modal-detail .r-modal-row-sub {
+    font-size: 0.6875rem;
+    color: var(--r-n400);
+    font-weight: 500;
+  }
+  /* FIX: nominal lebih besar */
+  #r-modal-detail .r-modal-row-amount {
+    font-size: 0.9375rem;
+    font-weight: 900;
+    flex-shrink: 0;
+    line-height: 1.1;
+  }
+  #r-modal-detail .r-modal-row-date {
+    font-size: 0.5625rem;
+    color: var(--r-n400);
+    display: block;
+    text-align: right;
+    margin-top: 0.1875rem;
+  }
+
+  /* ── Footer tombol tutup di modal ── */
+  #r-modal-detail .r-modal-footer {
+    padding: 0.875rem 1rem;
+    border-top: 1px solid var(--r-n100);
+    flex-shrink: 0;
+  }
+  #r-modal-detail .r-modal-btn-tutup {
+    width: 100%;
+    background: var(--r-n100);
+    border: 1.5px solid var(--r-n200);
+    border-radius: 0.875rem;
+    padding: 0.875rem;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--r-n700);
+    cursor: pointer;
+    transition: background .15s;
+  }
+  #r-modal-detail .r-modal-btn-tutup:hover { background: var(--r-n200); }
 
   .r-mask { color: transparent !important; text-shadow: 0 0 12px rgba(255,255,255,.55); user-select: none; }
   .r-spin { animation: r-spin .8s linear infinite; display: inline-block; }
@@ -1063,11 +1180,6 @@
           <div style="flex:1;"><div class="r-skel" style="height:9px;width:75%;margin-bottom:5px;"></div><div class="r-skel" style="height:5px;width:45%;"></div></div>
           <div class="r-skel" style="width:3.5rem;height:12px;border-radius:.375rem;"></div>
         </div>
-        <div style="display:flex;align-items:center;gap:.625rem;padding:.5rem 0;">
-          <div class="r-skel" style="width:2rem;height:2rem;border-radius:.5rem;flex-shrink:0;"></div>
-          <div style="flex:1;"><div class="r-skel" style="height:9px;width:55%;margin-bottom:5px;"></div><div class="r-skel" style="height:5px;width:35%;"></div></div>
-          <div class="r-skel" style="width:3.5rem;height:12px;border-radius:.375rem;"></div>
-        </div>
       </div>
     </div>
   </div>
@@ -1186,24 +1298,15 @@
 
 <!-- ═══════════════════════════════════════════════════════════════
      MODAL DETAIL TRANSAKSI PER COA
-     PERBAIKAN v8: Elemen ini sebelumnya TIDAK ADA di DOM.
-     Semua ID yang dipakai oleh rptBukaDetail() sekarang sudah ada:
-       - #r-modal-detail        (wrapper overlay)
-       - #r-modal-title         (judul nama akun)
-       - #r-modal-tipe-badge    (badge Keluar/Masuk)
-       - #r-ms-masuk            (total masuk akun ini)
-       - #r-ms-keluar           (total keluar akun ini)
-       - #r-ms-count            (jumlah transaksi)
-       - #r-modal-cari          (input pencarian)
-       - #r-modal-sort          (dropdown sort)
-       - #r-modal-list          (list transaksi)
+     FIX v9: 
+     - class="hidden" → modal tidak muncul saat pertama render
+     - Tinggi 75dvh / 75vh → 3/4 halaman layar
+     - Semua font diperbesar agar terbaca jelas
 ═══════════════════════════════════════════════════════════════ -->
-<div id="r-modal-detail"
-     class="r-modal-overlay hidden"
-     onclick="if(event.target===this) rptTutupModal()">
+<div id="r-modal-detail" class="hidden">
   <div class="r-modal-sheet">
 
-    <!-- Handle -->
+    <!-- Handle geser -->
     <div class="r-modal-handle"></div>
 
     <!-- Header -->
@@ -1211,14 +1314,12 @@
       <div class="r-modal-header-inner">
         <div style="flex:1; min-width:0;">
           <p class="r-modal-title" id="r-modal-title">Detail Transaksi</p>
-          <div style="margin-top:0.25rem;">
-            <span class="r-modal-tipe-badge badge-keluar" id="r-modal-tipe-badge">
-              <i class="fa-solid fa-arrow-up" style="font-size:0.4375rem;"></i>
-              Pengeluaran
-            </span>
-          </div>
+          <span class="r-modal-tipe-badge badge-keluar" id="r-modal-tipe-badge">
+            <i class="fa-solid fa-arrow-up" style="font-size:0.5rem;"></i>
+            Pengeluaran
+          </span>
         </div>
-        <button class="r-modal-close" onclick="rptTutupModal()" title="Tutup">
+        <button class="r-modal-close" onclick="rptTutupModal()" title="Tutup modal">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
@@ -1265,6 +1366,13 @@
       </div>
     </div>
 
+    <!-- Footer tombol tutup -->
+    <div class="r-modal-footer">
+      <button type="button" class="r-modal-btn-tutup" onclick="rptTutupModal()">
+        <i class="fa-solid fa-xmark" style="margin-right:0.375rem;"></i>Tutup
+      </button>
+    </div>
+
   </div>
 </div><!-- /#r-modal-detail -->
 
@@ -1283,6 +1391,12 @@ var _kasExpanded = false;
 var _kasMap   = { keluar:{}, masuk:{} };
 var _saldoMasked = true;
 var _saldoValues = {};
+
+/* FIX v9: Simpan nama akun yang sedang aktif sebagai string langsung,
+   BUKAN encoded URI. Ini menghindari bug encoding/decoding. */
+var _modalNamaAktif = '';
+var _modalTipeAktif = '';
+
 var _modalRowsAll      = [];
 var _modalRowsFiltered = [];
 var _exportMode = 'lengkap';
@@ -1296,7 +1410,7 @@ var BULAN   = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus
 ═══════════════════════════════════════════════════════════ */
 function rFmt(n, compact) {
   n = parseFloat(n) || 0;
-  const a = Math.abs(n), s = n < 0 ? '-' : '';
+  var a = Math.abs(n), s = n < 0 ? '-' : '';
   if (compact) {
     if (a >= 1e9) return s + 'Rp ' + (a / 1e9).toFixed(1) + ' M';
     if (a >= 1e6) return s + 'Rp ' + (a / 1e6).toFixed(1) + ' jt';
@@ -1353,6 +1467,13 @@ function rFmtTgl(s) {
    INIT
 ═══════════════════════════════════════════════════════════ */
 function initModulReport() {
+  /* FIX v9: Pastikan modal selalu tertutup saat modul dibuka */
+  var modalEl = document.getElementById('r-modal-detail');
+  if (modalEl) {
+    modalEl.classList.add('hidden');
+  }
+  document.body.style.overflow = '';
+
   _D = { kas:[], aset:[] };
   _recentTrx = [];
   _periode = 'ALL';
@@ -1362,6 +1483,8 @@ function initModulReport() {
   _kasExpanded = false;
   _saldoMasked = true;
   _saldoValues = {};
+  _modalNamaAktif = '';
+  _modalTipeAktif = '';
 
   if (_charts.trend) { _charts.trend.destroy(); _charts.trend = null; }
   if (_charts.donut) { _charts.donut.destroy(); _charts.donut = null; }
@@ -1447,7 +1570,6 @@ function _rptRenderRecent() {
     var debit   = parseFloat(r[6]) || 0;
     var kredit  = parseFloat(r[7]) || 0;
     var tgl     = String(r[1] || '-');
-    var periode = String(r[2] || '');
 
     var isMasuk  = debit > 0;
     var nominal  = isMasuk ? debit : kredit;
@@ -1463,7 +1585,7 @@ function _rptRenderRecent() {
       '</div>' +
       '<div class="r-recent-info">' +
         '<div class="r-recent-name">' + rEsc(item) + '</div>' +
-        '<div class="r-recent-meta">' + rEsc(tipeLabel) + ' · ' + rEsc(catat !== '-' ? catat : periode) + '</div>' +
+        '<div class="r-recent-meta">' + rEsc(tipeLabel) + (catat !== '-' ? ' · ' + rEsc(catat) : '') + '</div>' +
       '</div>' +
       '<div style="text-align:right; flex-shrink:0;">' +
         '<div class="r-recent-amount" style="color:' + color + ';">' + sign + rFmt(nominal, true) + '</div>' +
@@ -1714,7 +1836,9 @@ function _rptRenderTrend() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   ARUS KAS
+   ARUS KAS — FIX v9
+   Tidak lagi encode/decode URI untuk nama akun.
+   Gunakan data-idx (index) untuk lookup langsung ke entries array.
 ═══════════════════════════════════════════════════════════ */
 function _rptBuildKasMap(kasData) {
   _kasMap = { keluar:{}, masuk:{} };
@@ -1755,9 +1879,16 @@ function rptKasTab(tab) {
   _rptRenderKas();
 }
 
+/* FIX v9: _kasFlowEntries menyimpan entries yang sedang ditampilkan
+   sebagai array terurut, sehingga klik bisa lookup by index tanpa
+   encode/decode nama yang bisa bermasalah dengan karakter khusus */
+var _kasFlowEntries = [];
+
 function _rptRenderKas() {
   var src     = _kasMap[_kasTab] || {};
   var entries = Object.entries(src).sort(function(a, b) { return b[1].total - a[1].total; });
+  _kasFlowEntries = entries; /* simpan referensi */
+
   var maxVal  = entries.length ? entries[0][1].total : 1;
   var shown   = _kasExpanded ? entries : entries.slice(0, 6);
   var color   = _kasTab === 'keluar' ? 'var(--r-red)' : 'var(--r-green)';
@@ -1778,12 +1909,19 @@ function _rptRenderKas() {
   if (moreIcon) { moreIcon.className = 'fa-solid fa-chevron-' + (_kasExpanded ? 'up' : 'down'); moreIcon.style.fontSize = '.5rem'; }
   if (moreText) moreText.innerText = _kasExpanded ? 'Tutup' : 'Lihat semua (' + entries.length + ')';
 
+  /* FIX v9: onclick pakai data-idx (index ke entries array)
+     bukan encode nama — lebih aman dan tidak ada masalah
+     dengan karakter khusus seperti &, /, spasi, dsb. */
   var html = shown.map(function(entry, i) {
     var nama = entry[0], val = entry[1].total, jml = entry[1].rows.length;
+    /* index ke _kasFlowEntries — karena shown bisa slice dari entries,
+       kita perlu cari index asli di entries */
+    var realIdx = entries.indexOf(entry);
     var pct  = maxVal > 0 ? (val / maxVal * 100) : 0;
     var c    = COLORS[i % COLORS.length];
-    var enc  = encodeURIComponent(nama);
-    return '<div class="r-flow-item" onclick="rptBukaDetail(\'' + enc + '\',\'' + _kasTab + '\')" title="Klik untuk lihat detail">' +
+    return '<div class="r-flow-item" ' +
+           'data-idx="' + realIdx + '" ' +
+           'onclick="rptBukaDetailByIdx(this)">' +
       '<div class="r-flow-rank" style="background:' + c + '22; color:' + c + ';">' + (i + 1) + '</div>' +
       '<div class="r-flow-info">' +
         '<div class="r-flow-name">' + rEsc(nama) + '</div>' +
@@ -1841,15 +1979,23 @@ function _rptRenderDonut() {
       onHover: function(e, el) { canvas.style.cursor = el.length ? 'pointer' : 'default'; }
     }
   });
+
+  /* FIX v9: donut click juga pakai lookup langsung ke data */
   canvas.onclick = function(e) {
     var pts = _charts.donut.getElementsAtEventForMode(e, 'nearest', { intersect:true }, false);
-    if (pts.length) rptBukaDetail(encodeURIComponent(entries[pts[0].index][0]), 'keluar');
+    if (pts.length) {
+      var nama = entries[pts[0].index][0];
+      rptBukaDetail(nama, 'keluar');
+    }
   };
 
   var legHtml = entries.map(function(entry, i) {
     var pct    = total > 0 ? ((entry[1].total / total) * 100).toFixed(0) : 0;
     var shortN = entry[0].length > 22 ? entry[0].substring(0, 20) + '…' : entry[0];
-    return '<div class="r-legend-item" onclick="rptBukaDetail(\'' + encodeURIComponent(entry[0]) + '\',\'keluar\')" title="Lihat detail ' + rEsc(entry[0]) + '">' +
+    /* FIX v9: legend juga pakai data-nama attribute langsung */
+    return '<div class="r-legend-item" ' +
+           'onclick="rptBukaDetail(\'' + entry[0].replace(/'/g,"\\'") + '\',\'keluar\')" ' +
+           'title="Lihat detail">' +
       '<span class="r-legend-dot" style="background:' + colors[i] + ';"></span>' +
       '<span class="r-legend-name">' + rEsc(shortN) + '</span>' +
       '<span class="r-legend-pct">' + pct + '%</span>' +
@@ -2018,16 +2164,55 @@ function _rptApplyMask() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   MODAL DETAIL TRANSAKSI PER COA
-   PERBAIKAN v8: Fungsi sekarang bisa bekerja karena
-   elemen #r-modal-detail sudah ada di DOM di atas.
+   MODAL DETAIL TRANSAKSI — FIX v9
+   
+   rptBukaDetailByIdx(): dipanggil dari flow list via data-idx
+   rptBukaDetail(nama, tipe): dipanggil dari donut chart
+   
+   PERBAIKAN UTAMA:
+   1. Tidak ada encode/decode URI — gunakan string langsung
+   2. Lookup _kasMap[tipe][nama] langsung tanpa transform
+   3. Modal tertutup dengan remove class "hidden"
+   4. Body scroll dikunci saat modal buka
 ═══════════════════════════════════════════════════════════ */
-function rptBukaDetail(encodedNama, tipe) {
-  var nama = decodeURIComponent(encodedNama);
-  var src  = _kasMap[tipe] && _kasMap[tipe][nama];
-  if (!src) return;
 
-  /* ── Isi header modal ── */
+/* Dipanggil dari flow list item: onclick="rptBukaDetailByIdx(this)" */
+function rptBukaDetailByIdx(el) {
+  var idx  = parseInt(el.getAttribute('data-idx'), 10);
+  if (isNaN(idx) || !_kasFlowEntries[idx]) {
+    console.warn('[rpt] data-idx tidak valid:', idx);
+    return;
+  }
+  var nama = _kasFlowEntries[idx][0];
+  rptBukaDetail(nama, _kasTab);
+}
+
+/* Core: buka modal dengan nama akun + tipe (keluar/masuk) */
+function rptBukaDetail(nama, tipe) {
+  /* Validasi: _kasMap harus sudah terisi */
+  if (!_kasMap || !_kasMap[tipe]) {
+    console.warn('[rpt] _kasMap belum tersedia untuk tipe:', tipe);
+    return;
+  }
+
+  var src = _kasMap[tipe][nama];
+  if (!src || !src.rows) {
+    console.warn('[rpt] Data tidak ditemukan untuk akun:', nama, '| tipe:', tipe);
+    /* Tampilkan pesan informatif daripada diam */
+    Swal.fire({
+      icon: 'info',
+      title: 'Data tidak ditemukan',
+      text: 'Tidak ada transaksi untuk akun "' + nama + '" di periode ini.',
+      confirmButtonColor: '#e11d48'
+    });
+    return;
+  }
+
+  /* Simpan state aktif */
+  _modalNamaAktif = nama;
+  _modalTipeAktif = tipe;
+
+  /* ── Isi header ── */
   var titleEl = document.getElementById('r-modal-title');
   if (titleEl) titleEl.innerText = nama;
 
@@ -2036,8 +2221,9 @@ function rptBukaDetail(encodedNama, tipe) {
   if (badgeEl) {
     var isKeluar = (tipe === 'keluar');
     badgeEl.className = 'r-modal-tipe-badge ' + (isKeluar ? 'badge-keluar' : 'badge-masuk');
-    badgeEl.innerHTML = '<i class="fa-solid fa-arrow-' + (isKeluar ? 'up' : 'down') +
-      '" style="font-size:0.4375rem;"></i> ' + (isKeluar ? 'Pengeluaran' : 'Pemasukan');
+    badgeEl.innerHTML =
+      '<i class="fa-solid fa-arrow-' + (isKeluar ? 'up' : 'down') + '" style="font-size:0.5rem;"></i> ' +
+      (isKeluar ? 'Pengeluaran' : 'Pemasukan');
   }
 
   /* ── Reset search & sort ── */
@@ -2046,28 +2232,33 @@ function rptBukaDetail(encodedNama, tipe) {
   if (cariEl) cariEl.value = '';
   if (sortEl) sortEl.value = 'tgl-desc';
 
+  /* ── Rows ── */
   var rows = src.rows.slice();
   _modalRowsAll      = rows;
   _modalRowsFiltered = rows.slice();
 
-  /* ── Hitung summary ── */
+  /* ── Summary ── */
   var sumM = rows.reduce(function(s, r) { return s + (parseFloat(r[6]) || 0); }, 0);
   var sumK = rows.reduce(function(s, r) { return s + (parseFloat(r[7]) || 0); }, 0);
   var msM  = document.getElementById('r-ms-masuk');
   var msK  = document.getElementById('r-ms-keluar');
   var msC  = document.getElementById('r-ms-count');
-  if (msM) msM.innerText = sumM > 0 ? rFmt(sumM, true) : 'Rp 0';
-  if (msK) msK.innerText = sumK > 0 ? rFmt(sumK, true) : 'Rp 0';
-  if (msC) msC.innerText = rows.length;
+  if (msM) msM.innerText = sumM > 0 ? rFmt(sumM) : 'Rp 0';
+  if (msK) msK.innerText = sumK > 0 ? rFmt(sumK) : 'Rp 0';
+  if (msC) msC.innerText = rows.length + ' trx';
 
+  /* ── Render list ── */
   _rptModalApplySort();
 
   /* ── Tampilkan modal ── */
   var modal = document.getElementById('r-modal-detail');
   if (modal) {
     modal.classList.remove('hidden');
-    // Cegah scroll halaman di belakang modal
+    /* Kunci scroll halaman di belakang modal */
     document.body.style.overflow = 'hidden';
+    /* Scroll list ke atas */
+    var listEl = document.getElementById('r-modal-list');
+    if (listEl) listEl.scrollTop = 0;
   }
 }
 
@@ -2075,7 +2266,17 @@ function rptTutupModal() {
   var modal = document.getElementById('r-modal-detail');
   if (modal) modal.classList.add('hidden');
   document.body.style.overflow = '';
+  _modalNamaAktif = '';
+  _modalTipeAktif = '';
 }
+
+/* Klik backdrop (area gelap di luar sheet) tutup modal */
+document.getElementById('r-modal-detail').addEventListener('click', function(e) {
+  /* Jika klik tepat di overlay (bukan di dalam .r-modal-sheet), tutup */
+  if (e.target === this) {
+    rptTutupModal();
+  }
+});
 
 function _rptModalApplySort() {
   var sortEl = document.getElementById('r-modal-sort');
@@ -2086,9 +2287,13 @@ function _rptModalApplySort() {
   } else if (sort === 'tgl-asc') {
     sorted.sort(function(a, b) { return String(a[1]).localeCompare(String(b[1])); });
   } else if (sort === 'nom-desc') {
-    sorted.sort(function(a, b) { return ((parseFloat(b[6])||0)+(parseFloat(b[7])||0)) - ((parseFloat(a[6])||0)+(parseFloat(a[7])||0)); });
+    sorted.sort(function(a, b) {
+      return ((parseFloat(b[6])||0)+(parseFloat(b[7])||0)) - ((parseFloat(a[6])||0)+(parseFloat(a[7])||0));
+    });
   } else {
-    sorted.sort(function(a, b) { return ((parseFloat(a[6])||0)+(parseFloat(a[7])||0)) - ((parseFloat(b[6])||0)+(parseFloat(b[7])||0)); });
+    sorted.sort(function(a, b) {
+      return ((parseFloat(a[6])||0)+(parseFloat(a[7])||0)) - ((parseFloat(b[6])||0)+(parseFloat(b[7])||0));
+    });
   }
   _rptRenderModalList(sorted);
 }
@@ -2099,7 +2304,7 @@ function rptModalSort() {
 
 function rptModalCari() {
   var cariEl = document.getElementById('r-modal-cari');
-  var q = cariEl ? cariEl.value.toLowerCase() : '';
+  var q = cariEl ? cariEl.value.toLowerCase().trim() : '';
   if (!q) {
     _modalRowsFiltered = _modalRowsAll.slice();
   } else {
@@ -2112,16 +2317,21 @@ function rptModalCari() {
   _rptModalApplySort();
 }
 
+/* FIX v9: Row transaksi dengan font lebih besar & layout lebih lega */
 function _rptRenderModalList(rows) {
   var container = document.getElementById('r-modal-list');
   if (!container) return;
-  if (!rows.length) {
+
+  if (!rows || !rows.length) {
     container.innerHTML =
-      '<div class="r-empty"><span class="r-empty-icon">📭</span>' +
+      '<div class="r-empty">' +
+      '<span class="r-empty-icon">📭</span>' +
       '<p>Tidak ada transaksi ditemukan</p>' +
-      '<span>Coba ubah kata kunci pencarian</span></div>';
+      '<span>Coba ubah kata kunci pencarian</span>' +
+      '</div>';
     return;
   }
+
   container.innerHTML = rows.map(function(r) {
     var debit  = parseFloat(r[6]) || 0;
     var kredit = parseFloat(r[7]) || 0;
@@ -2129,19 +2339,28 @@ function _rptRenderModalList(rows) {
     var nom    = isIn ? debit : kredit;
     var color  = isIn ? 'var(--r-green)' : 'var(--r-red)';
     var bg     = isIn ? 'var(--r-green-xs)' : 'var(--r-red-xs)';
-    var tglStr  = rFmtTgl(r[1]);
-    var catatan = r[5] || '-';
+    var tglStr  = rFmtTgl(String(r[1] || '-'));
+    var akun    = String(r[4] || '-');
+    var catatan = String(r[5] || '-');
     var periode = rNormPeriode(r[2] || '');
+
+    /* Label utama: catatan jika ada, fallback ke nama akun */
+    var labelUtama = (catatan && catatan !== '-') ? catatan : akun;
+    /* Sub label: tanggal + periode */
+    var labelSub = tglStr + (periode ? ' · ' + periode : '');
+
     return '<div class="r-modal-row">' +
       '<div class="r-modal-row-icon" style="background:' + bg + ';">' +
-        '<i class="fa-solid fa-' + (isIn ? 'arrow-down' : 'arrow-up') + '" style="color:' + color + '; font-size:0.625rem;"></i>' +
+        '<i class="fa-solid fa-' + (isIn ? 'arrow-down' : 'arrow-up') + '" style="color:' + color + ';"></i>' +
       '</div>' +
       '<div class="r-modal-row-info">' +
-        '<p class="r-modal-row-main">' + rEsc(catatan !== '-' ? catatan : 'Transaksi kas') + '</p>' +
-        '<p class="r-modal-row-sub">' + rEsc(tglStr) + (periode ? ' · ' + rEsc(periode) : '') + '</p>' +
+        '<p class="r-modal-row-main">' + rEsc(labelUtama) + '</p>' +
+        '<p class="r-modal-row-sub">' + rEsc(labelSub) + '</p>' +
       '</div>' +
       '<div style="text-align:right; flex-shrink:0;">' +
-        '<span class="r-modal-row-amount" style="color:' + color + ';">' + (isIn ? '+' : '-') + rFmt(nom, true) + '</span>' +
+        '<span class="r-modal-row-amount" style="color:' + color + ';">' +
+          (isIn ? '+' : '-') + rFmt(nom, true) +
+        '</span>' +
         '<span class="r-modal-row-date">' + rEsc(tglStr) + '</span>' +
       '</div>' +
     '</div>';
