@@ -1,18 +1,9 @@
 <!-- ===================================================================
-     FILE: View_Report.html — Fixed v6
-     BUGFIX LOG:
-       1. _rptApplyMask() — simpan nilai asli SEBELUM mask, tidak dari innerText
-       2. _rptApplyMask() — saat refresh data (masked aktif), update nilai tanpa unmasking
-       3. rptNavNext/Prev — ALL → pilih terbaru (bukan terlama) saat next
-       4. Filter aset — gunakan rNormPeriode(r[1]) secara konsisten (tanggal YYYY-MM-DD)
-       5. rptModalCari + rptModalSort — sinkronkan: sort hanya pada filtered set, bukan _modalRowsAll
-       6. _rptRenderModalList — tampilkan r[1] (tanggal) dan r[5] (catatan) dengan benar
-       7. rptModalCari — filter juga berdasarkan r[4] (nama akun/item)
-       8. rptDoExportPDF — capture _periode di awal (hindari closure bug)
-       9. Format tanggal di modal list jadi lebih user-friendly
-      10. rptFlowToggle — reset animasi class sebelum re-render
-      11. _rptRenderStats — hitung trx masuk dengan benar (debit > 0)
-      12. Tambah null-guard di semua getElementById sebelum akses
+     FILE: View_Report.html — Fixed v7
+     PERBAIKAN:
+       1. Tambah Recent 15 Transaksi Terakhir (pakai getRecentArusKas())
+       2. Fix modal detail COA — elemen modal ditambahkan ke DOM
+       3. Default saldo hidden (_saldoMasked = true)
    =================================================================== -->
 
 <style>
@@ -434,6 +425,54 @@
   }
   .r-chart-legend-dot { width: 6px; height: 6px; border-radius: 2px; }
 
+  /* ─── Recent Transactions ─── */
+  #r-recent-section { animation: r-fade-up .4s ease both .09s; }
+  .r-recent-item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.625rem 0.875rem;
+    border-bottom: 1px solid var(--r-n100);
+    transition: background .1s;
+    cursor: default;
+  }
+  .r-recent-item:last-child { border-bottom: none; }
+  .r-recent-item:hover { background: var(--r-n50); }
+  .r-recent-icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6875rem;
+    flex-shrink: 0;
+  }
+  .r-recent-info { flex: 1; min-width: 0; }
+  .r-recent-name {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--r-n700);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-bottom: 0.125rem;
+  }
+  .r-recent-meta { font-size: 0.5rem; color: var(--r-n400); }
+  .r-recent-amount {
+    font-size: 0.75rem;
+    font-weight: 800;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .r-recent-date {
+    font-size: 0.4375rem;
+    color: var(--r-n400);
+    text-align: right;
+    display: block;
+    margin-top: 0.0625rem;
+  }
+
   /* ─── Arus Kas ─── */
   #r-kas-section { animation: r-fade-up .4s ease both .10s; }
 
@@ -819,35 +858,8 @@
   .r-modal-row-sub { font-size: 0.5rem; color: var(--r-n400); }
   .r-modal-row-amount { font-size: 0.75rem; font-weight: 800; flex-shrink: 0; }
 
- /* ─── Export Preview Modal ─── */
-.r-preview-modal-inner {
-  background: white;
-  border-radius: 1.375rem;
-  width: calc(100% - 2rem);
-  max-width: 28rem;
-  max-height: 88dvh;
-  max-height: 88vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0,0,0,.2);
-  animation: r-pop .24s ease both;
-  margin: 0;
-}
-
-  .r-preview-header {
-    background: linear-gradient(135deg, var(--r-rose-dd), var(--r-rose));
-    padding: 1rem;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
   .r-mask { color: transparent !important; text-shadow: 0 0 12px rgba(255,255,255,.55); user-select: none; }
   .r-spin { animation: r-spin .8s linear infinite; display: inline-block; }
-
-    
 </style>
 
 
@@ -878,12 +890,12 @@
       <div class="hero-top">
         <div>
           <p class="hero-eyebrow">Saldo Bersih Kas</p>
-          <p class="hero-amount" id="r-hero-saldo">Rp 0</p>
+          <p class="hero-amount" id="r-hero-saldo">••••••</p>
           <p class="hero-period-text" id="r-hero-period">Memuat…</p>
         </div>
         <div class="hero-actions">
-          <button class="hero-btn" onclick="rptToggleSaldo()" id="r-hero-eye-btn" title="Sembunyikan saldo">
-            <i class="fa-solid fa-eye" id="r-hero-eye-icon"></i>
+          <button class="hero-btn" onclick="rptToggleSaldo()" id="r-hero-eye-btn" title="Tampilkan saldo">
+            <i class="fa-solid fa-eye-slash" id="r-hero-eye-icon"></i>
           </button>
           <button class="hero-btn" onclick="initModulReport()" title="Refresh data">
             <i class="fa-solid fa-rotate-right" id="r-refresh-icon"></i>
@@ -910,12 +922,12 @@
           <div class="r-stat-row">
             <span class="r-stat-dot" style="background:#86efac;"></span>
             <span class="r-stat-label">Uang Masuk</span>
-            <span class="r-stat-value" id="r-hero-masuk">Rp 0</span>
+            <span class="r-stat-value" id="r-hero-masuk">••••</span>
           </div>
           <div class="r-stat-row">
             <span class="r-stat-dot" style="background:#fca5a5;"></span>
             <span class="r-stat-label">Uang Keluar</span>
-            <span class="r-stat-value" id="r-hero-keluar">Rp 0</span>
+            <span class="r-stat-value" id="r-hero-keluar">••••</span>
           </div>
         </div>
       </div>
@@ -930,7 +942,7 @@
 
   <!-- Quick Stats -->
   <div id="r-stats-strip">
-    <div class="r-stat-cell" onclick="rptScrollTo('r-kas-section')">
+    <div class="r-stat-cell" onclick="rptScrollTo('r-recent-section')">
       <div class="ci" style="background:var(--r-rose-xs);"><i class="fa-solid fa-arrow-right-arrow-left" style="color:var(--r-rose);"></i></div>
       <span class="cv" id="r-stat-trx">—</span>
       <span class="cl">Transaksi</span>
@@ -957,6 +969,39 @@
       <div class="r-chart-legend">
         <div class="r-chart-legend-item"><div class="r-chart-legend-dot" style="background:#bbf7d0;"></div>Masuk</div>
         <div class="r-chart-legend-item"><div class="r-chart-legend-dot" style="background:#fecaca;"></div>Keluar</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ RECENT 15 TRANSAKSI ══ -->
+  <div class="r-section" id="r-recent-section">
+    <div class="r-section-head">
+      <h2>
+        <span class="icon-tag" style="background:#ecfdf5;">
+          <i class="fa-solid fa-clock-rotate-left" style="color:var(--r-green);"></i>
+        </span>
+        Transaksi Terakhir
+      </h2>
+      <span style="font-size:0.5625rem; font-weight:700; color:var(--r-n400);">15 terbaru</span>
+    </div>
+    <div class="r-card" id="r-recent-list">
+      <!-- Skeleton -->
+      <div style="padding:0.75rem 0.875rem;" id="r-recent-skel">
+        <div style="display:flex;align-items:center;gap:.625rem;padding:.5rem 0;" class="r-skel-row" id="rs0">
+          <div class="r-skel" style="width:2rem;height:2rem;border-radius:.5rem;flex-shrink:0;"></div>
+          <div style="flex:1;"><div class="r-skel" style="height:9px;width:65%;margin-bottom:5px;"></div><div class="r-skel" style="height:5px;width:40%;"></div></div>
+          <div class="r-skel" style="width:3.5rem;height:12px;border-radius:.375rem;"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:.625rem;padding:.5rem 0;">
+          <div class="r-skel" style="width:2rem;height:2rem;border-radius:.5rem;flex-shrink:0;"></div>
+          <div style="flex:1;"><div class="r-skel" style="height:9px;width:75%;margin-bottom:5px;"></div><div class="r-skel" style="height:5px;width:45%;"></div></div>
+          <div class="r-skel" style="width:3.5rem;height:12px;border-radius:.375rem;"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:.625rem;padding:.5rem 0;">
+          <div class="r-skel" style="width:2rem;height:2rem;border-radius:.5rem;flex-shrink:0;"></div>
+          <div style="flex:1;"><div class="r-skel" style="height:9px;width:55%;margin-bottom:5px;"></div><div class="r-skel" style="height:5px;width:35%;"></div></div>
+          <div class="r-skel" style="width:3.5rem;height:12px;border-radius:.375rem;"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1068,23 +1113,24 @@
     </div>
   </div>
 
-</div>
+</div><!-- /#modul-report -->
 
 <script>
 /* ═══════════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════════ */
-var _D       = { kas:[], aset:[] };
+var _D        = { kas:[], aset:[] };
+var _recentTrx = [];           // FIX 1: state untuk recent transactions
 var _periode  = 'ALL';
 var _periodes = [];
 var _pIdx     = -1;
 var _kasTab   = 'keluar';
 var _kasExpanded = false;
 var _kasMap   = { keluar:{}, masuk:{} };
-var _saldoMasked = false;
-var _saldoValues = {}; // FIX #1 & #2: simpan nilai asli di sini, bukan di el._v
+var _saldoMasked = true;       // FIX 3: default hidden
+var _saldoValues = {};
 var _modalRowsAll  = [];
-var _modalRowsFiltered = []; // FIX #5: simpan filtered rows terpisah
+var _modalRowsFiltered = [];
 var _exportMode = 'lengkap';
 
 var _charts = { trend:null, donut:null, aset:null };
@@ -1107,19 +1153,15 @@ function rFmt(n, compact) {
 function rFmtFull(n) {
   return new Intl.NumberFormat('id-ID', { style:'currency', currency:'IDR', minimumFractionDigits:0 }).format(parseFloat(n) || 0);
 }
-
-// FIX #4: rNormPeriode yang benar-benar handle YYYY-MM-DD
 function rNormPeriode(v) {
   if (!v) return '';
   if (v instanceof Date) return BULAN[v.getMonth()] + ' ' + v.getFullYear();
   var s = String(v).trim();
-  // "YYYY-MM-DD"
   var mYMD = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (mYMD) {
     var bln = parseInt(mYMD[2], 10) - 1;
     return BULAN[bln] + ' ' + mYMD[1];
   }
-  // "NamaBulan YYYY" — capitalize bulan pertama
   if (/^[A-Za-z]/.test(s)) {
     return s.split(' ').map(function(p, i) {
       return i === 0 ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : p;
@@ -1127,31 +1169,25 @@ function rNormPeriode(v) {
   }
   return s;
 }
-
 function rSortPeriode(a, b) {
   var pa = String(a).split(' '), pb = String(b).split(' ');
   var ta = parseInt(pa[pa.length - 1]) || 0, tb = parseInt(pb[pb.length - 1]) || 0;
   if (ta !== tb) return ta - tb;
   return BULAN.indexOf(pa[0]) - BULAN.indexOf(pb[0]);
 }
-
-// FIX: rPeriodeSkrg tidak pakai cutoff >= 28 untuk default
 function rPeriodeSkrg() {
   var d = new Date();
   return BULAN[d.getMonth()] + ' ' + d.getFullYear();
 }
-
 function rEsc(s) {
   return String(s)
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 function rptScrollTo(id) {
   var el = document.getElementById(id);
   if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
 }
-
-// FIX #9: format tanggal YYYY-MM-DD ke DD/MM/YYYY untuk tampilan
 function rFmtTgl(s) {
   if (!s || s === '-') return '-';
   var m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -1164,27 +1200,47 @@ function rFmtTgl(s) {
 ═══════════════════════════════════════════════════════════ */
 function initModulReport() {
   _D = { kas:[], aset:[] };
+  _recentTrx = [];
   _periode = 'ALL';
   _periodes = [];
   _pIdx = -1;
   _kasTab = 'keluar';
   _kasExpanded = false;
-  _saldoMasked = false;
+  _saldoMasked = true;          // FIX 3: always start hidden
   _saldoValues = {};
-  // Reset chart instances
+
   if (_charts.trend) { _charts.trend.destroy(); _charts.trend = null; }
   if (_charts.donut) { _charts.donut.destroy(); _charts.donut = null; }
   if (_charts.aset)  { _charts.aset.destroy();  _charts.aset  = null; }
 
-  // Reset eye icon
+  // Reset eye icon ke slash (karena masked)
   var eyeIcon = document.getElementById('r-hero-eye-icon');
-  if (eyeIcon) eyeIcon.className = 'fa-solid fa-eye';
+  if (eyeIcon) eyeIcon.className = 'fa-solid fa-eye-slash';
+
+  // Reset saldo text ke masked
+  ['r-hero-saldo','r-hero-masuk','r-hero-keluar'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) { el.innerText = '••••••'; el.classList.add('r-mask'); }
+  });
 
   var refreshIcon = document.getElementById('r-refresh-icon');
   if (refreshIcon) refreshIcon.classList.add('r-spin');
 
   document.getElementById('r-flow-list').innerHTML = rSkelList(5);
   document.getElementById('r-aset-cards').innerHTML = rSkelList(3, true);
+
+  // FIX 1: load recent transactions dulu secara paralel
+  google.script.run
+    .withSuccessHandler(function(rows) {
+      _recentTrx = rows || [];
+      _rptRenderRecent();
+    })
+    .withFailureHandler(function(err) {
+      document.getElementById('r-recent-list').innerHTML =
+        '<div class="r-empty"><span class="r-empty-icon">⚠️</span>' +
+        '<p>Gagal memuat transaksi</p><span>' + rEsc(err.message) + '</span></div>';
+    })
+    .getRecentArusKas();
 
   google.script.run
     .withSuccessHandler(function(data) {
@@ -1204,8 +1260,8 @@ function initModulReport() {
 }
 
 function rSkelList(n, wide) {
-  return Array.from({ length: n }).map(function(_, i) {
-    return '<div style="display:flex;align-items:center;gap:.625rem;padding:.5rem 0;" class="r-fade-up">' +
+  return Array.from({ length: n }).map(function() {
+    return '<div style="display:flex;align-items:center;gap:.625rem;padding:.5rem 0;">' +
       '<div class="r-skel" style="width:1.25rem;height:1.25rem;border-radius:.375rem;flex-shrink:0;"></div>' +
       '<div style="flex:1;">' +
         '<div class="r-skel" style="height:9px;width:' + (wide ? 90 : 60) + '%;margin-bottom:5px;"></div>' +
@@ -1217,12 +1273,70 @@ function rSkelList(n, wide) {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   FIX 1: RENDER RECENT 15 TRANSAKSI
+   Data dari getRecentArusKas():
+     [0]=ID  [1]=Tanggal(DD/MM/YYYY)  [2]=Periode  [3]=Tipe
+     [4]=Item  [5]=Catatan  [6]=Debit  [7]=Kredit
+═══════════════════════════════════════════════════════════ */
+function _rptRenderRecent() {
+  var container = document.getElementById('r-recent-list');
+  if (!container) return;
+
+  if (!_recentTrx || !_recentTrx.length) {
+    container.innerHTML =
+      '<div class="r-empty">' +
+      '<span class="r-empty-icon">📭</span>' +
+      '<p>Belum ada transaksi</p>' +
+      '<span>Catat transaksi di menu Arus Kas</span>' +
+      '</div>';
+    return;
+  }
+
+  var html = _recentTrx.map(function(r) {
+    var tipe   = String(r[3] || '');
+    var item   = String(r[4] || '-');
+    var catat  = String(r[5] || '-');
+    var debit  = parseFloat(r[6]) || 0;
+    var kredit = parseFloat(r[7]) || 0;
+    var tgl    = String(r[1] || '-');   // sudah format DD/MM/YYYY dari GS
+    var periode = String(r[2] || '');
+
+    var isMasuk = debit > 0;
+    var nominal = isMasuk ? debit : kredit;
+    var color   = isMasuk ? 'var(--r-green)' : 'var(--r-red)';
+    var bg      = isMasuk ? 'var(--r-green-xs)' : 'var(--r-red-xs)';
+    var icon    = isMasuk ? 'fa-arrow-down' : 'fa-arrow-up';
+    var sign    = isMasuk ? '+' : '-';
+
+    // Label tipe ringkas
+    var tipeLabel = tipe === 'PEMASUKAN' ? 'Masuk' : 'Keluar';
+
+    return '<div class="r-recent-item">' +
+      '<div class="r-recent-icon" style="background:' + bg + ';">' +
+        '<i class="fa-solid ' + icon + '" style="color:' + color + ';"></i>' +
+      '</div>' +
+      '<div class="r-recent-info">' +
+        '<div class="r-recent-name">' + rEsc(item) + '</div>' +
+        '<div class="r-recent-meta">' + rEsc(tipeLabel) + ' · ' + rEsc(catat !== '-' ? catat : periode) + '</div>' +
+      '</div>' +
+      '<div style="text-align:right; flex-shrink:0;">' +
+        '<div class="r-recent-amount" style="color:' + color + ';">' +
+          sign + rFmt(nominal, true) +
+        '</div>' +
+        '<span class="r-recent-date">' + rEsc(tgl) + '</span>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  container.innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════════════
    PERIOD CHIPS + NAV
 ═══════════════════════════════════════════════════════════ */
 function _rptBuildPeriodes() {
   var set = new Set();
   _D.kas.forEach(function(r) { if (r[2]) set.add(rNormPeriode(r[2])); });
-  // FIX #4: aset pakai r[1] (tanggal) untuk derive periode
   _D.aset.forEach(function(r) { if (r[1]) set.add(rNormPeriode(r[1])); });
   set.add(rPeriodeSkrg());
   _periodes = Array.from(set).filter(Boolean).sort(rSortPeriode);
@@ -1241,7 +1355,7 @@ function _rptBuildPeriodes() {
   _rptScrollChipIntoView(_periode);
 }
 
-function rChipId(p) { return p.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, ''); }
+function rChipId(p) { return p.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,''); }
 
 function _rptScrollChipIntoView(p) {
   setTimeout(function() {
@@ -1261,21 +1375,19 @@ function rptPilihPeriode(p) {
   _rptApply();
 }
 
-// FIX #3: Prev → ke periode lebih lama; Next → ke periode lebih baru
 function rptNavPrev() {
   if (_periode === 'ALL') {
-    // ALL = terbaru dari semua, prev = periode terlama
     if (_periodes.length) rptPilihPeriode(_periodes[0]);
   } else if (_pIdx > 0) {
     rptPilihPeriode(_periodes[_pIdx - 1]);
   }
 }
 function rptNavNext() {
-  if (_periode === 'ALL') return; // sudah paling "baru" (semua)
+  if (_periode === 'ALL') return;
   if (_pIdx < _periodes.length - 1) {
     rptPilihPeriode(_periodes[_pIdx + 1]);
   } else {
-    rptPilihPeriode('ALL'); // sudah di periode terbaru, next = ALL
+    rptPilihPeriode('ALL');
   }
 }
 
@@ -1288,8 +1400,6 @@ function _rptApply() {
     : _D.kas.filter(function(r) {
         return rNormPeriode(r[2]).toLowerCase() === _periode.toLowerCase();
       });
-
-  // FIX #4 & #8: aset filter pakai r[1] (tanggal YYYY-MM-DD → NamaBulan YYYY)
   var asetF = _periode === 'ALL'
     ? _D.aset
     : _D.aset.filter(function(r) {
@@ -1315,8 +1425,6 @@ function _rptRenderHero(kasData) {
   var saldo = masuk - keluar;
   var pct   = masuk > 0 ? Math.min(keluar / masuk * 100, 100) : 0;
 
-  // FIX #1 & #2: simpan nilai ke _saldoValues, bukan ke el._v
-  // Ini memastikan refresh data tidak merusak nilai yang disimpan untuk mask
   var vals = {
     'r-hero-saldo': rFmtFull(saldo),
     'r-hero-masuk': rFmt(masuk, true),
@@ -1324,11 +1432,11 @@ function _rptRenderHero(kasData) {
   };
   _saldoValues = vals;
 
+  // Terapkan mask sesuai state saat ini
   Object.keys(vals).forEach(function(id) {
     var el = document.getElementById(id);
     if (!el) return;
     if (_saldoMasked) {
-      // Tetap mask, tapi nilai sudah diperbarui di _saldoValues
       el.innerText = '••••••';
       el.classList.add('r-mask');
     } else {
@@ -1343,7 +1451,6 @@ function _rptRenderHero(kasData) {
   var periodEl = document.getElementById('r-hero-period');
   if (periodEl) periodEl.innerText = _periode === 'ALL' ? 'Semua periode' : _periode;
 
-  // Ring
   var circ   = 213.6;
   var offset = circ - (circ * pct / 100);
   var ring   = document.getElementById('r-ring-fill');
@@ -1354,7 +1461,6 @@ function _rptRenderHero(kasData) {
   var ringPct = document.getElementById('r-ring-pct');
   if (ringPct) ringPct.innerText = Math.round(pct) + '%';
 
-  // Health badge
   var badge = document.getElementById('r-health-badge'), lbl = document.getElementById('r-health-label');
   if (badge && lbl) {
     if (pct > 85 || saldo < 0) {
@@ -1409,12 +1515,11 @@ function _rptDrawSparkline() {
    STATS
 ═══════════════════════════════════════════════════════════ */
 function _rptRenderStats(kasData, asetData) {
-  // FIX #11: hitung trx masuk dengan benar — cek debit (r[6]) > 0
   var masukTrx = kasData.filter(function(r) { return (parseFloat(r[6]) || 0) > 0; }).length;
-  var trxEl = document.getElementById('r-stat-trx');
-  var masukEl = document.getElementById('r-stat-trx-masuk');
-  var asetEl = document.getElementById('r-stat-aset');
-  if (trxEl) trxEl.innerText = kasData.length;
+  var trxEl    = document.getElementById('r-stat-trx');
+  var masukEl  = document.getElementById('r-stat-trx-masuk');
+  var asetEl   = document.getElementById('r-stat-aset');
+  if (trxEl)   trxEl.innerText   = kasData.length;
   if (masukEl) masukEl.innerText = masukTrx;
   var asetSet = new Set();
   asetData.forEach(function(r) { if (r[4]) asetSet.add(r[4]); });
@@ -1488,12 +1593,12 @@ function _rptBuildKasMap(kasData) {
       totM += debit; nM++;
     }
   });
-  var sumK = document.getElementById('r-sum-keluar');
-  var sumM = document.getElementById('r-sum-masuk');
+  var sumK  = document.getElementById('r-sum-keluar');
+  var sumM  = document.getElementById('r-sum-masuk');
   var sumKn = document.getElementById('r-sum-keluar-n');
   var sumMn = document.getElementById('r-sum-masuk-n');
-  if (sumK) sumK.innerText  = rFmt(totK, true);
-  if (sumM) sumM.innerText  = rFmt(totM, true);
+  if (sumK)  sumK.innerText  = rFmt(totK, true);
+  if (sumM)  sumM.innerText  = rFmt(totM, true);
   if (sumKn) sumKn.innerText = nK + ' transaksi';
   if (sumMn) sumMn.innerText = nM + ' transaksi';
 }
@@ -1527,11 +1632,9 @@ function _rptRenderKas() {
   if (moreBtn) moreBtn.style.display = '';
   var moreIcon = document.getElementById('r-flow-more-icon');
   var moreText = document.getElementById('r-flow-more-text');
-  if (moreIcon) moreIcon.className = 'fa-solid fa-chevron-' + (_kasExpanded ? 'up' : 'down');
-  if (moreIcon) moreIcon.style.fontSize = '.5rem';
+  if (moreIcon) { moreIcon.className = 'fa-solid fa-chevron-' + (_kasExpanded ? 'up' : 'down'); moreIcon.style.fontSize = '.5rem'; }
   if (moreText) moreText.innerText = _kasExpanded ? 'Tutup' : 'Lihat semua (' + entries.length + ')';
 
-  // FIX #14: tidak pakai animation class langsung agar tidak double-animate
   var html = shown.map(function(entry, i) {
     var nama = entry[0], val = entry[1].total, jml = entry[1].rows.length;
     var pct  = maxVal > 0 ? (val / maxVal * 100) : 0;
@@ -1601,8 +1704,8 @@ function _rptRenderDonut() {
   };
 
   var legHtml = entries.map(function(entry, i) {
-    var pct     = total > 0 ? ((entry[1].total / total) * 100).toFixed(0) : 0;
-    var shortN  = entry[0].length > 22 ? entry[0].substring(0, 20) + '…' : entry[0];
+    var pct    = total > 0 ? ((entry[1].total / total) * 100).toFixed(0) : 0;
+    var shortN = entry[0].length > 22 ? entry[0].substring(0, 20) + '…' : entry[0];
     return '<div class="r-legend-item" onclick="rptBukaDetail(\'' + encodeURIComponent(entry[0]) + '\',\'keluar\')">' +
       '<span class="r-legend-dot" style="background:' + colors[i] + ';"></span>' +
       '<span class="r-legend-name">' + rEsc(shortN) + '</span>' +
@@ -1633,46 +1736,41 @@ function _rptRenderAset(asetData) {
     var qty   = parseFloat(r[6]) || 0, total = parseFloat(r[8]) || 0, idRef = String(r[9]).trim();
     if (!rekapItem[item]) rekapItem[item] = { qtyBeli:0, nilaiBeli:0, qtyJual:0, nilaiJual:0, hpJual:0, kat:kat, plt:plt };
     if (tipe === 'BELI') {
-      rekapItem[item].qtyBeli += qty;
+      rekapItem[item].qtyBeli   += qty;
       rekapItem[item].nilaiBeli += total;
       totalModal += total;
     } else if (tipe === 'JUAL') {
-      rekapItem[item].qtyJual += qty;
+      rekapItem[item].qtyJual   += qty;
       rekapItem[item].nilaiJual += total;
       totalCair += total;
       var hBeli = (idRef && idRef !== '-' && beliMap[idRef]) ? beliMap[idRef].harga : 0;
-      var hp = hBeli * qty;
+      var hp    = hBeli * qty;
       rekapItem[item].hpJual += hp;
       pnlTotal += (total - hp);
     }
   });
 
-  // PNL banner
-  var banner = document.getElementById('r-pnl-banner');
-  var icon   = document.getElementById('r-pnl-icon');
-  var pnlEl  = document.getElementById('r-pnl-nilai');
+  var banner  = document.getElementById('r-pnl-banner');
+  var icon    = document.getElementById('r-pnl-icon');
+  var pnlEl   = document.getElementById('r-pnl-nilai');
   var modalEl = document.getElementById('r-pnl-modal');
   var cairEl  = document.getElementById('r-pnl-cair');
-  if (pnlEl) pnlEl.innerText = rFmtFull(pnlTotal);
+  if (pnlEl)   pnlEl.innerText   = rFmtFull(pnlTotal);
   if (modalEl) modalEl.innerText = rFmt(totalModal, true);
-  if (cairEl) cairEl.innerText  = rFmt(totalCair, true);
+  if (cairEl)  cairEl.innerText  = rFmt(totalCair, true);
   if (banner && icon && pnlEl) {
     if (pnlTotal > 0) {
       banner.style.background = 'linear-gradient(135deg,#9f1239,#e11d48)';
-      icon.innerHTML = '📈';
-      pnlEl.style.color = 'white';
+      icon.innerHTML = '📈'; pnlEl.style.color = 'white';
     } else if (pnlTotal < 0) {
       banner.style.background = 'linear-gradient(135deg,#991b1b,#dc2626)';
-      icon.innerHTML = '📉';
-      pnlEl.style.color = '#fecaca';
+      icon.innerHTML = '📉'; pnlEl.style.color = '#fecaca';
     } else {
       banner.style.background = 'linear-gradient(135deg,#3730a3,#4f46e5)';
-      icon.innerHTML = '📊';
-      pnlEl.style.color = 'white';
+      icon.innerHTML = '📊'; pnlEl.style.color = 'white';
     }
   }
 
-  // Aset chart
   var entries = Object.entries(rekapItem);
   if (entries.length) {
     var labels = entries.map(function(e) { return e[0].length > 12 ? e[0].substring(0, 10) + '…' : e[0]; });
@@ -1698,7 +1796,6 @@ function _rptRenderAset(asetData) {
     });
   }
 
-  // Aset cards
   var sorted = entries.sort(function(a, b) { return b[1].nilaiBeli - a[1].nilaiBeli; });
   var emojiMap = { emas:'🪙', gold:'🪙', perak:'🥈', silver:'🥈', reksa:'📊', saham:'📈', crypto:'💎', bitcoin:'💎', deposito:'🏦', obligasi:'📜' };
   function getEmoji(k) {
@@ -1716,12 +1813,12 @@ function _rptRenderAset(asetData) {
     return;
   }
 
-  var html = sorted.map(function(entry, i) {
+  var html = sorted.map(function(entry) {
     var nama = entry[0], d = entry[1];
-    var sisa  = d.nilaiBeli - d.nilaiJual;
-    var pnl   = d.nilaiJual - d.hpJual;
+    var sisa    = d.nilaiBeli - d.nilaiJual;
+    var pnl     = d.nilaiJual - d.hpJual;
     var jualPct = d.nilaiBeli > 0 ? Math.min(d.nilaiJual / d.nilaiBeli * 100, 100).toFixed(1) : 0;
-    var pnlC  = pnl > 0 ? 'var(--r-green)' : pnl < 0 ? 'var(--r-red)' : 'var(--r-n400)';
+    var pnlC    = pnl > 0 ? 'var(--r-green)' : pnl < 0 ? 'var(--r-red)' : 'var(--r-n400)';
     var pnlSign = pnl >= 0 ? '+' : '';
     var hasDijual = d.nilaiJual > 0;
     return '<div class="r-aset-card">' +
@@ -1749,7 +1846,7 @@ function _rptRenderAset(asetData) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   SALDO MASK — FIX #1 & #2
+   FIX 3: SALDO MASK — default true, toggle bisa buka/tutup
 ═══════════════════════════════════════════════════════════ */
 function rptToggleSaldo() {
   _saldoMasked = !_saldoMasked;
@@ -1767,10 +1864,8 @@ function _rptApplyMask() {
       el.innerText = '••••••';
       el.classList.add('r-mask');
     } else {
-      // Ambil dari _saldoValues, bukan el._v — FIX utama
       if (_saldoValues[id]) el.innerText = _saldoValues[id];
       el.classList.remove('r-mask');
-      // Restore warna saldo
       if (id === 'r-hero-saldo') {
         var saldoStr = _saldoValues[id] || '';
         el.style.color = saldoStr.indexOf('-') !== -1 ? '#fca5a5' : 'white';
@@ -1780,7 +1875,8 @@ function _rptApplyMask() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   MODAL DETAIL — FIX #5, #6, #7
+   FIX 2: MODAL DETAIL TRANSAKSI PER COA
+   rptBukaDetail sekarang bekerja karena #r-modal-detail ada di DOM
 ═══════════════════════════════════════════════════════════ */
 function rptBukaDetail(encodedNama, tipe) {
   var nama = decodeURIComponent(encodedNama);
@@ -1797,27 +1893,30 @@ function rptBukaDetail(encodedNama, tipe) {
 
   var rows = src.rows.slice();
   _modalRowsAll      = rows;
-  _modalRowsFiltered = rows.slice(); // FIX #5: init filtered = all
+  _modalRowsFiltered = rows.slice();
 
-  _rptModalApplySort(); // FIX #5: sort pada _modalRowsFiltered
-
+  // Hitung summary
   var sumM = rows.reduce(function(s, r) { return s + (parseFloat(r[6]) || 0); }, 0);
   var sumK = rows.reduce(function(s, r) { return s + (parseFloat(r[7]) || 0); }, 0);
   var msM  = document.getElementById('r-ms-masuk');
   var msK  = document.getElementById('r-ms-keluar');
   var msC  = document.getElementById('r-ms-count');
-  if (msM) msM.innerText  = rFmt(sumM, true);
-  if (msK) msK.innerText  = rFmt(sumK, true);
-  if (msC) msC.innerText  = rows.length;
+  if (msM) msM.innerText = rFmt(sumM, true);
+  if (msK) msK.innerText = rFmt(sumK, true);
+  if (msC) msC.innerText = rows.length;
 
-  document.getElementById('r-modal-detail').classList.remove('hidden');
+  _rptModalApplySort();
+
+  // Tampilkan modal
+  var modal = document.getElementById('r-modal-detail');
+  if (modal) modal.classList.remove('hidden');
 }
 
 function rptTutupModal() {
-  document.getElementById('r-modal-detail').classList.add('hidden');
+  var modal = document.getElementById('r-modal-detail');
+  if (modal) modal.classList.add('hidden');
 }
 
-// FIX #5: sort hanya pada _modalRowsFiltered, bukan _modalRowsAll
 function _rptModalApplySort() {
   var sortEl = document.getElementById('r-modal-sort');
   var sort   = sortEl ? sortEl.value : 'tgl-desc';
@@ -1827,19 +1926,17 @@ function _rptModalApplySort() {
   } else if (sort === 'tgl-asc') {
     sorted.sort(function(a, b) { return String(a[1]).localeCompare(String(b[1])); });
   } else if (sort === 'nom-desc') {
-    sorted.sort(function(a, b) { return ((parseFloat(b[6]) || 0) + (parseFloat(b[7]) || 0)) - ((parseFloat(a[6]) || 0) + (parseFloat(a[7]) || 0)); });
+    sorted.sort(function(a, b) { return ((parseFloat(b[6])||0)+(parseFloat(b[7])||0)) - ((parseFloat(a[6])||0)+(parseFloat(a[7])||0)); });
   } else {
-    sorted.sort(function(a, b) { return ((parseFloat(a[6]) || 0) + (parseFloat(a[7]) || 0)) - ((parseFloat(b[6]) || 0) + (parseFloat(b[7]) || 0)); });
+    sorted.sort(function(a, b) { return ((parseFloat(a[6])||0)+(parseFloat(a[7])||0)) - ((parseFloat(b[6])||0)+(parseFloat(b[7])||0)); });
   }
   _rptRenderModalList(sorted);
 }
 
-// FIX #5: saat sort berubah, sort filtered set (bukan all)
 function rptModalSort() {
   _rptModalApplySort();
 }
 
-// FIX #5 & #7: filter pada all, update filtered, lalu sort
 function rptModalCari() {
   var cariEl = document.getElementById('r-modal-cari');
   var q = cariEl ? cariEl.value.toLowerCase() : '';
@@ -1847,16 +1944,14 @@ function rptModalCari() {
     _modalRowsFiltered = _modalRowsAll.slice();
   } else {
     _modalRowsFiltered = _modalRowsAll.filter(function(r) {
-      // FIX #7: filter berdasarkan tanggal (r[1]), nama akun (r[4]), dan catatan (r[5])
       return String(r[1] || '').toLowerCase().includes(q) ||
              String(r[4] || '').toLowerCase().includes(q) ||
              String(r[5] || '').toLowerCase().includes(q);
     });
   }
-  _rptModalApplySort(); // sort hasil filter
+  _rptModalApplySort();
 }
 
-// FIX #6: tampilkan r[1]=tanggal dan r[5]=catatan dengan benar
 function _rptRenderModalList(rows) {
   var container = document.getElementById('r-modal-list');
   if (!container) return;
@@ -1865,15 +1960,14 @@ function _rptRenderModalList(rows) {
       '<div class="r-empty"><span class="r-empty-icon">📭</span><p>Tidak ada transaksi</p></div>';
     return;
   }
-  container.innerHTML = rows.map(function(r, i) {
+  container.innerHTML = rows.map(function(r) {
     var debit  = parseFloat(r[6]) || 0;
     var kredit = parseFloat(r[7]) || 0;
     var isIn   = debit > 0;
     var nom    = isIn ? debit : kredit;
     var color  = isIn ? 'var(--r-green)' : 'var(--r-red)';
     var bg     = isIn ? 'var(--r-green-xs)' : 'var(--r-red-xs)';
-    // FIX #6: r[1] = tanggal (format ke DD/MM/YYYY), r[5] = catatan
-    var tglStr = rFmtTgl(r[1]);     // "2025-01-15" → "15/01/2025"
+    var tglStr  = rFmtTgl(r[1]);
     var catatan = r[5] || '-';
     return '<div class="r-modal-row">' +
       '<div class="r-modal-row-icon" style="background:' + bg + ';">' +
@@ -1889,7 +1983,7 @@ function _rptRenderModalList(rows) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   EXPORT — FIX #8: capture _periode di awal
+   EXPORT PDF
 ═══════════════════════════════════════════════════════════ */
 function _rptUpdateExportLabel() {
   var el = document.getElementById('r-export-periode');
@@ -1898,19 +1992,13 @@ function _rptUpdateExportLabel() {
 
 function rptExport(mode) {
   _exportMode = mode || 'lengkap';
-  if (mode === 'ringkas') {
-    _rptShowPreview();
-  } else {
-    rptDoExportPDF();
-  }
+  rptDoExportPDF();
 }
 
 async function rptDoExportPDF() {
-  // FIX #8: capture _periode di awal sebelum async dimulai
-  var periodeSnapshot = _periode;
+  var periodeSnapshot    = _periode;
   var exportModeSnapshot = _exportMode;
 
-  document.getElementById('r-modal-preview').classList.add('hidden');
   Swal.fire({
     title: 'Membuat PDF…',
     html: '<i class="fa-solid fa-spinner fa-spin" style="font-size:2rem;color:#e11d48;"></i>',
@@ -1927,7 +2015,6 @@ async function rptDoExportPDF() {
     const GREEN=[22,163,74], RED=[220,38,38];
     const GRAY=[107,114,128], LGRAY=[241,245,249], BLACK=[17,24,39], WHITE=[255,255,255];
 
-    // FIX #8: gunakan periodeSnapshot bukan _periode
     const filterFn = r => periodeSnapshot === 'ALL' ||
       rNormPeriode(r[2]).toLowerCase() === periodeSnapshot.toLowerCase();
     const kasData  = _D.kas.filter(filterFn);
@@ -1942,7 +2029,6 @@ async function rptDoExportPDF() {
       if (!akunMap[item]) akunMap[item] = { debit:0, kredit:0, jml:0 };
       akunMap[item].debit += debit; akunMap[item].kredit += kredit; akunMap[item].jml++;
       if (!trxPerAkun[item]) trxPerAkun[item] = [];
-      // FIX #6 dalam PDF: simpan row lengkap untuk referensi
       trxPerAkun[item].push({ tgl:row[1], per:row[2], tipe:row[3], catat:row[5], debit, kredit });
     });
     const saldo = totMasuk - totKeluar;
@@ -2081,13 +2167,12 @@ async function rptDoExportPDF() {
         doc.text(fmtRp(Math.abs(akunData.debit-akunData.kredit)), ML+CW-5, currentY+4.5, {align:'right'});
         currentY += 15;
 
-        // FIX #6 di PDF: tampilkan tanggal (tgl) dan catatan (catat) dengan benar
         const trxTableData = trxList
           .slice()
           .sort((a,b) => String(a.tgl).localeCompare(String(b.tgl)))
           .map((t, i) => [
             (i+1).toString(),
-            rFmtTgl(String(t.tgl)),         // format DD/MM/YYYY
+            rFmtTgl(String(t.tgl)),
             (t.catat||'-').length>35 ? (t.catat||'-').substring(0,33)+'…' : (t.catat||'-'),
             t.debit>0 ? fmtRp(t.debit) : '-',
             t.kredit>0 ? fmtRp(t.kredit) : '-'
