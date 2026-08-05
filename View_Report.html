@@ -819,21 +819,22 @@
   .r-modal-row-sub { font-size: 0.5rem; color: var(--r-n400); }
   .r-modal-row-amount { font-size: 0.75rem; font-weight: 800; flex-shrink: 0; }
 
-  /* ─── Export Preview Modal ─── */
-  .r-preview-modal-inner {
-    background: white;
-    border-radius: 1.375rem;
-    width: 100%;
-    max-width: 28rem;
-    max-height: 88dvh;
-    max-height: 88vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 20px 60px rgba(0,0,0,.2);
-    animation: r-pop .24s ease both;
-    margin: 1rem;
-  }
+ /* ─── Export Preview Modal ─── */
+.r-preview-modal-inner {
+  background: white;
+  border-radius: 1.375rem;
+  width: calc(100% - 2rem);
+  max-width: 28rem;
+  max-height: 88dvh;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  animation: r-pop .24s ease both;
+  margin: 0;
+}
+
   .r-preview-header {
     background: linear-gradient(135deg, var(--r-rose-dd), var(--r-rose));
     padding: 1rem;
@@ -845,6 +846,8 @@
 
   .r-mask { color: transparent !important; text-shadow: 0 0 12px rgba(255,255,255,.55); user-select: none; }
   .r-spin { animation: r-spin .8s linear infinite; display: inline-block; }
+
+    
 </style>
 
 
@@ -1058,10 +1061,7 @@
         </div>
       </div>
       <div class="r-export-buttons">
-        <button class="r-export-btn-sec" onclick="rptExport('ringkas')">
-          <i class="fa-solid fa-list-ul" style="font-size:.75rem;"></i>Ringkasan
-        </button>
-        <button class="r-export-btn-pri" onclick="rptExport('lengkap')">
+        <button class="r-export-btn-pri" style="flex:1;" onclick="rptExport('lengkap')">
           <i class="fa-solid fa-file-arrow-down" style="font-size:.75rem;"></i>Download PDF
         </button>
       </div>
@@ -1069,66 +1069,6 @@
   </div>
 
 </div>
-
-
-<!-- ══ MODAL: DETAIL TRANSAKSI ══════════════════════════════════ -->
-<div id="r-modal-detail" class="hidden r-modal-overlay" onclick="if(event.target===this)rptTutupModal()">
-  <div class="r-modal-sheet">
-    <div class="r-modal-handle"></div>
-    <div class="r-modal-header">
-      <div class="r-modal-header-inner">
-        <h3 class="r-modal-title" id="r-modal-title">Detail</h3>
-        <button class="r-modal-close" onclick="rptTutupModal()"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="r-modal-summary">
-        <div class="r-modal-sum-cell"><span class="ms-val" id="r-ms-masuk" style="color:var(--r-green);">Rp 0</span><span class="ms-lbl">Masuk</span></div>
-        <div class="r-modal-sum-cell"><span class="ms-val" id="r-ms-keluar" style="color:var(--r-red);">Rp 0</span><span class="ms-lbl">Keluar</span></div>
-        <div class="r-modal-sum-cell"><span class="ms-val" id="r-ms-count">0</span><span class="ms-lbl">Transaksi</span></div>
-      </div>
-    </div>
-    <div class="r-modal-toolbar">
-      <div class="r-modal-search-wrap">
-        <i class="fa-solid fa-search"></i>
-        <input type="text" id="r-modal-cari" class="r-modal-search"
-               placeholder="Cari tanggal, catatan, atau akun…"
-               oninput="rptModalCari()">
-      </div>
-      <select class="r-modal-sort" id="r-modal-sort" onchange="rptModalSort()">
-        <option value="tgl-desc">Terbaru</option>
-        <option value="tgl-asc">Terlama</option>
-        <option value="nom-desc">Terbesar</option>
-        <option value="nom-asc">Terkecil</option>
-      </select>
-    </div>
-    <div class="r-modal-list thin-scroll" id="r-modal-list"></div>
-  </div>
-</div>
-
-<!-- ══ MODAL: EXPORT PREVIEW ════════════════════════════════════ -->
-<div id="r-modal-preview" class="hidden r-modal-overlay" onclick="if(event.target===this)document.getElementById('r-modal-preview').classList.add('hidden')">
-  <div class="r-preview-modal-inner">
-    <div class="r-preview-header">
-      <div>
-        <p style="font-size:.5rem;font-weight:900;letter-spacing:.1em;color:rgba(255,255,255,.55);text-transform:uppercase;margin:0 0 .25rem;">Ringkasan Ekspor</p>
-        <h3 style="font-size:.875rem;font-weight:800;color:white;margin:0;">Konfirmasi Laporan</h3>
-      </div>
-      <button onclick="document.getElementById('r-modal-preview').classList.add('hidden')"
-              style="width:2rem;height:2rem;border-radius:.625rem;background:rgba(255,255,255,.15);border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-    </div>
-    <div id="r-preview-content" class="thin-scroll" style="overflow-y:auto;flex:1;padding:1rem;display:flex;flex-direction:column;gap:.625rem;"></div>
-    <div style="padding:.875rem;border-top:1px solid var(--r-n100);display:flex;gap:.5rem;flex-shrink:0;">
-      <button onclick="document.getElementById('r-modal-preview').classList.add('hidden')"
-              style="flex:1;background:var(--r-n100);border:none;border-radius:var(--r-md);padding:.875rem;font-size:.8125rem;font-weight:700;color:var(--r-n700);cursor:pointer;">Batal</button>
-      <button onclick="rptDoExportPDF()"
-              style="flex:2;background:linear-gradient(135deg,var(--r-rose-dd),var(--r-rose));border:none;border-radius:var(--r-md);padding:.875rem;font-size:.8125rem;font-weight:800;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.375rem;box-shadow:0 4px 14px var(--r-rose-glow);">
-        <i class="fa-solid fa-file-arrow-down"></i>Download PDF
-      </button>
-    </div>
-  </div>
-</div>
-
 
 <script>
 /* ═══════════════════════════════════════════════════════════
@@ -1231,6 +1171,10 @@ function initModulReport() {
   _kasExpanded = false;
   _saldoMasked = false;
   _saldoValues = {};
+  // Reset chart instances
+  if (_charts.trend) { _charts.trend.destroy(); _charts.trend = null; }
+  if (_charts.donut) { _charts.donut.destroy(); _charts.donut = null; }
+  if (_charts.aset)  { _charts.aset.destroy();  _charts.aset  = null; }
 
   // Reset eye icon
   var eyeIcon = document.getElementById('r-hero-eye-icon');
@@ -1954,48 +1898,11 @@ function _rptUpdateExportLabel() {
 
 function rptExport(mode) {
   _exportMode = mode || 'lengkap';
-  if (mode === 'ringkas') _rptShowPreview();
-  else rptDoExportPDF();
-}
-
-function _rptShowPreview() {
-  // FIX #8: capture _periode di awal
-  var periodeSnapshot = _periode;
-  var filterFn = function(r) {
-    return periodeSnapshot === 'ALL' ||
-           rNormPeriode(r[2]).toLowerCase() === periodeSnapshot.toLowerCase();
-  };
-  var kasData   = _D.kas.filter(filterFn);
-  var totMasuk  = 0, totKeluar = 0;
-  kasData.forEach(function(r) { totMasuk += parseFloat(r[6]) || 0; totKeluar += parseFloat(r[7]) || 0; });
-  var saldo    = totMasuk - totKeluar;
-  var labelPer = periodeSnapshot === 'ALL' ? 'Semua Periode' : periodeSnapshot;
-
-  var contentEl = document.getElementById('r-preview-content');
-  if (contentEl) contentEl.innerHTML =
-    '<div style="background:var(--r-n100);border-radius:var(--r-md);padding:.875rem;">' +
-      '<p style="font-size:.5rem;font-weight:900;color:var(--r-n400);text-transform:uppercase;letter-spacing:.08em;margin:0 0 .25rem;">Periode</p>' +
-      '<p style="font-size:.9375rem;font-weight:800;color:var(--r-n900);margin:0;">' + labelPer + '</p>' +
-    '</div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">' +
-      '<div style="background:var(--r-green-xs);border:1px solid var(--r-green-lt);border-radius:var(--r-md);padding:.75rem;text-align:center;">' +
-        '<p style="font-size:.4375rem;color:var(--r-n400);font-weight:800;text-transform:uppercase;letter-spacing:.07em;margin:0 0 .25rem;">Total Masuk</p>' +
-        '<p style="font-size:.875rem;font-weight:900;color:var(--r-green);margin:0;">' + rFmtFull(totMasuk) + '</p>' +
-      '</div>' +
-      '<div style="background:var(--r-red-xs);border:1px solid var(--r-red-lt);border-radius:var(--r-md);padding:.75rem;text-align:center;">' +
-        '<p style="font-size:.4375rem;color:var(--r-n400);font-weight:800;text-transform:uppercase;letter-spacing:.07em;margin:0 0 .25rem;">Total Keluar</p>' +
-        '<p style="font-size:.875rem;font-weight:900;color:var(--r-red);margin:0;">' + rFmtFull(totKeluar) + '</p>' +
-      '</div>' +
-    '</div>' +
-    '<div style="background:linear-gradient(135deg,var(--r-rose-dd),var(--r-rose));border-radius:var(--r-md);padding:1rem;text-align:center;">' +
-      '<p style="font-size:.4375rem;color:rgba(255,255,255,.6);font-weight:900;text-transform:uppercase;letter-spacing:.1em;margin:0 0 .375rem;">Saldo Bersih</p>' +
-      '<p style="font-size:1.5rem;font-weight:900;color:white;margin:0;">' + rFmtFull(saldo) + '</p>' +
-    '</div>' +
-    '<div style="background:var(--r-n100);border-radius:var(--r-md);padding:.75rem;text-align:center;">' +
-      '<p style="font-size:.4375rem;color:var(--r-n400);font-weight:800;text-transform:uppercase;margin:0 0 .25rem;">Jumlah Transaksi</p>' +
-      '<p style="font-size:1.125rem;font-weight:900;color:var(--r-n900);margin:0;">' + kasData.length + ' transaksi</p>' +
-    '</div>';
-  document.getElementById('r-modal-preview').classList.remove('hidden');
+  if (mode === 'ringkas') {
+    _rptShowPreview();
+  } else {
+    rptDoExportPDF();
+  }
 }
 
 async function rptDoExportPDF() {

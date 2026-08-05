@@ -183,3 +183,12 @@ function getRekapPNLAset() {
     throw new Error("Gagal hitung PNL: " + e.message);
   }
 }
+
+function debugCekSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheets = ss.getSheets();
+  var info = sheets.map(function(s) {
+    return s.getName() + ' (' + s.getLastRow() + ' baris)';
+  });
+  Logger.log(info.join('\n'));
+}
