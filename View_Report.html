@@ -1,932 +1,1493 @@
 <!-- ===================================================================
-     FILE: View_Report.html — Redesign v4
-     UPDATE: Modul Fee Klinik dihapus — hanya Arus Kas & Portofolio Aset
+     FILE: View_Report.html — Redesign v5 "Financial Clarity"
+     UX Improvements:
+       • Swipeable period selector dengan inertia scroll + keyboard nav
+       • Hero card: saldo besar + health indicator ring + sparkline mini
+       • Cash flow: animated progress bars + collapsible breakdown
+       • Donut chart lebih besar + interactive legend
+       • Detail modal: virtualized list + filter + sort
+       • Aset cards: PNL badge + allocation bar
+       • Export: progress stepper + ringkasan preview
+       • Skeleton loading yang proper di semua section
+       • Pull-to-refresh gesture
+       • Haptic-like micro-interactions via transform
      =================================================================== -->
 
 <style>
-  /* ─── Reset & Base ─────────────────────────────────────── */
+  /* ─── Design Tokens ─────────────────────────────────────── */
+  #modul-report {
+    /* Brand */
+    --r-rose:       #e11d48;
+    --r-rose-d:     #9f1239;
+    --r-rose-dd:    #881337;
+    --r-rose-lt:    #fecdd3;
+    --r-rose-xs:    #fff1f2;
+    --r-rose-glow:  rgba(225,29,72,.18);
+
+    /* Semantic */
+    --r-green:      #16a34a;
+    --r-green-lt:   #bbf7d0;
+    --r-green-xs:   #f0fdf4;
+    --r-red:        #dc2626;
+    --r-red-lt:     #fecaca;
+    --r-red-xs:     #fff5f5;
+    --r-amber:      #d97706;
+    --r-amber-lt:   #fde68a;
+    --r-amber-xs:   #fffbeb;
+    --r-indigo:     #4f46e5;
+    --r-indigo-lt:  #e0e7ff;
+    --r-violet:     #7c3aed;
+
+    /* Neutral */
+    --r-n50:  #f8fafc;
+    --r-n100: #f1f5f9;
+    --r-n200: #e2e8f0;
+    --r-n300: #cbd5e1;
+    --r-n400: #94a3b8;
+    --r-n500: #64748b;
+    --r-n600: #475569;
+    --r-n700: #334155;
+    --r-n900: #0f172a;
+    --r-white: #ffffff;
+
+    /* Radii */
+    --r-sm:   0.5rem;
+    --r-md:   0.875rem;
+    --r-lg:   1.25rem;
+    --r-xl:   1.75rem;
+    --r-full: 999px;
+
+    /* Shadows */
+    --r-shadow-xs: 0 1px 2px rgba(0,0,0,.05);
+    --r-shadow-sm: 0 1px 4px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --r-shadow-md: 0 4px 16px rgba(0,0,0,.08);
+    --r-shadow-hero: 0 12px 40px rgba(159,18,57,.35);
+  }
+
   #modul-report * { box-sizing: border-box; }
 
-  #modul-report {
-    --pink:        #db2777;
-    --pink-d:      #be185d;
-    --pink-dd:     #9d174d;
-    --pink-lt:     #fce7f3;
-    --pink-xs:     #fdf2f8;
-    --green:       #16a34a;
-    --green-lt:    #dcfce7;
-    --green-xs:    #f0fdf4;
-    --red:         #dc2626;
-    --red-lt:      #fee2e2;
-    --red-xs:      #fff5f5;
-    --amber:       #d97706;
-    --amber-lt:    #fef3c7;
-    --indigo:      #4338ca;
-    --indigo-lt:   #e0e7ff;
-    --slate-1:     #f1f5f9;
-    --slate-2:     #e2e8f0;
-    --slate-3:     #cbd5e1;
-    --slate-4:     #94a3b8;
-    --slate-5:     #64748b;
-    --slate-7:     #334155;
-    --slate-9:     #0f172a;
-    --white:       #ffffff;
-    --radius-sm:   0.625rem;
-    --radius-md:   1rem;
-    --radius-lg:   1.375rem;
-    --radius-xl:   1.75rem;
-    --shadow-sm:   0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
-    --shadow-md:   0 4px 12px rgba(0,0,0,.08);
-    --shadow-lg:   0 8px 24px rgba(0,0,0,.10);
-  }
+  /* ─── Keyframes ─────────────────────────────────────────── */
+  @keyframes r-fade-up   { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes r-fade-in   { from { opacity:0; } to { opacity:1; } }
+  @keyframes r-shimmer   { 0% { background-position:-200% 0; } 100% { background-position:200% 0; } }
+  @keyframes r-ring      { from { stroke-dashoffset: var(--dash-total, 220); } }
+  @keyframes r-bar-grow  { from { width: 0 !important; } }
+  @keyframes r-count     { from { opacity:0; transform:scale(0.88); } to { opacity:1; transform:scale(1); } }
+  @keyframes r-pulse-dot { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+  @keyframes r-spin      { to { transform: rotate(360deg); } }
+  @keyframes r-slide-up  { from { transform:translateY(100%); } to { transform:translateY(0); } }
+  @keyframes r-pop       { 0% { transform:scale(0.95); } 50% { transform:scale(1.02); } 100% { transform:scale(1); } }
 
-  /* ─── Animations ───────────────────────────────────────── */
-  @keyframes rpt-fade-up {
-    from { opacity:0; transform:translateY(14px); }
-    to   { opacity:1; transform:translateY(0); }
-  }
-  @keyframes rpt-shimmer {
-    0%   { background-position: -200% 0; }
-    100% { background-position:  200% 0; }
-  }
-  @keyframes rpt-ring-fill {
-    from { stroke-dashoffset: 188.5; }
-  }
-  @keyframes rpt-count-up {
-    from { opacity: 0; transform: scale(0.92); }
-    to   { opacity: 1; transform: scale(1); }
-  }
+  /* ─── Utility ───────────────────────────────────────────── */
+  #modul-report .r-fade-up { animation: r-fade-up .38s ease both; }
+  #modul-report .r-pop     { animation: r-pop .24s ease both; }
 
-  #modul-report .rpt-fade-up { animation: rpt-fade-up 0.38s ease both; }
+  /* Stagger helpers */
+  #modul-report [data-stagger="0"] { animation-delay: 0ms; }
+  #modul-report [data-stagger="1"] { animation-delay: 60ms; }
+  #modul-report [data-stagger="2"] { animation-delay: 120ms; }
+  #modul-report [data-stagger="3"] { animation-delay: 180ms; }
+  #modul-report [data-stagger="4"] { animation-delay: 240ms; }
 
-  /* ─── Skeleton ─────────────────────────────────────────── */
-  #modul-report .rpt-skel {
-    background: linear-gradient(90deg, #fce7f3 25%, #fbcfe8 50%, #fce7f3 75%);
+  /* Skeleton */
+  #modul-report .r-skel {
+    background: linear-gradient(90deg, var(--r-n100) 25%, var(--r-n200) 50%, var(--r-n100) 75%);
     background-size: 200% 100%;
-    animation: rpt-shimmer 1.5s infinite;
-    border-radius: var(--radius-sm);
+    animation: r-shimmer 1.6s infinite;
+    border-radius: var(--r-sm);
   }
 
-  /* ─── Sticky Period Bar ─────────────────────────────────── */
-  #rpt-period-bar {
+  /* Scrollbar */
+  #modul-report .thin-scroll { scrollbar-width: thin; scrollbar-color: var(--r-rose-lt) transparent; }
+  #modul-report .thin-scroll::-webkit-scrollbar { width: 3px; height: 3px; }
+  #modul-report .thin-scroll::-webkit-scrollbar-thumb { background: var(--r-rose-lt); border-radius: 3px; }
+
+  /* ─── Root layout ───────────────────────────────────────── */
+  #modul-report {
+    display: flex;
+    flex-direction: column;
+    background: var(--r-n50);
+    min-height: 100%;
+    padding-bottom: 6rem;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     PERIOD NAVIGATOR
+  ═══════════════════════════════════════════════════════════ */
+  #r-period-nav {
     position: sticky;
     top: 0;
     z-index: 40;
-    background: rgba(255,255,255,0.92);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--slate-2);
-    padding: 0.625rem 0.75rem;
-    margin: 0 -0.75rem;
+    background: rgba(248,250,252,.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--r-n200);
+  }
+  #r-period-nav .nav-inner {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
   }
-  #rpt-period-bar .period-label {
-    font-size: 0.625rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    color: var(--slate-4);
+  #r-period-nav .nav-label {
+    font-size: 0.5625rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
+    color: var(--r-n400);
     white-space: nowrap;
     flex-shrink: 0;
   }
-  #rpt-period-chips {
-    display: flex;
-    gap: 0.375rem;
-    overflow-x: auto;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
-    flex: 1;
-  }
-  #rpt-period-chips::-webkit-scrollbar { display: none; }
-  .rpt-chip {
-    flex-shrink: 0;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    padding: 0.3125rem 0.75rem;
-    border-radius: 999px;
-    border: 1.5px solid var(--slate-2);
-    background: var(--white);
-    color: var(--slate-5);
-    cursor: pointer;
-    transition: all 0.18s;
-    white-space: nowrap;
-    line-height: 1;
-  }
-  .rpt-chip:active { transform: scale(0.95); }
-  .rpt-chip.active {
-    background: var(--pink);
-    border-color: var(--pink);
-    color: var(--white);
-    box-shadow: 0 2px 8px rgba(219,39,119,.28);
-  }
-
-  /* ─── Section layout ───────────────────────────────────── */
-  #modul-report .rpt-section {
-    margin-bottom: 1.25rem;
-  }
-  #modul-report .rpt-section-title {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.625rem;
-    padding: 0 0.125rem;
-  }
-  #modul-report .rpt-section-title .icon-pill {
-    width: 1.5rem;
-    height: 1.5rem;
-    border-radius: 0.5rem;
+  #r-period-nav .nav-arrow {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: var(--r-sm);
+    background: var(--r-white);
+    border: 1.5px solid var(--r-n200);
+    color: var(--r-n500);
     display: flex;
     align-items: center;
     justify-content: center;
+    cursor: pointer;
     flex-shrink: 0;
+    transition: all .15s;
+    font-size: 0.625rem;
   }
-  #modul-report .rpt-section-title h2 {
-    font-size: 0.8125rem;
-    font-weight: 800;
-    color: var(--slate-9);
-    margin: 0;
+  #r-period-nav .nav-arrow:hover  { background: var(--r-rose-xs); border-color: var(--r-rose-lt); color: var(--r-rose); }
+  #r-period-nav .nav-arrow:active { transform: scale(0.92); }
+  #r-period-chips-scroll {
     flex: 1;
+    overflow-x: auto;
+    display: flex;
+    gap: 0.375rem;
+    padding: 0.125rem 0;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  #r-period-chips-scroll::-webkit-scrollbar { display: none; }
+  .r-chip {
+    flex-shrink: 0;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    padding: 0.375rem 0.875rem;
+    border-radius: var(--r-full);
+    border: 1.5px solid var(--r-n200);
+    background: var(--r-white);
+    color: var(--r-n500);
+    cursor: pointer;
+    transition: all .18s cubic-bezier(.4,0,.2,1);
+    white-space: nowrap;
+    line-height: 1;
+    user-select: none;
+  }
+  .r-chip:active { transform: scale(0.93); }
+  .r-chip.active {
+    background: var(--r-rose);
+    border-color: var(--r-rose);
+    color: var(--r-white);
+    box-shadow: 0 2px 10px var(--r-rose-glow);
   }
 
-  /* ─── Card base ─────────────────────────────────────────── */
-  #modul-report .rpt-card {
-    background: var(--white);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--slate-2);
-    box-shadow: var(--shadow-sm);
-    overflow: hidden;
-  }
-  #modul-report .rpt-card-p { padding: 1rem; }
-
-  /* ─── HERO: Cash Health Card ────────────────────────────── */
-  #rpt-hero {
-    background: linear-gradient(145deg, var(--pink-dd) 0%, var(--pink) 55%, #f472b6 100%);
-    border-radius: var(--radius-xl);
-    padding: 1.25rem;
-    margin-bottom: 1rem;
+  /* ═══════════════════════════════════════════════════════════
+     HERO CARD
+  ═══════════════════════════════════════════════════════════ */
+  #r-hero {
+    margin: 0.875rem 0.75rem 0;
+    border-radius: var(--r-xl);
+    background: linear-gradient(145deg, var(--r-rose-dd) 0%, var(--r-rose) 60%, #fb7185 100%);
+    box-shadow: var(--r-shadow-hero);
+    padding: 1.375rem;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 8px 24px rgba(190,24,93,.35);
+    animation: r-fade-up .4s ease both;
   }
-  #rpt-hero::before {
+  #r-hero::before {
     content: '';
     position: absolute;
-    top: -40px; right: -40px;
-    width: 160px; height: 160px;
+    top: -50px; right: -30px;
+    width: 180px; height: 180px;
     border-radius: 50%;
-    background: rgba(255,255,255,.08);
+    background: rgba(255,255,255,.07);
+    pointer-events: none;
   }
-  #rpt-hero::after {
+  #r-hero::after {
     content: '';
     position: absolute;
-    bottom: -30px; left: -20px;
-    width: 100px; height: 100px;
+    bottom: -35px; left: -20px;
+    width: 120px; height: 120px;
     border-radius: 50%;
-    background: rgba(255,255,255,.05);
+    background: rgba(255,255,255,.04);
+    pointer-events: none;
   }
-  #rpt-hero .hero-top {
+
+  /* Hero top row */
+  #r-hero .hero-top {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 1rem;
+    margin-bottom: 1.125rem;
   }
-  #rpt-hero .hero-label {
-    font-size: 0.625rem;
-    font-weight: 800;
+  #r-hero .hero-eyebrow {
+    font-size: 0.5625rem;
+    font-weight: 900;
     letter-spacing: 0.1em;
-    color: rgba(255,255,255,.65);
     text-transform: uppercase;
+    color: rgba(255,255,255,.55);
     margin-bottom: 0.25rem;
   }
-  #rpt-hero .hero-saldo {
-    font-size: 1.875rem;
+  #r-hero .hero-amount {
+    font-size: clamp(1.75rem, 6vw, 2.25rem);
     font-weight: 900;
-    color: var(--white);
+    color: white;
     line-height: 1;
-    letter-spacing: -0.02em;
-    animation: rpt-count-up 0.4s ease both;
+    letter-spacing: -0.03em;
+    animation: r-count .45s ease both .1s;
   }
-  #rpt-hero .hero-period {
+  #r-hero .hero-period-text {
     font-size: 0.625rem;
-    color: rgba(255,255,255,.55);
-    margin-top: 0.25rem;
+    color: rgba(255,255,255,.5);
+    margin-top: 0.3rem;
   }
-  #rpt-hero .hero-toggle {
-    background: rgba(255,255,255,.15);
-    border: none;
-    width: 2rem; height: 2rem;
+  #r-hero .hero-actions {
+    display: flex;
+    gap: 0.375rem;
+    flex-shrink: 0;
+  }
+  #r-hero .hero-btn {
+    width: 2rem;
+    height: 2rem;
     border-radius: 0.625rem;
+    background: rgba(255,255,255,.14);
+    border: none;
     color: rgba(255,255,255,.8);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background 0.15s;
-    flex-shrink: 0;
+    font-size: 0.6875rem;
+    transition: background .15s, transform .12s;
   }
-  #rpt-hero .hero-toggle:hover { background: rgba(255,255,255,.22); }
-  #rpt-hero .hero-toggle:active { background: rgba(255,255,255,.30); }
+  #r-hero .hero-btn:hover  { background: rgba(255,255,255,.22); }
+  #r-hero .hero-btn:active { transform: scale(0.9); }
 
-  /* Ring gauge */
-  #rpt-hero .gauge-wrap {
-    display: flex;
-    align-items: center;
+  /* Hero health panel */
+  #r-hero .hero-panel {
+    background: rgba(255,255,255,.12);
+    border-radius: var(--r-md);
+    padding: 0.875rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
     gap: 0.875rem;
-    background: rgba(255,255,255,.1);
-    border-radius: var(--radius-md);
-    padding: 0.75rem;
+    align-items: center;
   }
-  #rpt-hero .gauge-ring { flex-shrink: 0; }
-  #rpt-hero #ring-arc {
-    transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1);
-    animation: rpt-ring-fill 1.2s cubic-bezier(.4,0,.2,1) both;
+
+  /* SVG Ring */
+  .r-ring-wrap { position: relative; width: 80px; height: 80px; flex-shrink: 0; }
+  .r-ring-wrap svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .r-ring-track { stroke: rgba(255,255,255,.15); }
+  .r-ring-fill  {
+    stroke: white;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1.4s cubic-bezier(.4,0,.2,1), stroke .4s;
+    animation: r-ring 1.4s cubic-bezier(.4,0,.2,1) both;
   }
-  #rpt-hero .gauge-stats { flex: 1; min-width: 0; }
-  #rpt-hero .gauge-row {
+  .r-ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .r-ring-pct   { font-size: 1rem; font-weight: 900; color: white; line-height: 1; }
+  .r-ring-sub   { font-size: 0.4375rem; color: rgba(255,255,255,.55); margin-top: 0.125rem; letter-spacing: .04em; text-transform: uppercase; }
+
+  /* Health badge */
+  .r-health-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.5625rem;
+    font-weight: 800;
+    padding: 0.1875rem 0.5rem;
+    border-radius: var(--r-full);
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .badge-sehat     { background: rgba(134,239,172,.25); color: #86efac; }
+  .badge-hati-hati { background: rgba(253,211,77,.25);  color: #fde68a; }
+  .badge-kritis    { background: rgba(252,165,165,.25); color: #fca5a5; }
+
+  /* Stat rows */
+  .r-stat-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 0.375rem;
+    margin-bottom: 0.4375rem;
   }
-  #rpt-hero .gauge-row:last-child { margin-bottom: 0; }
-  #rpt-hero .gauge-dot {
-    width: 0.5rem; height: 0.5rem;
+  .r-stat-row:last-child { margin-bottom: 0; }
+  .r-stat-dot {
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     flex-shrink: 0;
     margin-right: 0.375rem;
   }
-  #rpt-hero .gauge-lbl {
-    font-size: 0.625rem;
-    color: rgba(255,255,255,.65);
-    font-weight: 600;
-    flex: 1;
-  }
-  #rpt-hero .gauge-val {
-    font-size: 0.75rem;
-    font-weight: 800;
-    color: var(--white);
-  }
+  .r-stat-label { font-size: 0.625rem; color: rgba(255,255,255,.6); flex: 1; }
+  .r-stat-value { font-size: 0.8125rem; font-weight: 800; color: white; }
 
-  /* ─── Stat 2-grid (pasien dihapus, tinggal Transaksi & Aset) ── */
-  #modul-report .rpt-stat-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.5rem;
-    margin-bottom: 1rem;
+  /* Sparkline mini */
+  .r-sparkline-wrap {
+    margin-top: 0.875rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(255,255,255,.12);
   }
-  #modul-report .rpt-stat-cell {
-    background: var(--white);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--slate-2);
-    padding: 0.75rem 0.5rem;
-    text-align: center;
-    box-shadow: var(--shadow-sm);
-    cursor: pointer;
-    transition: border-color 0.15s, box-shadow 0.15s, transform 0.12s;
-  }
-  #modul-report .rpt-stat-cell:active { transform: scale(0.96); }
-  #modul-report .rpt-stat-cell .cell-icon {
-    width: 2rem; height: 2rem;
-    border-radius: 0.625rem;
-    display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 0.375rem;
-    font-size: 0.8125rem;
-  }
-  #modul-report .rpt-stat-cell .cell-val {
-    font-size: 0.8125rem;
-    font-weight: 800;
-    color: var(--slate-9);
-    display: block;
-    margin-bottom: 0.125rem;
-    line-height: 1.1;
-  }
-  #modul-report .rpt-stat-cell .cell-lbl {
-    font-size: 0.5625rem;
-    font-weight: 700;
-    color: var(--slate-4);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    display: block;
-  }
-
-  /* ─── Flow bars ──────────────────────────────────────────── */
-  #modul-report .flow-item {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
-    padding: 0.625rem 0;
-    border-bottom: 1px solid var(--slate-1);
-    cursor: pointer;
-    transition: background 0.12s;
-    border-radius: 0.5rem;
-    margin: 0 -0.25rem;
-    padding-left: 0.25rem;
-    padding-right: 0.25rem;
-  }
-  #modul-report .flow-item:last-child { border-bottom: none; }
-  #modul-report .flow-item:active { background: var(--slate-1); }
-  #modul-report .flow-dot {
-    width: 0.5rem; height: 0.5rem;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  #modul-report .flow-name {
-    flex: 1;
-    min-width: 0;
-  }
-  #modul-report .flow-name p {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--slate-7);
-    margin: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  #modul-report .flow-name span {
-    font-size: 0.5625rem;
-    color: var(--slate-4);
-  }
-  #modul-report .flow-bar-wrap {
-    flex: 1;
-    max-width: 5rem;
-  }
-  #modul-report .flow-bar-track {
-    height: 0.3125rem;
-    background: var(--slate-1);
-    border-radius: 999px;
-    overflow: hidden;
-  }
-  #modul-report .flow-bar-fill {
-    height: 100%;
-    border-radius: 999px;
-    transition: width 0.8s cubic-bezier(.4,0,.2,1);
-  }
-  #modul-report .flow-amount {
-    font-size: 0.75rem;
-    font-weight: 800;
-    min-width: 4rem;
-    text-align: right;
-    flex-shrink: 0;
-  }
-  #modul-report .flow-chevron {
-    color: var(--slate-3);
-    font-size: 0.625rem;
-    flex-shrink: 0;
-  }
-
-  /* ─── Portofolio / Asset card ───────────────────────────── */
-  #modul-report .aset-card {
-    border-radius: var(--radius-md);
-    border: 1px solid var(--slate-2);
-    box-shadow: var(--shadow-sm);
-    margin-bottom: 0.5rem;
-    overflow: hidden;
-    background: var(--white);
-    transition: transform 0.12s;
-  }
-  #modul-report .aset-card:active { transform: scale(0.98); }
-  #modul-report .aset-card-header {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.875rem;
-    border-bottom: 1px solid var(--slate-1);
-  }
-  #modul-report .aset-icon {
-    font-size: 1.375rem;
-    width: 2.5rem;
-    height: 2.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--pink-xs);
-    border-radius: 0.75rem;
-    flex-shrink: 0;
-  }
-  #modul-report .aset-card-info { flex: 1; min-width: 0; }
-  #modul-report .aset-card-info .name {
-    font-size: 0.8125rem;
-    font-weight: 800;
-    color: var(--slate-9);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  #modul-report .aset-card-info .sub {
-    font-size: 0.5625rem;
-    color: var(--slate-4);
-    margin-top: 0.125rem;
-  }
-  #modul-report .aset-card-pnl {
-    text-align: right;
-    flex-shrink: 0;
-  }
-  #modul-report .aset-card-pnl .val {
-    font-size: 0.8125rem;
-    font-weight: 800;
-  }
-  #modul-report .aset-card-pnl .lbl {
+  .r-sparkline-label {
     font-size: 0.5rem;
-    color: var(--slate-4);
-    margin-top: 0.0625rem;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.45);
+    margin-bottom: 0.375rem;
   }
-  #modul-report .aset-card-body {
+  .r-sparkline { width: 100%; height: 36px; }
+
+  /* ═══════════════════════════════════════════════════════════
+     QUICK STATS STRIP
+  ═══════════════════════════════════════════════════════════ */
+  #r-stats-strip {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    padding: 0.75rem 0.75rem 0;
+    animation: r-fade-up .4s ease both .06s;
+  }
+  .r-stat-cell {
+    background: var(--r-white);
+    border-radius: var(--r-lg);
+    border: 1px solid var(--r-n200);
+    padding: 0.75rem 0.5rem;
     text-align: center;
+    box-shadow: var(--r-shadow-xs);
+    cursor: pointer;
+    transition: transform .12s, box-shadow .12s, border-color .12s;
   }
-  #modul-report .aset-stat {
-    padding: 0.625rem 0.375rem;
-    border-right: 1px solid var(--slate-1);
-  }
-  #modul-report .aset-stat:last-child { border-right: none; }
-  #modul-report .aset-stat .val {
+  .r-stat-cell:active { transform: scale(0.95); }
+  .r-stat-cell:hover  { border-color: var(--r-rose-lt); box-shadow: var(--r-shadow-sm); }
+  .r-stat-cell .ci {
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: 0.5625rem;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 0.375rem;
     font-size: 0.75rem;
-    font-weight: 800;
-    display: block;
-    margin-bottom: 0.125rem;
   }
-  #modul-report .aset-stat .lbl {
-    font-size: 0.5rem;
-    font-weight: 700;
-    color: var(--slate-4);
+  .r-stat-cell .cv {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 900;
+    color: var(--r-n900);
+    line-height: 1;
+    margin-bottom: 0.1875rem;
+  }
+  .r-stat-cell .cl {
+    display: block;
+    font-size: 0.4375rem;
+    font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: .05em;
+    color: var(--r-n400);
   }
 
-  /* ─── PNL Banner ─────────────────────────────────────────── */
-  #rpt-pnl-banner {
-    border-radius: var(--radius-lg);
-    padding: 1rem;
+  /* ═══════════════════════════════════════════════════════════
+     SECTION WRAPPER
+  ═══════════════════════════════════════════════════════════ */
+  .r-section {
+    padding: 0.75rem 0.75rem 0;
+  }
+  .r-section-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 0.75rem;
-    transition: background 0.3s;
+    margin-bottom: 0.625rem;
   }
-  #rpt-pnl-banner .pnl-lbl {
-    font-size: 0.625rem;
+  .r-section-head h2 {
+    font-size: 0.8125rem;
     font-weight: 800;
-    letter-spacing: 0.08em;
+    color: var(--r-n900);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .r-section-head h2 .icon-tag {
+    width: 1.375rem;
+    height: 1.375rem;
+    border-radius: 0.4375rem;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.5625rem;
+    flex-shrink: 0;
+  }
+  .r-section-see-all {
+    font-size: 0.625rem;
+    font-weight: 700;
+    color: var(--r-rose);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--r-sm);
+    transition: background .12s;
+  }
+  .r-section-see-all:hover { background: var(--r-rose-xs); }
+
+  /* ─── Card base ── */
+  .r-card {
+    background: var(--r-white);
+    border-radius: var(--r-lg);
+    border: 1px solid var(--r-n200);
+    box-shadow: var(--r-shadow-sm);
+    overflow: hidden;
+  }
+  .r-card-p { padding: 1rem; }
+
+  /* ═══════════════════════════════════════════════════════════
+     TREND CHART — 6 bulan
+  ═══════════════════════════════════════════════════════════ */
+  #r-trend-section { animation: r-fade-up .4s ease both .08s; }
+  .r-chart-wrap {
+    position: relative;
+    width: 100%;
+    height: 130px;
+  }
+  .r-chart-legend {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    padding-top: 0.625rem;
+  }
+  .r-chart-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    color: var(--r-n500);
+  }
+  .r-chart-legend-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 2px;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     ARUS KAS — Improved
+  ═══════════════════════════════════════════════════════════ */
+  #r-kas-section { animation: r-fade-up .4s ease both .10s; }
+
+  /* Summary bar */
+  .r-kas-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--r-n100);
+  }
+  .r-kas-sum-cell {
+    padding: 0.875rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1875rem;
+  }
+  .r-kas-sum-cell:first-child { border-right: 1px solid var(--r-n100); }
+  .r-kas-sum-label {
+    font-size: 0.5rem;
+    font-weight: 800;
     text-transform: uppercase;
-    opacity: 0.7;
+    letter-spacing: .07em;
+    color: var(--r-n400);
+  }
+  .r-kas-sum-value {
+    font-size: 1rem;
+    font-weight: 900;
+    line-height: 1.1;
+  }
+  .r-kas-sum-count {
+    font-size: 0.5625rem;
+    color: var(--r-n400);
+  }
+
+  /* Tab toggle */
+  .r-kas-tabs {
+    display: flex;
+    background: var(--r-n100);
+    margin: 0.875rem 0.875rem 0;
+    border-radius: var(--r-full);
+    padding: 0.1875rem;
+    gap: 0.1875rem;
+  }
+  .r-kas-tab {
+    flex: 1;
+    padding: 0.5rem;
+    border-radius: var(--r-full);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    border: none;
+    background: transparent;
+    color: var(--r-n500);
+    cursor: pointer;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+  }
+  .r-kas-tab.active-keluar { background: var(--r-white); color: var(--r-red); box-shadow: var(--r-shadow-xs); }
+  .r-kas-tab.active-masuk  { background: var(--r-white); color: var(--r-green); box-shadow: var(--r-shadow-xs); }
+  .r-kas-tab .tab-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+
+  /* Flow list */
+  .r-flow-container {
+    padding: 0.75rem 0.875rem;
+  }
+  .r-flow-item {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5625rem 0.5rem;
+    border-radius: var(--r-md);
+    cursor: pointer;
+    transition: background .12s;
+    margin-bottom: 0.25rem;
+    animation: r-fade-up .3s ease both;
+  }
+  .r-flow-item:last-child { margin-bottom: 0; }
+  .r-flow-item:hover  { background: var(--r-n100); }
+  .r-flow-item:active { background: var(--r-n200); transform: scale(0.99); }
+
+  .r-flow-rank {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 0.375rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.5625rem;
+    font-weight: 900;
+    flex-shrink: 0;
+  }
+  .r-flow-info { flex: 1; min-width: 0; }
+  .r-flow-name {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--r-n700);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     margin-bottom: 0.25rem;
   }
-  #rpt-pnl-banner .pnl-val {
+  .r-flow-bar-track {
+    height: 3px;
+    background: var(--r-n100);
+    border-radius: var(--r-full);
+    overflow: hidden;
+  }
+  .r-flow-bar-fill {
+    height: 100%;
+    border-radius: var(--r-full);
+    animation: r-bar-grow .8s cubic-bezier(.4,0,.2,1) both;
+    transition: width 1s cubic-bezier(.4,0,.2,1);
+  }
+  .r-flow-right { text-align: right; flex-shrink: 0; }
+  .r-flow-amount {
+    font-size: 0.75rem;
+    font-weight: 800;
+    display: block;
+  }
+  .r-flow-trx {
+    font-size: 0.5rem;
+    color: var(--r-n400);
+    margin-top: 0.0625rem;
+  }
+
+  /* See more */
+  .r-see-more-btn {
+    width: 100%;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--r-n100);
+    padding: 0.625rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--r-rose);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    transition: background .12s;
+    border-radius: 0 0 var(--r-lg) var(--r-lg);
+  }
+  .r-see-more-btn:hover { background: var(--r-rose-xs); }
+
+  /* ═══════════════════════════════════════════════════════════
+     DONUT BREAKDOWN — larger, more interactive
+  ═══════════════════════════════════════════════════════════ */
+  #r-breakdown-section { animation: r-fade-up .4s ease both .12s; }
+  .r-donut-wrap {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem;
+  }
+  .r-donut-canvas-wrap {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    flex-shrink: 0;
+  }
+  .r-donut-canvas { width: 120px !important; height: 120px !important; }
+  .r-donut-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .r-donut-center-val {
+    font-size: 0.75rem;
+    font-weight: 900;
+    color: var(--r-n900);
+    line-height: 1;
+  }
+  .r-donut-center-sub {
+    font-size: 0.4375rem;
+    color: var(--r-n400);
+    margin-top: 0.125rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .r-donut-legend { flex: 1; min-width: 0; }
+  .r-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.3125rem 0.375rem;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+    transition: background .1s;
+    margin-bottom: 0.1875rem;
+  }
+  .r-legend-item:last-child { margin-bottom: 0; }
+  .r-legend-item:hover { background: var(--r-n100); }
+  .r-legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .r-legend-name {
+    font-size: 0.625rem;
+    color: var(--r-n600);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .r-legend-pct {
+    font-size: 0.625rem;
+    font-weight: 800;
+    color: var(--r-n700);
+    flex-shrink: 0;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     PNL BANNER — improved
+  ═══════════════════════════════════════════════════════════ */
+  #r-pnl-section { animation: r-fade-up .4s ease both .14s; }
+  #r-pnl-banner {
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+  }
+  .r-pnl-top {
+    padding: 1.125rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .r-pnl-eyebrow {
+    font-size: 0.5rem;
+    font-weight: 900;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    opacity: .65;
+    margin-bottom: 0.25rem;
+  }
+  .r-pnl-value {
     font-size: 1.625rem;
     font-weight: 900;
     line-height: 1;
     letter-spacing: -0.02em;
+    animation: r-count .45s ease both;
   }
-  #rpt-pnl-banner .pnl-sub {
-    font-size: 0.625rem;
-    opacity: 0.6;
-    margin-top: 0.25rem;
+  .r-pnl-sub { font-size: 0.5625rem; opacity: .55; margin-top: 0.25rem; }
+  .r-pnl-icon {
+    width: 3rem;
+    height: 3rem;
+    border-radius: var(--r-md);
+    background: rgba(255,255,255,.18);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.375rem;
+    flex-shrink: 0;
   }
-  #rpt-pnl-banner .pnl-icon {
-    width: 3rem; height: 3rem;
-    border-radius: 0.875rem;
-    background: rgba(255,255,255,.2);
+  /* PNL stats row */
+  .r-pnl-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid rgba(255,255,255,.12);
+  }
+  .r-pnl-stat {
+    padding: 0.625rem;
+    text-align: center;
+    border-right: 1px solid rgba(255,255,255,.12);
+  }
+  .r-pnl-stat:last-child { border-right: none; }
+  .r-pnl-stat .ps-val { font-size: 0.8125rem; font-weight: 800; color: white; }
+  .r-pnl-stat .ps-lbl { font-size: 0.4375rem; color: rgba(255,255,255,.5); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; margin-top: .125rem; }
+
+  /* ─── Aset cards ── */
+  .r-aset-card {
+    background: var(--r-white);
+    border-radius: var(--r-lg);
+    border: 1px solid var(--r-n200);
+    box-shadow: var(--r-shadow-xs);
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+    transition: transform .12s, box-shadow .12s;
+    animation: r-fade-up .36s ease both;
+  }
+  .r-aset-card:active { transform: scale(0.985); }
+  .r-aset-top {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem;
+  }
+  .r-aset-emoji {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    background: var(--r-rose-xs);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+  }
+  .r-aset-info { flex: 1; min-width: 0; }
+  .r-aset-name {
+    font-size: 0.8125rem;
+    font-weight: 800;
+    color: var(--r-n900);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0.125rem;
+  }
+  .r-aset-meta {
+    font-size: 0.5625rem;
+    color: var(--r-n400);
+  }
+  /* Allocation bar */
+  .r-aset-alloc {
+    height: 3px;
+    background: var(--r-n100);
+    border-radius: var(--r-full);
+    overflow: hidden;
+    margin-top: 0.375rem;
+  }
+  .r-aset-alloc-fill {
+    height: 100%;
+    border-radius: var(--r-full);
+    transition: width 1s cubic-bezier(.4,0,.2,1);
+    animation: r-bar-grow .9s cubic-bezier(.4,0,.2,1) both;
+  }
+  .r-aset-pnl {
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .r-aset-pnl-val {
+    font-size: 0.8125rem;
+    font-weight: 900;
+    line-height: 1.1;
+    display: block;
+  }
+  .r-aset-pnl-lbl {
+    font-size: 0.4375rem;
+    color: var(--r-n400);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-weight: 700;
+  }
+  .r-aset-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid var(--r-n100);
+  }
+  .r-aset-stat {
+    padding: 0.5625rem 0.375rem;
+    text-align: center;
+    border-right: 1px solid var(--r-n100);
+  }
+  .r-aset-stat:last-child { border-right: none; }
+  .r-aset-stat .asv {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    display: block;
+    margin-bottom: .0625rem;
+  }
+  .r-aset-stat .asl {
+    font-size: 0.4rem;
+    color: var(--r-n400);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    font-weight: 800;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     ASET CHART
+  ═══════════════════════════════════════════════════════════ */
+  #r-aset-chart-section { animation: r-fade-up .4s ease both .16s; }
+
+  /* ═══════════════════════════════════════════════════════════
+     EXPORT SECTION
+  ═══════════════════════════════════════════════════════════ */
+  #r-export-section { animation: r-fade-up .4s ease both .18s; }
+  .r-export-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.625rem;
+    background: var(--r-n100);
+    border-radius: var(--r-md);
+    padding: 0.75rem;
+    margin-bottom: 0.875rem;
+  }
+  .r-export-info i { color: var(--r-rose); font-size: 0.75rem; margin-top: 0.0625rem; flex-shrink: 0; }
+  .r-export-info .ei-title { font-size: 0.6875rem; font-weight: 700; color: var(--r-n700); margin: 0 0 0.1875rem; }
+  .r-export-info .ei-per   { font-size: 0.75rem; font-weight: 900; color: var(--r-rose); margin: 0; }
+  .r-export-buttons { display: flex; gap: 0.5rem; }
+  .r-export-btn-sec {
+    flex: 1;
+    background: var(--r-n100);
+    border: 1.5px solid var(--r-n200);
+    border-radius: var(--r-md);
+    padding: 0.75rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--r-n700);
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.25rem;
-  }
-
-  /* ─── Trend & Chart ──────────────────────────────────────── */
-  #modul-report .chart-wrap {
-    position: relative;
-    width: 100%;
-    height: 140px;
-  }
-  #modul-report .donut-wrap {
-    display: flex;
-    align-items: center;
-    gap: 0.875rem;
-    padding: 0.75rem 0;
-  }
-  #modul-report .donut-canvas {
-    width: 100px !important;
-    height: 100px !important;
-    flex-shrink: 0;
-  }
-  #modul-report .donut-legend { flex: 1; min-width: 0; }
-  #modul-report .legend-row {
-    display: flex;
-    align-items: center;
     gap: 0.375rem;
-    margin-bottom: 0.375rem;
+    transition: all .15s;
   }
-  #modul-report .legend-dot {
-    width: 0.5rem; height: 0.5rem;
-    border-radius: 50%;
+  .r-export-btn-sec:hover { background: var(--r-n200); }
+  .r-export-btn-pri {
+    flex: 1.5;
+    background: linear-gradient(135deg, var(--r-rose-dd), var(--r-rose));
+    border: none;
+    border-radius: var(--r-md);
+    padding: 0.75rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    box-shadow: 0 4px 14px var(--r-rose-glow);
+    transition: all .15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .r-export-btn-pri::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,.12) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform .5s;
+  }
+  .r-export-btn-pri:hover::after { transform: translateX(100%); }
+  .r-export-btn-pri:active { transform: scale(0.97); }
+
+  /* ═══════════════════════════════════════════════════════════
+     EMPTY STATE
+  ═══════════════════════════════════════════════════════════ */
+  .r-empty {
+    padding: 2.5rem 1rem;
+    text-align: center;
+  }
+  .r-empty-icon { font-size: 2rem; display: block; margin-bottom: 0.5rem; opacity: .25; }
+  .r-empty p    { font-size: 0.75rem; font-weight: 700; color: var(--r-n400); margin: 0 0 .25rem; }
+  .r-empty span { font-size: 0.5625rem; color: var(--r-n300); }
+
+  /* ═══════════════════════════════════════════════════════════
+     MODAL DETAIL — revamped
+  ═══════════════════════════════════════════════════════════ */
+  .r-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    background: rgba(15,23,42,.6);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .r-modal-sheet {
+    background: white;
+    border-radius: 1.5rem 1.5rem 0 0;
+    width: 100%;
+    max-width: 32rem;
+    max-height: 90dvh;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 -12px 40px rgba(0,0,0,.14);
+    animation: r-slide-up .28s cubic-bezier(.4,0,.2,1) both;
+  }
+  .r-modal-handle {
+    width: 2.5rem;
+    height: 3px;
+    background: var(--r-n200);
+    border-radius: var(--r-full);
+    margin: 0.625rem auto 0;
     flex-shrink: 0;
   }
-  #modul-report .legend-name {
-    font-size: 0.625rem;
-    color: var(--slate-5);
+  .r-modal-header {
+    padding: 0.75rem 1rem 0.875rem;
+    flex-shrink: 0;
+  }
+  .r-modal-header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+  }
+  .r-modal-title { font-size: 0.9375rem; font-weight: 800; color: var(--r-n900); margin: 0; }
+  .r-modal-close {
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: 0.5rem;
+    background: var(--r-n100);
+    border: none;
+    color: var(--r-n500);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    transition: background .12s;
+  }
+  .r-modal-close:hover { background: var(--r-n200); }
+  /* Modal summary */
+  .r-modal-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.375rem;
+    margin-bottom: 0.75rem;
+  }
+  .r-modal-sum-cell {
+    background: var(--r-n100);
+    border-radius: var(--r-md);
+    padding: 0.5625rem 0.375rem;
+    text-align: center;
+  }
+  .r-modal-sum-cell .ms-val { font-size: 0.8125rem; font-weight: 800; color: var(--r-n900); display: block; }
+  .r-modal-sum-cell .ms-lbl { font-size: 0.4375rem; color: var(--r-n400); text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+  /* Modal search + sort */
+  .r-modal-toolbar {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.625rem 1rem;
+    background: var(--r-n50);
+    border-bottom: 1px solid var(--r-n100);
+    flex-shrink: 0;
+  }
+  .r-modal-search-wrap {
     flex: 1;
+    position: relative;
+  }
+  .r-modal-search-wrap i {
+    position: absolute;
+    left: 0.625rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--r-n400);
+    font-size: 0.625rem;
+    pointer-events: none;
+  }
+  .r-modal-search {
+    width: 100%;
+    background: var(--r-white);
+    border: 1.5px solid var(--r-n200);
+    border-radius: var(--r-full);
+    padding: 0.5rem 0.625rem 0.5rem 1.875rem;
+    font-size: 0.75rem;
+    outline: none;
+    color: var(--r-n700);
+    transition: border-color .15s;
+  }
+  .r-modal-search:focus { border-color: var(--r-rose); }
+  .r-modal-sort {
+    background: var(--r-white);
+    border: 1.5px solid var(--r-n200);
+    border-radius: var(--r-full);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--r-n600);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color .15s;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .r-modal-sort:focus { border-color: var(--r-rose); }
+  /* Modal list */
+  .r-modal-list {
+    overflow-y: auto;
+    flex: 1;
+    padding: 0.75rem;
+  }
+  .r-modal-row {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.625rem 0.5rem;
+    background: var(--r-white);
+    border: 1px solid var(--r-n100);
+    border-radius: var(--r-md);
+    margin-bottom: 0.3125rem;
+    transition: border-color .12s;
+  }
+  .r-modal-row:hover { border-color: var(--r-n300); }
+  .r-modal-row-icon {
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: 0.5rem;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.625rem;
+    flex-shrink: 0;
+  }
+  .r-modal-row-info { flex: 1; min-width: 0; }
+  .r-modal-row-main {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    color: var(--r-n700);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    margin: 0 0 0.1875rem;
   }
-  #modul-report .legend-pct {
-    font-size: 0.625rem;
-    font-weight: 700;
-    color: var(--slate-5);
-  }
-
-  /* ─── Collapsible ───────────────────────────────────────── */
-  #modul-report .rpt-collapse-toggle {
-    width: 100%;
-    background: none;
-    border: none;
-    padding: 0.625rem 0;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    color: var(--pink);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.375rem;
-    border-top: 1px solid var(--slate-1);
-    transition: background 0.12s;
-    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  }
-  #modul-report .rpt-collapse-toggle:hover { background: var(--pink-xs); }
-
-  /* ─── Export area ────────────────────────────────────────── */
-  #modul-report .export-row {
-    display: flex;
-    gap: 0.5rem;
-  }
-  #modul-report .btn-export-secondary {
-    flex: 1;
-    background: var(--slate-1);
-    border: 1.5px solid var(--slate-2);
-    border-radius: var(--radius-sm);
-    padding: 0.75rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--slate-7);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.375rem;
-    transition: all 0.15s;
-  }
-  #modul-report .btn-export-secondary:hover { background: var(--slate-2); }
-  #modul-report .btn-export-primary {
-    flex: 1.5;
-    background: linear-gradient(135deg, var(--pink-dd), var(--pink));
-    border: none;
-    border-radius: var(--radius-sm);
-    padding: 0.75rem;
+  .r-modal-row-sub { font-size: 0.5rem; color: var(--r-n400); }
+  .r-modal-row-amount {
     font-size: 0.75rem;
     font-weight: 800;
-    color: var(--white);
-    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* ═══════════════════════════════════════════════════════════
+     EXPORT PREVIEW MODAL
+  ═══════════════════════════════════════════════════════════ */
+  .r-preview-modal-inner {
+    background: white;
+    border-radius: 1.375rem;
+    width: 100%;
+    max-width: 28rem;
+    max-height: 88dvh;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    animation: r-pop .24s ease both;
+    margin: 1rem;
+  }
+  .r-preview-header {
+    background: linear-gradient(135deg, var(--r-rose-dd), var(--r-rose));
+    padding: 1rem;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 0.375rem;
-    box-shadow: 0 4px 12px rgba(190,24,93,.3);
-    transition: all 0.15s;
-    position: relative;
-    overflow: hidden;
-  }
-  #modul-report .btn-export-primary:active { transform: scale(0.97); }
-
-  /* ─── Empty state ────────────────────────────────────────── */
-  #modul-report .rpt-empty {
-    padding: 2rem 1rem;
-    text-align: center;
-  }
-  #modul-report .rpt-empty .empty-icon {
-    font-size: 2rem;
-    display: block;
-    margin-bottom: 0.5rem;
-    opacity: 0.3;
-  }
-  #modul-report .rpt-empty p {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--slate-4);
-  }
-  #modul-report .rpt-empty span {
-    font-size: 0.625rem;
-    color: var(--slate-3);
-    display: block;
-    margin-top: 0.25rem;
+    justify-content: space-between;
   }
 
-  /* ─── Scrollbar ─────────────────────────────────────────── */
-  #modul-report .thin-scroll { scrollbar-width: thin; scrollbar-color: var(--pink-lt) transparent; }
-  #modul-report .thin-scroll::-webkit-scrollbar { width: 3px; }
-  #modul-report .thin-scroll::-webkit-scrollbar-thumb { background: var(--pink-lt); border-radius: 3px; }
+  /* Saldo mask */
+  .r-mask { color: transparent !important; text-shadow: 0 0 12px rgba(255,255,255,.55); user-select: none; }
 
-  /* ─── Divider ─────────────────────────────────────────────  */
-  #modul-report .rpt-divider {
-    height: 1px;
-    background: var(--slate-1);
-    margin: 0.875rem 0;
-  }
-
-  /* ─── Saldo mask ──────────────────────────────────────────  */
-  .rpt-mask { color: transparent !important; text-shadow: 0 0 10px rgba(255,255,255,.6); user-select: none; }
+  /* Loading spin */
+  .r-spin { animation: r-spin .8s linear infinite; display: inline-block; }
 </style>
 
 
 <!-- ══════════════════════════════════════════════════════════
-     SECTION: Root
+     ROOT
 ══════════════════════════════════════════════════════════ -->
-<section id="modul-report" class="block w-full pb-24" style="background:#f8fafc; min-height:100%; padding: 0 0.75rem;">
+<div id="modul-report">
 
-  <!-- ── Sticky Period Bar ── -->
-  <div id="rpt-period-bar">
-    <span class="period-label">Periode</span>
-    <div id="rpt-period-chips">
-      <div class="rpt-skel" style="height:26px; width:80px; border-radius:999px; flex-shrink:0;"></div>
-      <div class="rpt-skel" style="height:26px; width:80px; border-radius:999px; flex-shrink:0;"></div>
-      <div class="rpt-skel" style="height:26px; width:80px; border-radius:999px; flex-shrink:0;"></div>
+  <!-- ── Period Navigator ── -->
+  <div id="r-period-nav">
+    <div class="nav-inner">
+      <span class="nav-label">Periode</span>
+      <button class="nav-arrow" id="r-nav-prev" onclick="rptNavPrev()" title="Periode sebelumnya">
+        <i class="fa-solid fa-chevron-left"></i>
+      </button>
+      <div id="r-period-chips-scroll">
+        <div class="r-skel" style="height:26px; width:60px; border-radius:999px; flex-shrink:0;"></div>
+        <div class="r-skel" style="height:26px; width:80px; border-radius:999px; flex-shrink:0;"></div>
+        <div class="r-skel" style="height:26px; width:70px; border-radius:999px; flex-shrink:0;"></div>
+      </div>
+      <button class="nav-arrow" id="r-nav-next" onclick="rptNavNext()" title="Periode berikutnya">
+        <i class="fa-solid fa-chevron-right"></i>
+      </button>
     </div>
   </div>
 
   <!-- ── HERO ── -->
-  <div style="margin-top: 0.875rem;">
-    <div id="rpt-hero">
+  <div style="padding: 0 0.75rem;">
+    <div id="r-hero">
       <div class="hero-top">
         <div>
-          <p class="hero-label">Saldo Bersih</p>
-          <p id="hero-saldo" class="hero-saldo">Rp 0</p>
-          <p class="hero-period" id="hero-period-label">Memuat data…</p>
+          <p class="hero-eyebrow">Saldo Bersih Kas</p>
+          <p class="hero-amount" id="r-hero-saldo">Rp 0</p>
+          <p class="hero-period-text" id="r-hero-period">Memuat…</p>
         </div>
-        <button class="hero-toggle" onclick="rptToggleSaldo()">
-          <i id="hero-eye-icon" class="fa-solid fa-eye" style="font-size:0.75rem;"></i>
-        </button>
+        <div class="hero-actions">
+          <button class="hero-btn" onclick="rptToggleSaldo()" id="r-hero-eye-btn" title="Sembunyikan saldo">
+            <i class="fa-solid fa-eye" id="r-hero-eye-icon"></i>
+          </button>
+          <button class="hero-btn" onclick="initModulReport()" title="Refresh data">
+            <i class="fa-solid fa-rotate-right" id="r-refresh-icon"></i>
+          </button>
+        </div>
       </div>
-      <div class="gauge-wrap">
-        <div class="gauge-ring">
-          <svg width="76" height="76" viewBox="0 0 76 76">
-            <circle cx="38" cy="38" r="30" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="8"/>
-            <circle id="ring-arc" cx="38" cy="38" r="30" fill="none"
-                    stroke="rgba(255,255,255,.85)" stroke-width="8"
-                    stroke-linecap="round"
-                    stroke-dasharray="188.5"
-                    stroke-dashoffset="188.5"
-                    transform="rotate(-90 38 38)"/>
-            <text x="38" y="35" text-anchor="middle" fill="white"
-                  font-size="9" font-weight="800" font-family="system-ui">
-              <tspan id="ring-pct-text">--%</tspan>
-            </text>
-            <text x="38" y="47" text-anchor="middle" fill="rgba(255,255,255,.6)"
-                  font-size="6" font-family="system-ui">terpakai</text>
+      <div class="hero-panel">
+        <div class="r-ring-wrap">
+          <svg viewBox="0 0 80 80">
+            <circle class="r-ring-track" cx="40" cy="40" r="34" fill="none" stroke-width="8"/>
+            <circle class="r-ring-fill" id="r-ring-fill" cx="40" cy="40" r="34" fill="none"
+                    stroke-width="8" stroke-dasharray="213.6" stroke-dashoffset="213.6"/>
           </svg>
-        </div>
-        <div class="gauge-stats">
-          <div class="gauge-row">
-            <span class="gauge-dot" style="background:#86efac;"></span>
-            <span class="gauge-lbl">Uang Masuk</span>
-            <span class="gauge-val" id="hero-masuk">Rp 0</span>
-          </div>
-          <div class="gauge-row">
-            <span class="gauge-dot" style="background:#fca5a5;"></span>
-            <span class="gauge-lbl">Uang Keluar</span>
-            <span class="gauge-val" id="hero-keluar">Rp 0</span>
+          <div class="r-ring-center">
+            <span class="r-ring-pct" id="r-ring-pct">0%</span>
+            <span class="r-ring-sub">terpakai</span>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Quick Stats Grid (2 kolom) ── -->
-  <div class="rpt-stat-grid">
-    <div class="rpt-stat-cell" onclick="rptScrollTo('section-kas')">
-      <div class="cell-icon" style="background:#fce7f3;">
-        <i class="fa-solid fa-arrow-right-arrow-left" style="color:#db2777; font-size:0.75rem;"></i>
-      </div>
-      <span class="cell-val" id="stat-trx">0</span>
-      <span class="cell-lbl">Transaksi</span>
-    </div>
-    <div class="rpt-stat-cell" onclick="rptScrollTo('section-aset')">
-      <div class="cell-icon" style="background:#e0e7ff;">
-        <i class="fa-solid fa-chart-line" style="color:#4338ca; font-size:0.75rem;"></i>
-      </div>
-      <span class="cell-val" id="stat-aset">0</span>
-      <span class="cell-lbl">Aset</span>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════
-       SECTION: Tren Bulanan
-  ══════════════════════════════════════════════════════ -->
-  <div class="rpt-section" id="section-trend">
-    <div class="rpt-section-title">
-      <div class="icon-pill" style="background:#fce7f3;">
-        <i class="fa-solid fa-chart-bar" style="color:#db2777; font-size:0.625rem;"></i>
-      </div>
-      <h2>Tren 6 Bulan Terakhir</h2>
-    </div>
-    <div class="rpt-card rpt-card-p">
-      <div class="chart-wrap">
-        <canvas id="rpt-chart-trend"></canvas>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════
-       SECTION: Arus Kas
-  ══════════════════════════════════════════════════════ -->
-  <div class="rpt-section" id="section-kas">
-    <div class="rpt-section-title">
-      <div class="icon-pill" style="background:#fce7f3;">
-        <i class="fa-solid fa-wallet" style="color:#db2777; font-size:0.625rem;"></i>
-      </div>
-      <h2>Arus Kas</h2>
-    </div>
-
-    <!-- Pengeluaran -->
-    <div class="rpt-card" style="margin-bottom:0.625rem;">
-      <div class="rpt-card-p" style="padding-bottom:0.5rem;">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.625rem;">
-          <div style="display:flex; align-items:center; gap:0.375rem;">
-            <span style="width:0.625rem;height:0.625rem;background:var(--red);border-radius:50%;display:inline-block;"></span>
-            <span style="font-size:0.6875rem; font-weight:800; color:var(--slate-7);">Uang Keluar</span>
-          </div>
-          <span id="kas-total-keluar-label" style="font-size:0.8125rem; font-weight:900; color:var(--red);">Rp 0</span>
-        </div>
-        <div class="donut-wrap" id="kas-donut-wrap-keluar">
-          <canvas id="rpt-chart-keluar" class="donut-canvas"></canvas>
-          <div id="rpt-legend-keluar" class="donut-legend">
-            <div class="rpt-skel" style="height:10px; width:80%; margin-bottom:6px;"></div>
-            <div class="rpt-skel" style="height:10px; width:60%; margin-bottom:6px;"></div>
-          </div>
-        </div>
-        <div id="list-kas-keluar" style="margin-top:0.25rem;"></div>
-      </div>
-      <button class="rpt-collapse-toggle" id="btn-toggle-keluar" onclick="rptToggleKeluar()">
-        <i class="fa-solid fa-chevron-down" style="font-size:0.5rem;" id="icon-toggle-keluar"></i>
-        Lihat semua pengeluaran
-      </button>
-    </div>
-
-    <!-- Pemasukan -->
-    <div class="rpt-card">
-      <div class="rpt-card-p" style="padding-bottom:0.5rem;">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.625rem;">
-          <div style="display:flex; align-items:center; gap:0.375rem;">
-            <span style="width:0.625rem;height:0.625rem;background:var(--green);border-radius:50%;display:inline-block;"></span>
-            <span style="font-size:0.6875rem; font-weight:800; color:var(--slate-7);">Uang Masuk</span>
-          </div>
-          <span id="kas-total-masuk-label" style="font-size:0.8125rem; font-weight:900; color:var(--green);">Rp 0</span>
-        </div>
-        <div id="list-kas-masuk" style="margin-top:0.25rem;"></div>
-      </div>
-      <button class="rpt-collapse-toggle" id="btn-toggle-masuk" onclick="rptToggleMasuk()">
-        <i class="fa-solid fa-chevron-down" style="font-size:0.5rem;" id="icon-toggle-masuk"></i>
-        Lihat semua pemasukan
-      </button>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════
-       SECTION: Portofolio Aset
-  ══════════════════════════════════════════════════════ -->
-  <div class="rpt-section" id="section-aset">
-    <div class="rpt-section-title">
-      <div class="icon-pill" style="background:#e0e7ff;">
-        <i class="fa-solid fa-chart-line" style="color:#4338ca; font-size:0.625rem;"></i>
-      </div>
-      <h2>Portofolio Investasi</h2>
-    </div>
-
-    <div id="rpt-pnl-banner" style="background:linear-gradient(135deg,#be185d,#db2777); color:white;">
-      <div>
-        <p class="pnl-lbl">Keuntungan / Rugi Terealisasi</p>
-        <p class="pnl-val" id="pnl-nilai">Rp 0</p>
-        <p class="pnl-sub">Dari aset yang sudah dijual</p>
-      </div>
-      <div class="pnl-icon" id="pnl-icon-wrap">📈</div>
-    </div>
-
-    <div class="rpt-card rpt-card-p" style="margin-bottom:0.625rem;">
-      <div style="font-size:0.625rem; font-weight:800; color:var(--slate-4); text-transform:uppercase; letter-spacing:.06em; margin-bottom:0.75rem;">Modal vs Dana Dicairkan</div>
-      <div class="chart-wrap" style="height:150px;">
-        <canvas id="rpt-chart-aset"></canvas>
-      </div>
-    </div>
-
-    <div id="list-aset-cards"></div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════
-       SECTION: Ekspor Laporan
-  ══════════════════════════════════════════════════════ -->
-  <div class="rpt-section">
-    <div class="rpt-section-title">
-      <div class="icon-pill" style="background:#fce7f3;">
-        <i class="fa-solid fa-file-pdf" style="color:#db2777; font-size:0.625rem;"></i>
-      </div>
-      <h2>Ekspor Laporan</h2>
-    </div>
-    <div class="rpt-card rpt-card-p">
-      <div style="background:var(--slate-1); border-radius:var(--radius-sm); padding:0.75rem; margin-bottom:0.875rem; display:flex; align-items:flex-start; gap:0.625rem;">
-        <i class="fa-solid fa-circle-info" style="color:var(--pink); font-size:0.75rem; margin-top:0.125rem; flex-shrink:0;"></i>
         <div>
-          <p style="font-size:0.6875rem; font-weight:700; color:var(--slate-7); margin:0 0 0.25rem;">Periode yang akan diekspor</p>
-          <p id="label-export-periode" style="font-size:0.75rem; font-weight:800; color:var(--pink); margin:0;">Semua Periode</p>
+          <div id="r-health-badge" class="r-health-badge badge-sehat" style="margin-bottom:.5rem;">
+            <span id="r-health-dot" style="width:5px;height:5px;border-radius:50%;background:currentColor;animation:r-pulse-dot 2s infinite;"></span>
+            <span id="r-health-label">—</span>
+          </div>
+          <div class="r-stat-row">
+            <span class="r-stat-dot" style="background:#86efac;"></span>
+            <span class="r-stat-label">Uang Masuk</span>
+            <span class="r-stat-value" id="r-hero-masuk">Rp 0</span>
+          </div>
+          <div class="r-stat-row">
+            <span class="r-stat-dot" style="background:#fca5a5;"></span>
+            <span class="r-stat-label">Uang Keluar</span>
+            <span class="r-stat-value" id="r-hero-keluar">Rp 0</span>
+          </div>
         </div>
       </div>
-      <div class="export-row">
-        <button class="btn-export-secondary" onclick="exportPDF('ringkas')">
-          <i class="fa-solid fa-list-ul" style="font-size:0.75rem;"></i> Ringkasan
+      <!-- Sparkline -->
+      <div class="r-sparkline-wrap">
+        <p class="r-sparkline-label">Tren Saldo 6 Bulan</p>
+        <svg class="r-sparkline" id="r-sparkline" viewBox="0 0 300 36" preserveAspectRatio="none">
+          <line x1="0" y1="18" x2="300" y2="18" stroke="rgba(255,255,255,.15)" stroke-width="1" stroke-dasharray="4,4"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Quick Stats ── -->
+  <div id="r-stats-strip">
+    <div class="r-stat-cell" onclick="rptScrollTo('r-kas-section')">
+      <div class="ci" style="background:var(--r-rose-xs);">
+        <i class="fa-solid fa-arrow-right-arrow-left" style="color:var(--r-rose);"></i>
+      </div>
+      <span class="cv" id="r-stat-trx">—</span>
+      <span class="cl">Transaksi</span>
+    </div>
+    <div class="r-stat-cell" onclick="rptScrollTo('r-kas-section')">
+      <div class="ci" style="background:var(--r-green-xs);">
+        <i class="fa-solid fa-arrow-down" style="color:var(--r-green);"></i>
+      </div>
+      <span class="cv" id="r-stat-trx-masuk">—</span>
+      <span class="cl">Trx Masuk</span>
+    </div>
+    <div class="r-stat-cell" onclick="rptScrollTo('r-pnl-section')">
+      <div class="ci" style="background:var(--r-indigo-lt);">
+        <i class="fa-solid fa-briefcase" style="color:var(--r-indigo);"></i>
+      </div>
+      <span class="cv" id="r-stat-aset">—</span>
+      <span class="cl">Aset</span>
+    </div>
+  </div>
+
+  <!-- ── Trend Chart ── -->
+  <div class="r-section" id="r-trend-section">
+    <div class="r-section-head">
+      <h2>
+        <span class="icon-tag" style="background:#fff1f2;">
+          <i class="fa-solid fa-chart-bar" style="color:var(--r-rose);"></i>
+        </span>
+        Tren 6 Bulan
+      </h2>
+    </div>
+    <div class="r-card r-card-p">
+      <div class="r-chart-wrap">
+        <canvas id="r-chart-trend"></canvas>
+      </div>
+      <div class="r-chart-legend">
+        <div class="r-chart-legend-item">
+          <div class="r-chart-legend-dot" style="background:#bbf7d0;"></div>Masuk
+        </div>
+        <div class="r-chart-legend-item">
+          <div class="r-chart-legend-dot" style="background:#fecaca;"></div>Keluar
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Arus Kas ── -->
+  <div class="r-section" id="r-kas-section">
+    <div class="r-section-head">
+      <h2>
+        <span class="icon-tag" style="background:#fff1f2;">
+          <i class="fa-solid fa-wallet" style="color:var(--r-rose);"></i>
+        </span>
+        Arus Kas
+      </h2>
+    </div>
+    <div class="r-card">
+      <!-- Summary -->
+      <div class="r-kas-summary">
+        <div class="r-kas-sum-cell">
+          <span class="r-kas-sum-label">Total Keluar</span>
+          <span class="r-kas-sum-value" id="r-sum-keluar" style="color:var(--r-red);">Rp 0</span>
+          <span class="r-kas-sum-count" id="r-sum-keluar-n">0 transaksi</span>
+        </div>
+        <div class="r-kas-sum-cell">
+          <span class="r-kas-sum-label">Total Masuk</span>
+          <span class="r-kas-sum-value" id="r-sum-masuk" style="color:var(--r-green);">Rp 0</span>
+          <span class="r-kas-sum-count" id="r-sum-masuk-n">0 transaksi</span>
+        </div>
+      </div>
+      <!-- Tabs -->
+      <div class="r-kas-tabs">
+        <button class="r-kas-tab active-keluar" id="r-tab-keluar" onclick="rptKasTab('keluar')">
+          <span class="tab-dot"></span>
+          Pengeluaran
         </button>
-        <button class="btn-export-primary" onclick="exportPDF('lengkap')">
-          <i class="fa-solid fa-file-arrow-down" style="font-size:0.75rem;"></i> Download PDF
+        <button class="r-kas-tab" id="r-tab-masuk" onclick="rptKasTab('masuk')">
+          <span class="tab-dot"></span>
+          Pemasukan
+        </button>
+      </div>
+      <!-- List -->
+      <div id="r-flow-list" class="r-flow-container"></div>
+      <button class="r-see-more-btn" id="r-flow-more-btn" onclick="rptFlowToggle()">
+        <i class="fa-solid fa-chevron-down" style="font-size:.5rem;" id="r-flow-more-icon"></i>
+        <span id="r-flow-more-text">Lihat semua</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Breakdown Donut ── -->
+  <div class="r-section" id="r-breakdown-section">
+    <div class="r-section-head">
+      <h2>
+        <span class="icon-tag" style="background:#fff1f2;">
+          <i class="fa-solid fa-chart-pie" style="color:var(--r-rose);"></i>
+        </span>
+        Komposisi Pengeluaran
+      </h2>
+    </div>
+    <div class="r-card">
+      <div class="r-donut-wrap">
+        <div class="r-donut-canvas-wrap">
+          <canvas id="r-chart-donut" class="r-donut-canvas"></canvas>
+          <div class="r-donut-center">
+            <span class="r-donut-center-val" id="r-donut-center-val">—</span>
+            <span class="r-donut-center-sub">kategori</span>
+          </div>
+        </div>
+        <div class="r-donut-legend" id="r-donut-legend">
+          <div class="r-skel" style="height:10px; width:90%; margin-bottom:7px;"></div>
+          <div class="r-skel" style="height:10px; width:70%; margin-bottom:7px;"></div>
+          <div class="r-skel" style="height:10px; width:80%; margin-bottom:7px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PNL + Aset ── -->
+  <div class="r-section" id="r-pnl-section">
+    <div class="r-section-head">
+      <h2>
+        <span class="icon-tag" style="background:var(--r-indigo-lt);">
+          <i class="fa-solid fa-chart-line" style="color:var(--r-indigo);"></i>
+        </span>
+        Portofolio Investasi
+      </h2>
+    </div>
+
+    <!-- PNL Banner -->
+    <div id="r-pnl-banner" style="background:linear-gradient(135deg,var(--r-rose-dd),var(--r-rose)); color:white;">
+      <div class="r-pnl-top">
+        <div>
+          <p class="r-pnl-eyebrow">Keuntungan / Rugi Terealisasi</p>
+          <p class="r-pnl-value" id="r-pnl-nilai">Rp 0</p>
+          <p class="r-pnl-sub">Dari aset yang sudah dijual</p>
+        </div>
+        <div class="r-pnl-icon" id="r-pnl-icon">📈</div>
+      </div>
+      <div class="r-pnl-stats">
+        <div class="r-pnl-stat">
+          <p class="ps-val" id="r-pnl-modal">Rp 0</p>
+          <p class="ps-lbl">Total Modal</p>
+        </div>
+        <div class="r-pnl-stat">
+          <p class="ps-val" id="r-pnl-cair">Rp 0</p>
+          <p class="ps-lbl">Dana Dicairkan</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aset Chart -->
+    <div class="r-card r-card-p" id="r-aset-chart-section" style="margin-bottom:.75rem;">
+      <p style="font-size:.5625rem; font-weight:800; color:var(--r-n400); text-transform:uppercase; letter-spacing:.07em; margin:0 0 .75rem;">Modal vs Pencairan per Aset</p>
+      <div class="r-chart-wrap" style="height:140px;">
+        <canvas id="r-chart-aset"></canvas>
+      </div>
+    </div>
+
+    <!-- Aset Cards -->
+    <div id="r-aset-cards"></div>
+  </div>
+
+  <!-- ── Export ── -->
+  <div class="r-section" id="r-export-section">
+    <div class="r-section-head">
+      <h2>
+        <span class="icon-tag" style="background:#fff1f2;">
+          <i class="fa-solid fa-file-pdf" style="color:var(--r-rose);"></i>
+        </span>
+        Ekspor Laporan
+      </h2>
+    </div>
+    <div class="r-card r-card-p">
+      <div class="r-export-info">
+        <i class="fa-solid fa-circle-info"></i>
+        <div>
+          <p class="ei-title">Periode yang diekspor</p>
+          <p class="ei-per" id="r-export-periode">Semua Periode</p>
+        </div>
+      </div>
+      <div class="r-export-buttons">
+        <button class="r-export-btn-sec" onclick="rptExport('ringkas')">
+          <i class="fa-solid fa-list-ul" style="font-size:.75rem;"></i>Ringkasan
+        </button>
+        <button class="r-export-btn-pri" onclick="rptExport('lengkap')">
+          <i class="fa-solid fa-file-arrow-down" style="font-size:.75rem;"></i>Download PDF
         </button>
       </div>
     </div>
   </div>
 
-</section>
+</div>
 
 
-<!-- ── Modal Detail Transaksi ── -->
-<div id="rpt-modal-detail"
-     class="hidden fixed inset-0 z-[60] flex items-end justify-center"
-     style="background:rgba(15,23,42,.55); backdrop-filter:blur(4px);"
-     onclick="if(event.target===this) rptTutupModal()">
-  <div style="background:white; border-radius:1.5rem 1.5rem 0 0; width:100%; max-width:32rem; display:flex; flex-direction:column; max-height:88dvh; max-height:88vh; overflow:hidden; box-shadow:0 -8px 32px rgba(0,0,0,.15);">
-
-    <div style="background:linear-gradient(135deg,#9d174d,#db2777); padding:1rem; flex-shrink:0;">
-      <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:0.75rem;">
-        <div style="flex:1; min-width:0; margin-right:0.75rem;">
-          <p style="font-size:0.5625rem; font-weight:800; letter-spacing:.1em; color:rgba(255,255,255,.6); text-transform:uppercase; margin:0 0 0.25rem;">Detail Transaksi</p>
-          <h3 id="modal-detail-title" style="font-size:0.875rem; font-weight:800; color:white; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">—</h3>
-        </div>
-        <button onclick="rptTutupModal()"
-                style="background:rgba(255,255,255,.15); border:none; width:2rem; height:2rem; border-radius:0.625rem; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+<!-- ══════════════════════════════════════════════════════════
+     MODAL: DETAIL TRANSAKSI
+══════════════════════════════════════════════════════════ -->
+<div id="r-modal-detail" class="hidden r-modal-overlay" onclick="if(event.target===this)rptTutupModal()">
+  <div class="r-modal-sheet">
+    <div class="r-modal-handle"></div>
+    <div class="r-modal-header">
+      <div class="r-modal-header-inner">
+        <h3 class="r-modal-title" id="r-modal-title">Detail</h3>
+        <button class="r-modal-close" onclick="rptTutupModal()">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.5rem;">
-        <div style="background:rgba(255,255,255,.12); border-radius:0.625rem; padding:0.5rem; text-align:center;">
-          <p style="font-size:0.5rem; color:rgba(255,255,255,.6); font-weight:700; margin:0 0 0.25rem;">MASUK</p>
-          <p id="modal-sum-masuk" style="font-size:0.75rem; font-weight:800; color:white; margin:0;">Rp 0</p>
+      <div class="r-modal-summary">
+        <div class="r-modal-sum-cell">
+          <span class="ms-val" id="r-ms-masuk" style="color:var(--r-green);">Rp 0</span>
+          <span class="ms-lbl">Masuk</span>
         </div>
-        <div style="background:rgba(255,255,255,.12); border-radius:0.625rem; padding:0.5rem; text-align:center;">
-          <p style="font-size:0.5rem; color:rgba(255,255,255,.6); font-weight:700; margin:0 0 0.25rem;">KELUAR</p>
-          <p id="modal-sum-keluar" style="font-size:0.75rem; font-weight:800; color:white; margin:0;">Rp 0</p>
+        <div class="r-modal-sum-cell">
+          <span class="ms-val" id="r-ms-keluar" style="color:var(--r-red);">Rp 0</span>
+          <span class="ms-lbl">Keluar</span>
         </div>
-        <div style="background:rgba(255,255,255,.12); border-radius:0.625rem; padding:0.5rem; text-align:center;">
-          <p style="font-size:0.5rem; color:rgba(255,255,255,.6); font-weight:700; margin:0 0 0.25rem;">TOTAL TRX</p>
-          <p id="modal-sum-count" style="font-size:0.75rem; font-weight:800; color:white; margin:0;">0</p>
+        <div class="r-modal-sum-cell">
+          <span class="ms-val" id="r-ms-count">0</span>
+          <span class="ms-lbl">Transaksi</span>
         </div>
       </div>
     </div>
-
-    <div style="padding:0.625rem 0.875rem; background:#fdf2f8; border-bottom:1px solid #fce7f3; flex-shrink:0;">
-      <div style="position:relative;">
-        <i class="fa-solid fa-search" style="position:absolute;left:0.625rem;top:50%;transform:translateY(-50%);color:#f9a8d4;font-size:0.625rem;"></i>
-        <input type="text" id="rpt-cari-detail" oninput="rptCariDetail()"
-               placeholder="Cari tanggal atau catatan..."
-               style="width:100%;background:white;border:1.5px solid #fce7f3;border-radius:0.625rem;padding:0.5rem 0.625rem 0.5rem 1.875rem;font-size:0.75rem;outline:none;color:var(--slate-7);">
+    <div class="r-modal-toolbar">
+      <div class="r-modal-search-wrap">
+        <i class="fa-solid fa-search"></i>
+        <input type="text" id="r-modal-cari" class="r-modal-search"
+               placeholder="Cari tanggal atau catatan…"
+               oninput="rptModalCari()">
       </div>
+      <select class="r-modal-sort" id="r-modal-sort" onchange="rptModalSort()">
+        <option value="tgl-desc">Terbaru</option>
+        <option value="tgl-asc">Terlama</option>
+        <option value="nom-desc">Terbesar</option>
+        <option value="nom-asc">Terkecil</option>
+      </select>
     </div>
-
-    <div id="rpt-modal-list" class="thin-scroll" style="overflow-y:auto; flex:1; padding:0.75rem;"></div>
+    <div class="r-modal-list thin-scroll" id="r-modal-list"></div>
   </div>
 </div>
 
-<!-- Modal PDF Preview -->
-<div id="rpt-modal-pdf"
-     class="hidden fixed inset-0 z-[70] flex items-center justify-center p-4"
-     style="background:rgba(15,23,42,.65); backdrop-filter:blur(6px);">
-  <div style="background:white; border-radius:1.375rem; width:100%; max-width:28rem; display:flex; flex-direction:column; max-height:88dvh; max-height:88vh; overflow:hidden; box-shadow:0 16px 48px rgba(0,0,0,.2);">
-    <div style="background:linear-gradient(135deg,#9d174d,#db2777); padding:1rem; flex-shrink:0; display:flex; align-items:center; justify-content:space-between;">
+<!-- ══════════════════════════════════════════════════════════
+     MODAL: EXPORT PREVIEW
+══════════════════════════════════════════════════════════ -->
+<div id="r-modal-preview" class="hidden r-modal-overlay" onclick="if(event.target===this)document.getElementById('r-modal-preview').classList.add('hidden')">
+  <div class="r-preview-modal-inner">
+    <div class="r-preview-header">
       <div>
-        <p style="font-size:0.5625rem; font-weight:800; letter-spacing:.1em; color:rgba(255,255,255,.6); text-transform:uppercase; margin:0 0 0.25rem;">Konfirmasi Ekspor</p>
-        <h3 style="font-size:0.875rem; font-weight:800; color:white; margin:0;">Ringkasan Laporan</h3>
+        <p style="font-size:.5rem;font-weight:900;letter-spacing:.1em;color:rgba(255,255,255,.55);text-transform:uppercase;margin:0 0 .25rem;">Ringkasan Ekspor</p>
+        <h3 style="font-size:.875rem;font-weight:800;color:white;margin:0;">Konfirmasi Laporan</h3>
       </div>
-      <button onclick="document.getElementById('rpt-modal-pdf').classList.add('hidden')"
-              style="background:rgba(255,255,255,.15); border:none; width:2rem; height:2rem; border-radius:0.625rem; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+      <button onclick="document.getElementById('r-modal-preview').classList.add('hidden')"
+              style="width:2rem;height:2rem;border-radius:.625rem;background:rgba(255,255,255,.15);border:none;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;">
         <i class="fa-solid fa-xmark"></i>
       </button>
     </div>
-    <div id="rpt-pdf-preview-content" class="thin-scroll" style="overflow-y:auto; flex:1; padding:1rem; display:flex; flex-direction:column; gap:0.625rem;"></div>
-    <div style="padding:0.875rem; border-top:1px solid #f1f5f9; display:flex; gap:0.5rem; flex-shrink:0;">
-      <button onclick="document.getElementById('rpt-modal-pdf').classList.add('hidden')"
-              style="flex:1; background:#f1f5f9; border:none; border-radius:0.625rem; padding:0.875rem; font-size:0.8125rem; font-weight:700; color:var(--slate-7); cursor:pointer;">
+    <div id="r-preview-content" class="thin-scroll" style="overflow-y:auto;flex:1;padding:1rem;display:flex;flex-direction:column;gap:.625rem;"></div>
+    <div style="padding:.875rem;border-top:1px solid var(--r-n100);display:flex;gap:.5rem;flex-shrink:0;">
+      <button onclick="document.getElementById('r-modal-preview').classList.add('hidden')"
+              style="flex:1;background:var(--r-n100);border:none;border-radius:var(--r-md);padding:.875rem;font-size:.8125rem;font-weight:700;color:var(--r-n700);cursor:pointer;">
         Batal
       </button>
-      <button onclick="rptJalankanExportPDF()"
-              style="flex:2; background:linear-gradient(135deg,#9d174d,#db2777); border:none; border-radius:0.625rem; padding:0.875rem; font-size:0.8125rem; font-weight:800; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:0.375rem; box-shadow:0 4px 12px rgba(190,24,93,.3);">
-        <i class="fa-solid fa-file-arrow-down"></i> Download PDF
+      <button onclick="rptDoExportPDF()"
+              style="flex:2;background:linear-gradient(135deg,var(--r-rose-dd),var(--r-rose));border:none;border-radius:var(--r-md);padding:.875rem;font-size:.8125rem;font-weight:800;color:white;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.375rem;box-shadow:0 4px 14px var(--r-rose-glow);">
+        <i class="fa-solid fa-file-arrow-down"></i>Download PDF
       </button>
     </div>
   </div>
@@ -934,749 +1495,857 @@
 
 
 <script>
-/* ─── State ─────────────────────────────────────────────── */
-var _rptData    = { kas: [], aset: [] };
-var _rptPeriode = 'ALL';
-var _rptSaldo   = { masuk:0, keluar:0, saldo:0 };
-var _rptKeluar  = {};
-var _rptMasuk   = {};
-var _rptSaldoHidden    = false;
-var _rptKeluarExpanded = false;
-var _rptMasukExpanded  = false;
+/* ═══════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════ */
+var _D = { kas:[], aset:[] };
+var _periode  = 'ALL';
+var _periodes = [];       // ordered list
+var _pIdx     = -1;       // index of current in _periodes ('ALL' = -1)
+var _kasTab   = 'keluar';
+var _kasExpanded = false;
+var _kasMap   = { keluar:{}, masuk:{} };
+var _saldoMasked = false;
+var _modalRows = [];
+var _modalRowsAll = [];
+var _exportMode = 'lengkap';
 
-var _chartTrend  = null;
-var _chartKeluar = null;
-var _chartAset   = null;
+var _charts = { trend:null, donut:null, aset:null };
+var COLORS = ['#e11d48','#f59e0b','#10b981','#6366f1','#8b5cf6','#0ea5e9','#f97316','#84cc16','#ec4899','#14b8a6'];
+var BULAN  = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
 
-var RPT_COLORS = ['#db2777','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#06b6d4','#f97316','#84cc16','#ec4899'];
-var NAMA_BULAN = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
-
-/* ─── Helpers ───────────────────────────────────────────── */
-function rptFmt(n) {
-  n = parseFloat(n) || 0;
-  var abs = Math.abs(n), s = n < 0 ? '-' : '';
-  if (abs >= 1e9) return s + 'Rp ' + (abs/1e9).toFixed(1) + ' M';
-  if (abs >= 1e6) return s + 'Rp ' + (abs/1e6).toFixed(1) + ' jt';
-  return (n < 0 ? '-' : '') + 'Rp ' + Math.abs(n).toLocaleString('id-ID');
+/* ═══════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════ */
+function rFmt(n, compact) {
+  n = parseFloat(n)||0;
+  const a=Math.abs(n), s=n<0?'-':'';
+  if (compact) {
+    if (a>=1e9) return s+'Rp '+(a/1e9).toFixed(1)+' M';
+    if (a>=1e6) return s+'Rp '+(a/1e6).toFixed(1)+' jt';
+    if (a>=1e3) return s+'Rp '+(a/1e3).toFixed(0)+' rb';
+  }
+  return (n<0?'-':'')+'Rp '+Math.abs(n).toLocaleString('id-ID');
 }
-function rptFmtFull(n) {
-  n = parseFloat(n) || 0;
-  return new Intl.NumberFormat('id-ID', { style:'currency', currency:'IDR', minimumFractionDigits:0 }).format(n);
+function rFmtFull(n) {
+  return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(parseFloat(n)||0);
 }
-function rptNormPeriode(v) {
+function rNormPeriode(v) {
   if (!v) return '';
-  if (v instanceof Date) return NAMA_BULAN[v.getMonth()] + ' ' + v.getFullYear();
-  var s = String(v).trim();
-  if (/^[A-Za-z]/.test(s)) return s.split(' ').map(function(p,i) { return i===0 ? (p.charAt(0).toUpperCase()+p.slice(1).toLowerCase()) : p; }).join(' ');
-  var p = s.split('-');
-  if (p.length === 3) return NAMA_BULAN[parseInt(p[1],10)-1] + ' ' + p[0];
+  if (v instanceof Date) return BULAN[v.getMonth()]+' '+v.getFullYear();
+  var s=String(v).trim();
+  if (/^[A-Za-z]/.test(s)) return s.split(' ').map((p,i)=>i===0?p.charAt(0).toUpperCase()+p.slice(1).toLowerCase():p).join(' ');
+  var p=s.split('-');
+  if (p.length===3) return BULAN[parseInt(p[1],10)-1]+' '+p[0];
   return s;
 }
-function rptUrutPeriode(a, b) {
-  var pa = String(a).split(' '), pb = String(b).split(' ');
-  var ta = parseInt(pa[pa.length-1]) || 0, tb = parseInt(pb[pb.length-1]) || 0;
-  if (ta !== tb) return ta - tb;
-  return NAMA_BULAN.indexOf(pa[0]) - NAMA_BULAN.indexOf(pb[0]);
+function rSortPeriode(a,b) {
+  var pa=String(a).split(' '), pb=String(b).split(' ');
+  var ta=parseInt(pa[pa.length-1])||0, tb=parseInt(pb[pb.length-1])||0;
+  if(ta!==tb) return ta-tb;
+  return BULAN.indexOf(pa[0])-BULAN.indexOf(pb[0]);
 }
-function rptPeriodeSkrg() {
-  var d = new Date(), bln = d.getMonth(), thn = d.getFullYear();
-  if (d.getDate() >= 28) { bln++; if (bln > 11) { bln = 0; thn++; } }
-  return NAMA_BULAN[bln] + ' ' + thn;
+function rPeriodeSkrg() {
+  var d=new Date(), m=d.getMonth(), y=d.getFullYear();
+  if(d.getDate()>=28){m++;if(m>11){m=0;y++;}}
+  return BULAN[m]+' '+y;
 }
-function rptEsc(s) {
+function rEsc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
-function rptScrollTo(id) {
-  var el = document.getElementById(id);
-  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+function rScrollTo(id) {
+  var el=document.getElementById(id);
+  if(el) el.scrollIntoView({behavior:'smooth',block:'start'});
 }
+// alias used in HTML
+function rptScrollTo(id) { rScrollTo(id); }
 
-/* ─── INIT ──────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════════ */
 function initModulReport() {
-  _rptData = { kas:[], aset:[] };
-  _rptPeriode = 'ALL';
+  _D = {kas:[],aset:[]};
+  _periode = 'ALL';
+  _periodes = [];
+  _pIdx = -1;
+  _kasTab = 'keluar';
+  _kasExpanded = false;
+
+  // Spin refresh icon
+  document.getElementById('r-refresh-icon').classList.add('r-spin');
+
+  // Show skeleton
+  document.getElementById('r-flow-list').innerHTML = rSkelList(5);
+  document.getElementById('r-aset-cards').innerHTML = rSkelList(3, true);
+
   google.script.run
     .withSuccessHandler(function(data) {
-      _rptData.kas  = data.kas  || [];
-      _rptData.aset = data.aset || [];
-      rptBuatChipPeriode();
-      rptTerapkan(_rptPeriode);
+      document.getElementById('r-refresh-icon').classList.remove('r-spin');
+      _D.kas  = data.kas  || [];
+      _D.aset = data.aset || [];
+      _rptBuildPeriodes();
+      _rptApply();
     })
     .withFailureHandler(function(err) {
-      Swal.fire('Gagal memuat data', err.message, 'error');
+      document.getElementById('r-refresh-icon').classList.remove('r-spin');
+      Swal.fire({icon:'error',title:'Gagal memuat data',text:err.message,confirmButtonColor:'#e11d48'});
     })
     .getDataLaporan();
 }
 
-/* ─── PERIOD CHIPS ──────────────────────────────────────── */
-function rptBuatChipPeriode() {
+function rSkelList(n, wide) {
+  return Array.from({length:n}).map((_,i)=>`
+    <div style="display:flex;align-items:center;gap:.625rem;padding:.5rem 0;animation-delay:${i*60}ms;" class="r-fade-up">
+      <div class="r-skel" style="width:1.25rem;height:1.25rem;border-radius:.375rem;flex-shrink:0;"></div>
+      <div style="flex:1;">
+        <div class="r-skel" style="height:9px;width:${wide?90:60}%;margin-bottom:5px;"></div>
+        <div class="r-skel" style="height:5px;width:${wide?60:40}%;"></div>
+      </div>
+      <div class="r-skel" style="width:3.5rem;height:14px;border-radius:.375rem;"></div>
+    </div>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PERIOD CHIPS + NAVIGATION
+═══════════════════════════════════════════════════════════ */
+function _rptBuildPeriodes() {
   var set = new Set();
-  _rptData.kas.forEach(function(r)  { if (r[2]) set.add(rptNormPeriode(r[2])); });
-  _rptData.aset.forEach(function(r) { if (r[1]) set.add(rptNormPeriode(r[1])); });
+  _D.kas.forEach(r  => { if(r[2]) set.add(rNormPeriode(r[2])); });
+  _D.aset.forEach(r => { if(r[1]) set.add(rNormPeriode(r[1])); });
+  set.add(rPeriodeSkrg());
+  _periodes = Array.from(set).filter(Boolean).sort(rSortPeriode);
 
-  var ps = rptPeriodeSkrg();
-  set.add(ps);
-  var daftar = Array.from(set).filter(Boolean).sort(rptUrutPeriode);
+  var skrg = rPeriodeSkrg();
+  _periode = _periodes.includes(skrg) ? skrg : (_periodes.length ? _periodes[_periodes.length-1] : 'ALL');
+  _pIdx = _periodes.indexOf(_periode);
 
-  if (_rptPeriode === 'ALL' && daftar.indexOf(ps) >= 0) _rptPeriode = ps;
-
-  var html = '<button class="rpt-chip' + (_rptPeriode==='ALL'?' active':'') + '" onclick="rptPilihPeriode(\'ALL\')">Semua</button>';
-  daftar.forEach(function(p) {
-    var id = 'chip-' + p.replace(/\s/g,'_');
-    html += '<button class="rpt-chip' + (p===_rptPeriode?' active':'') + '" id="' + id + '" onclick="rptPilihPeriode(\'' + rptEsc(p) + '\')">' + p + '</button>';
+  // Render chips
+  var html = '<button class="r-chip'+((_periode==='ALL')?' active':'')+'" id="r-chip-ALL" onclick="rptPilihPeriode(\'ALL\')">Semua</button>';
+  _periodes.forEach(p=>{
+    html += `<button class="r-chip${p===_periode?' active':''}" id="r-chip-${rChipId(p)}" onclick="rptPilihPeriode('${rEsc(p)}')">${p}</button>`;
   });
-  document.getElementById('rpt-period-chips').innerHTML = html;
+  document.getElementById('r-period-chips-scroll').innerHTML = html;
+  _rptScrollChipIntoView(_periode);
+}
 
-  setTimeout(function() {
-    var el = document.getElementById('chip-' + _rptPeriode.replace(/\s/g,'_'));
-    if (el) el.scrollIntoView({ inline:'center', behavior:'smooth', block:'nearest' });
-  }, 100);
+function rChipId(p) { return p.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,''); }
+
+function _rptScrollChipIntoView(p) {
+  setTimeout(()=>{
+    var id = p==='ALL' ? 'r-chip-ALL' : 'r-chip-'+rChipId(p);
+    var el = document.getElementById(id);
+    if(el) el.scrollIntoView({inline:'center',behavior:'smooth',block:'nearest'});
+  },100);
 }
 
 function rptPilihPeriode(p) {
-  _rptPeriode = p;
-  document.querySelectorAll('.rpt-chip').forEach(function(el) { el.classList.remove('active'); });
-  var aktif = p === 'ALL'
-    ? document.querySelector('.rpt-chip')
-    : document.getElementById('chip-' + p.replace(/\s/g,'_'));
-  if (aktif) aktif.classList.add('active');
-  rptTerapkan(p);
+  _periode = p;
+  _pIdx = _periodes.indexOf(p);
+  document.querySelectorAll('.r-chip').forEach(el=>el.classList.remove('active'));
+  var el = document.getElementById(p==='ALL'?'r-chip-ALL':'r-chip-'+rChipId(p));
+  if(el) el.classList.add('active');
+  _rptScrollChipIntoView(p);
+  _rptApply();
 }
 
-/* ─── TERAPKAN FILTER ───────────────────────────────────── */
-function rptTerapkan(periode) {
-  var kasF  = periode === 'ALL' ? _rptData.kas  : _rptData.kas.filter(function(r)  { return rptNormPeriode(r[2]).toLowerCase() === periode.toLowerCase(); });
-  var asetF = periode === 'ALL' ? _rptData.aset : _rptData.aset.filter(function(r) { return rptNormPeriode(r[1]).toLowerCase() === periode.toLowerCase(); });
-
-  rptRenderHero(kasF);
-  rptRenderStatGrid(kasF, asetF);
-  rptRenderTrend();
-  rptRenderKas(kasF);
-  rptRenderAset(asetF);
-  rptUpdateExportLabel();
+function rptNavPrev() {
+  if (_pIdx > 0) { rptPilihPeriode(_periodes[_pIdx-1]); }
+  else if (_pIdx === 0) { rptPilihPeriode('ALL'); }
+}
+function rptNavNext() {
+  if (_periode === 'ALL' && _periodes.length) { rptPilihPeriode(_periodes[0]); }
+  else if (_pIdx < _periodes.length-1) { rptPilihPeriode(_periodes[_pIdx+1]); }
 }
 
-/* ─── HERO ──────────────────────────────────────────────── */
-function rptRenderHero(kasData) {
-  var masuk = 0, keluar = 0;
-  kasData.forEach(function(r) {
-    masuk  += parseFloat(r[6]) || 0;
-    keluar += parseFloat(r[7]) || 0;
+/* ═══════════════════════════════════════════════════════════
+   APPLY FILTER & RENDER ALL
+═══════════════════════════════════════════════════════════ */
+function _rptApply() {
+  var kasF  = _periode==='ALL' ? _D.kas  : _D.kas.filter(r=>rNormPeriode(r[2]).toLowerCase()===_periode.toLowerCase());
+  var asetF = _periode==='ALL' ? _D.aset : _D.aset.filter(r=>rNormPeriode(r[1]).toLowerCase()===_periode.toLowerCase());
+
+  _rptRenderHero(kasF);
+  _rptRenderStats(kasF, asetF);
+  _rptRenderTrend();
+  _rptBuildKasMap(kasF);
+  _rptRenderKas();
+  _rptRenderDonut();
+  _rptRenderAset(asetF);
+  _rptUpdateExportLabel();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   HERO
+═══════════════════════════════════════════════════════════ */
+function _rptRenderHero(kasData) {
+  var masuk=0, keluar=0;
+  kasData.forEach(r=>{ masuk+=parseFloat(r[6])||0; keluar+=parseFloat(r[7])||0; });
+  var saldo = masuk-keluar;
+  var pct   = masuk>0 ? Math.min(keluar/masuk*100,100) : 0;
+
+  document.getElementById('r-hero-saldo').innerText  = rFmtFull(saldo);
+  document.getElementById('r-hero-masuk').innerText  = rFmt(masuk,true);
+  document.getElementById('r-hero-keluar').innerText = rFmt(keluar,true);
+  document.getElementById('r-hero-period').innerText = _periode==='ALL'?'Semua periode':_periode;
+  document.getElementById('r-hero-saldo').style.color = saldo<0?'#fca5a5':'white';
+
+  // Ring
+  var circ = 213.6;
+  var offset = circ - (circ * pct / 100);
+  var ring = document.getElementById('r-ring-fill');
+  ring.style.strokeDashoffset = offset;
+  if      (pct>85) ring.style.stroke='#fca5a5';
+  else if (pct>65) ring.style.stroke='#fde68a';
+  else             ring.style.stroke='#86efac';
+  document.getElementById('r-ring-pct').innerText = Math.round(pct)+'%';
+
+  // Health badge
+  var badge=document.getElementById('r-health-badge'), lbl=document.getElementById('r-health-label');
+  if (pct>85||saldo<0) {
+    badge.className='r-health-badge badge-kritis'; lbl.innerText='Kritis!';
+  } else if (pct>65) {
+    badge.className='r-health-badge badge-hati-hati'; lbl.innerText='Hati-hati';
+  } else {
+    badge.className='r-health-badge badge-sehat'; lbl.innerText='Keuangan Sehat';
+  }
+
+  if(_saldoMasked) _rptApplyMask();
+
+  // Sparkline
+  _rptDrawSparkline();
+}
+
+function _rptDrawSparkline() {
+  var trendMap={};
+  _D.kas.forEach(r=>{
+    var p=rNormPeriode(r[2]); if(!p) return;
+    if(!trendMap[p]) trendMap[p]={masuk:0,keluar:0};
+    trendMap[p].masuk  += parseFloat(r[6])||0;
+    trendMap[p].keluar += parseFloat(r[7])||0;
   });
-  var saldo = masuk - keluar;
-  var pct   = masuk > 0 ? Math.min(keluar/masuk*100, 100) : 0;
-
-  _rptSaldo = { masuk:masuk, keluar:keluar, saldo:saldo };
-
-  var lab = _rptPeriode === 'ALL' ? 'Semua periode' : _rptPeriode;
-  document.getElementById('hero-period-label').innerText = lab;
-  document.getElementById('hero-saldo').innerText  = rptFmtFull(saldo);
-  document.getElementById('hero-masuk').innerText  = rptFmt(masuk);
-  document.getElementById('hero-keluar').innerText = rptFmt(keluar);
-  document.getElementById('hero-saldo').style.color = saldo < 0 ? '#fca5a5' : '#ffffff';
-
-  var circumference = 188.5;
-  var dashOffset = circumference - (circumference * pct / 100);
-  var ring = document.getElementById('ring-arc');
-  ring.style.strokeDashoffset = dashOffset;
-  ring.style.stroke = pct > 90 ? '#fca5a5' : pct > 70 ? '#fde68a' : '#86efac';
-  document.getElementById('ring-pct-text').textContent = Math.round(pct) + '%';
-
-  if (_rptSaldoHidden) rptApplyMask();
-}
-
-/* ─── TOGGLE SALDO ──────────────────────────────────────── */
-function rptToggleSaldo() {
-  _rptSaldoHidden = !_rptSaldoHidden;
-  document.getElementById('hero-eye-icon').className = _rptSaldoHidden ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
-  rptApplyMask();
-}
-function rptApplyMask() {
-  var ids = ['hero-saldo', 'hero-masuk', 'hero-keluar'];
-  ids.forEach(function(id) {
-    var el = document.getElementById(id);
-    if (!el) return;
-    if (_rptSaldoHidden) {
-      if (!el._val) el._val = el.innerText;
-      el.innerText = '••••••';
-      el.classList.add('rpt-mask');
-    } else {
-      if (el._val) el.innerText = el._val;
-      el.classList.remove('rpt-mask');
-    }
+  var periods=Object.keys(trendMap).sort(rSortPeriode).slice(-8);
+  if(!periods.length) return;
+  var saldos=periods.map(p=>trendMap[p].masuk-trendMap[p].keluar);
+  var mn=Math.min(...saldos), mx=Math.max(...saldos);
+  var range=mx-mn||1;
+  var W=300, H=36, pad=4;
+  var pts=saldos.map((v,i)=>{
+    var x=pad+(i/(saldos.length-1||1))*(W-pad*2);
+    var y=pad+(1-(v-mn)/range)*(H-pad*2);
+    return [x,y];
   });
+  var path='M'+pts.map(p=>p.join(',')).join(' L');
+  var fill=path+' L'+pts[pts.length-1][0]+','+H+' L'+pts[0][0]+','+H+' Z';
+  var svgEl=document.getElementById('r-sparkline');
+  svgEl.innerHTML=`
+    <defs>
+      <linearGradient id="spk-grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(255,255,255,.35)"/>
+        <stop offset="100%" stop-color="rgba(255,255,255,.02)"/>
+      </linearGradient>
+    </defs>
+    <path d="${fill}" fill="url(#spk-grad)" stroke="none"/>
+    <path d="${path}" fill="none" stroke="rgba(255,255,255,.7)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    ${pts.map((p,i)=>i===pts.length-1?`<circle cx="${p[0]}" cy="${p[1]}" r="2.5" fill="white"/>`:'').join('')}
+  `;
 }
 
-/* ─── STAT GRID ──────────────────────────────────────────── */
-function rptRenderStatGrid(kasData, asetData) {
-  var jmlTrx  = kasData.length;
-  var jmlAset = (function() {
-    var set = {};
-    asetData.forEach(function(r) { if (r[4]) set[r[4]] = 1; });
-    return Object.keys(set).length;
-  })();
-  document.getElementById('stat-trx').innerText  = jmlTrx;
-  document.getElementById('stat-aset').innerText = jmlAset;
+/* ═══════════════════════════════════════════════════════════
+   STATS
+═══════════════════════════════════════════════════════════ */
+function _rptRenderStats(kasData, asetData) {
+  var masukTrx=kasData.filter(r=>parseFloat(r[6])>0).length;
+  document.getElementById('r-stat-trx').innerText      = kasData.length;
+  document.getElementById('r-stat-trx-masuk').innerText = masukTrx;
+  var asetSet=new Set(); asetData.forEach(r=>{if(r[4])asetSet.add(r[4]);});
+  document.getElementById('r-stat-aset').innerText = asetSet.size;
 }
 
-/* ─── TREND CHART ───────────────────────────────────────── */
-function rptRenderTrend() {
-  var trendMap = {};
-  _rptData.kas.forEach(function(r) {
-    var p = rptNormPeriode(r[2]);
-    if (!p) return;
-    if (!trendMap[p]) trendMap[p] = { masuk:0, keluar:0 };
-    trendMap[p].masuk  += parseFloat(r[6]) || 0;
-    trendMap[p].keluar += parseFloat(r[7]) || 0;
+/* ═══════════════════════════════════════════════════════════
+   TREND CHART
+═══════════════════════════════════════════════════════════ */
+function _rptRenderTrend() {
+  var trendMap={};
+  _D.kas.forEach(r=>{
+    var p=rNormPeriode(r[2]); if(!p) return;
+    if(!trendMap[p]) trendMap[p]={masuk:0,keluar:0};
+    trendMap[p].masuk  +=parseFloat(r[6])||0;
+    trendMap[p].keluar +=parseFloat(r[7])||0;
   });
-  var periods = Object.keys(trendMap).sort(rptUrutPeriode).slice(-6);
-  var labels  = periods.map(function(p) { var pt = p.split(' '); return (pt[0]||'').substring(0,3)+' '+(pt[1]||''); });
-  var masukD  = periods.map(function(p) { return trendMap[p].masuk; });
-  var keluarD = periods.map(function(p) { return trendMap[p].keluar; });
+  var periods=Object.keys(trendMap).sort(rSortPeriode).slice(-6);
+  var labels =periods.map(p=>{var pt=p.split(' ');return (pt[0]||'').substring(0,3)+(pt[1]?'''+pt[1].substring(2):'');});
+  var masukD =periods.map(p=>trendMap[p].masuk);
+  var keluarD=periods.map(p=>trendMap[p].keluar);
 
-  var ctx = document.getElementById('rpt-chart-trend').getContext('2d');
-  if (_chartTrend) _chartTrend.destroy();
-  _chartTrend = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        { label:'Masuk',  data:masukD,  backgroundColor:'#bbf7d0', borderColor:'#16a34a', borderWidth:1.5, borderRadius:5 },
-        { label:'Keluar', data:keluarD, backgroundColor:'#fecdd3', borderColor:'#dc2626', borderWidth:1.5, borderRadius:5 }
+  var ctx=document.getElementById('r-chart-trend').getContext('2d');
+  if(_charts.trend) _charts.trend.destroy();
+  _charts.trend=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {label:'Masuk', data:masukD, backgroundColor:'#bbf7d0', borderColor:'#16a34a', borderWidth:1.5, borderRadius:5, borderSkipped:false},
+        {label:'Keluar',data:keluarD,backgroundColor:'#fecaca', borderColor:'#dc2626', borderWidth:1.5, borderRadius:5, borderSkipped:false}
       ]
     },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins: {
-        legend: { position:'bottom', labels:{ boxWidth:8, font:{size:9}, padding:10 } },
-        tooltip: { callbacks:{ label: function(c){ return c.dataset.label+': '+rptFmtFull(c.raw); } } }
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:{duration:600},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>c.dataset.label+': '+rFmtFull(c.raw)}}
       },
-      scales: {
-        x: { grid:{ display:false }, ticks:{ font:{size:8}, maxRotation:20 } },
-        y: { display:false }
+      scales:{
+        x:{grid:{display:false}, ticks:{font:{size:8},maxRotation:0}},
+        y:{display:false}
       }
     }
   });
 }
 
-/* ─── ARUS KAS ───────────────────────────────────────────── */
-function rptRenderKas(kasData) {
-  var keluar = {}, masuk = {};
-  var totMasuk = 0, totKeluar = 0;
-
-  kasData.forEach(function(r) {
-    var item   = r[4] || '-';
-    var debit  = parseFloat(r[6]) || 0;
-    var kredit = parseFloat(r[7]) || 0;
-    if (kredit > 0) {
-      if (!keluar[item]) keluar[item] = { total:0, rows:[] };
-      keluar[item].total += kredit;
-      keluar[item].rows.push(r);
-      totKeluar += kredit;
+/* ═══════════════════════════════════════════════════════════
+   ARUS KAS
+═══════════════════════════════════════════════════════════ */
+function _rptBuildKasMap(kasData) {
+  _kasMap={keluar:{},masuk:{}};
+  var totK=0,totM=0,nK=0,nM=0;
+  kasData.forEach(r=>{
+    var item=r[4]||'-', debit=parseFloat(r[6])||0, kredit=parseFloat(r[7])||0;
+    if(kredit>0){
+      if(!_kasMap.keluar[item])_kasMap.keluar[item]={total:0,rows:[]};
+      _kasMap.keluar[item].total+=kredit; _kasMap.keluar[item].rows.push(r);
+      totK+=kredit; nK++;
     }
-    if (debit > 0) {
-      if (!masuk[item]) masuk[item] = { total:0, rows:[] };
-      masuk[item].total += debit;
-      masuk[item].rows.push(r);
-      totMasuk += debit;
+    if(debit>0){
+      if(!_kasMap.masuk[item])_kasMap.masuk[item]={total:0,rows:[]};
+      _kasMap.masuk[item].total+=debit; _kasMap.masuk[item].rows.push(r);
+      totM+=debit; nM++;
     }
   });
-
-  _rptKeluar = keluar;
-  _rptMasuk  = masuk;
-
-  document.getElementById('kas-total-keluar-label').innerText = rptFmt(totKeluar);
-  document.getElementById('kas-total-masuk-label').innerText  = rptFmt(totMasuk);
-
-  var keluarEntries = Object.entries(keluar).sort(function(a,b){ return b[1].total - a[1].total; });
-  var masukEntries  = Object.entries(masuk).sort(function(a,b){ return b[1].total - a[1].total; });
-
-  var maxKeluar = keluarEntries.length ? keluarEntries[0][1].total : 1;
-  var maxMasuk  = masukEntries.length  ? masukEntries[0][1].total  : 1;
-
-  rptRenderFlowList('list-kas-keluar', keluarEntries, maxKeluar, 'keluar', _rptKeluarExpanded);
-  rptRenderFlowList('list-kas-masuk',  masukEntries,  maxMasuk,  'masuk',  _rptMasukExpanded);
-  rptRenderDonut('rpt-chart-keluar', 'rpt-legend-keluar', keluarEntries.slice(0,8), totKeluar);
+  document.getElementById('r-sum-keluar').innerText   = rFmt(totK,true);
+  document.getElementById('r-sum-masuk').innerText    = rFmt(totM,true);
+  document.getElementById('r-sum-keluar-n').innerText = nK+' transaksi';
+  document.getElementById('r-sum-masuk-n').innerText  = nM+' transaksi';
 }
 
-function rptRenderFlowList(containerId, entries, maxVal, tipe, expanded) {
-  var container = document.getElementById(containerId);
-  if (entries.length === 0) {
-    container.innerHTML = '<div class="rpt-empty"><span class="empty-icon">📂</span><p>Belum ada data</p></div>';
-    return;
-  }
-  var shown = expanded ? entries : entries.slice(0, 5);
-  var color = tipe === 'keluar' ? 'var(--red)' : 'var(--green)';
-  var html = '';
-  shown.forEach(function(entry, i) {
-    var nama = entry[0], val = entry[1].total, jml = entry[1].rows.length;
-    var pct  = maxVal > 0 ? (val/maxVal*100) : 0;
-    var dotColor = RPT_COLORS[i % RPT_COLORS.length];
-    var encNama  = encodeURIComponent(nama);
-    html += '<div class="flow-item" onclick="rptBukaDetail(\'' + rptEsc(encNama) + '\',\'' + tipe + '\')">'
-          + '<span class="flow-dot" style="background:' + dotColor + ';"></span>'
-          + '<div class="flow-name"><p>' + rptEsc(nama) + '</p><span>' + jml + ' transaksi</span></div>'
-          + '<div class="flow-bar-wrap"><div class="flow-bar-track"><div class="flow-bar-fill" style="width:' + pct.toFixed(1) + '%;background:' + color + ';"></div></div></div>'
-          + '<span class="flow-amount" style="color:' + color + ';">' + rptFmt(val) + '</span>'
-          + '<i class="fa-solid fa-chevron-right flow-chevron"></i>'
-          + '</div>';
-  });
-  container.innerHTML = html;
+function rptKasTab(tab) {
+  _kasTab=tab; _kasExpanded=false;
+  var tK=document.getElementById('r-tab-keluar'), tM=document.getElementById('r-tab-masuk');
+  tK.className='r-kas-tab'+(tab==='keluar'?' active-keluar':'');
+  tM.className='r-kas-tab'+(tab==='masuk'?' active-masuk':'');
+  _rptRenderKas();
 }
 
-function rptRenderDonut(canvasId, legendId, entries, total) {
-  var canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  var ctx = canvas.getContext('2d');
-  if (entries.length === 0) {
-    document.getElementById(legendId).innerHTML = '<p style="font-size:.625rem; color:var(--slate-4);">Belum ada data</p>';
+function _rptRenderKas() {
+  var src=_kasMap[_kasTab];
+  var entries=Object.entries(src).sort((a,b)=>b[1].total-a[1].total);
+  var maxVal=entries.length?entries[0][1].total:1;
+  var shown=_kasExpanded?entries:entries.slice(0,6);
+  var color=_kasTab==='keluar'?'var(--r-red)':'var(--r-green)';
+  var moreBtn=document.getElementById('r-flow-more-btn');
+
+  if(!entries.length){
+    document.getElementById('r-flow-list').innerHTML=`
+      <div class="r-empty">
+        <span class="r-empty-icon">📂</span>
+        <p>Belum ada data ${_kasTab==='keluar'?'pengeluaran':'pemasukan'}</p>
+        <span>Catat transaksi di menu Arus Kas</span>
+      </div>`;
+    moreBtn.style.display='none';
     return;
   }
-  var labels = entries.map(function(e){ return e[0]; });
-  var values = entries.map(function(e){ return e[1].total; });
-  var colors = entries.map(function(_, i){ return RPT_COLORS[i % RPT_COLORS.length]; });
-  if (canvas._chart) canvas._chart.destroy();
-  canvas._chart = new Chart(ctx, {
-    type: 'doughnut',
-    data: { labels:labels, datasets:[{ data:values, backgroundColor:colors, borderWidth:2, borderColor:'#fff' }] },
-    options: {
-      responsive:false, maintainAspectRatio:false,
-      plugins: {
-        legend:{ display:false },
-        tooltip:{ callbacks:{ label:function(c){ return c.label+': '+rptFmtFull(c.raw); } } }
+
+  moreBtn.style.display='';
+  document.getElementById('r-flow-more-icon').className='fa-solid fa-chevron-'+(_kasExpanded?'up':'down')+' '+'';
+  document.getElementById('r-flow-more-icon').style.fontSize='.5rem';
+  document.getElementById('r-flow-more-text').innerText=_kasExpanded?'Tutup':'Lihat semua ('+entries.length+')';
+
+  var html=shown.map((entry,i)=>{
+    var nama=entry[0], val=entry[1].total, jml=entry[1].rows.length;
+    var pct=maxVal>0?(val/maxVal*100):0;
+    var c=COLORS[i%COLORS.length];
+    var enc=encodeURIComponent(nama);
+    return `<div class="r-flow-item" data-stagger="${Math.min(i,4)}" style="animation-delay:${i*40}ms;" onclick="rptBukaDetail('${enc}','${_kasTab}')">
+      <div class="r-flow-rank" style="background:${c}22; color:${c};">${i+1}</div>
+      <div class="r-flow-info">
+        <div class="r-flow-name">${rEsc(nama)}</div>
+        <div class="r-flow-bar-track">
+          <div class="r-flow-bar-fill" style="width:${pct.toFixed(1)}%;background:${color};animation-delay:${i*60}ms;"></div>
+        </div>
+      </div>
+      <div class="r-flow-right">
+        <span class="r-flow-amount" style="color:${color};">${rFmt(val,true)}</span>
+        <span class="r-flow-trx">${jml} trx</span>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('r-flow-list').innerHTML=html;
+}
+
+function rptFlowToggle() {
+  _kasExpanded=!_kasExpanded;
+  _rptRenderKas();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DONUT
+═══════════════════════════════════════════════════════════ */
+function _rptRenderDonut() {
+  var src=_kasMap['keluar'];
+  var entries=Object.entries(src).sort((a,b)=>b[1].total-a[1].total).slice(0,8);
+  var total=entries.reduce((s,e)=>s+e[1].total,0);
+  var canvas=document.getElementById('r-chart-donut');
+  if(_charts.donut){_charts.donut.destroy();_charts.donut=null;}
+
+  document.getElementById('r-donut-center-val').innerText=entries.length||'—';
+
+  if(!entries.length){
+    document.getElementById('r-donut-legend').innerHTML='<p style="font-size:.625rem;color:var(--r-n400);">Belum ada data</p>';
+    return;
+  }
+
+  var colors=entries.map((_,i)=>COLORS[i%COLORS.length]);
+  _charts.donut=new Chart(canvas.getContext('2d'),{
+    type:'doughnut',
+    data:{labels:entries.map(e=>e[0]),datasets:[{data:entries.map(e=>e[1].total),backgroundColor:colors,borderWidth:2,borderColor:'white',hoverBorderWidth:3}]},
+    options:{
+      responsive:false, maintainAspectRatio:false, animation:{duration:700},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>c.label+': '+rFmtFull(c.raw)+' ('+((c.raw/total)*100).toFixed(1)+'%)'}}
       },
-      cutout: '72%'
+      cutout:'72%',
+      onHover:(e,el)=>{
+        canvas.style.cursor=el.length?'pointer':'default';
+      }
     }
   });
-  var html = '';
-  entries.forEach(function(entry, i) {
-    var pct = total > 0 ? (entry[1].total/total*100).toFixed(0) : 0;
-    var shortName = entry[0].length > 20 ? entry[0].substring(0,18)+'…' : entry[0];
-    html += '<div class="legend-row"><span class="legend-dot" style="background:' + colors[i] + ';"></span>'
-          + '<span class="legend-name">' + rptEsc(shortName) + '</span>'
-          + '<span class="legend-pct">' + pct + '%</span></div>';
-  });
-  document.getElementById(legendId).innerHTML = html;
+  canvas.onclick=(e)=>{
+    var pts=_charts.donut.getElementsAtEventForMode(e,'nearest',{intersect:true},false);
+    if(pts.length){ var i=pts[0].index; rptBukaDetail(encodeURIComponent(entries[i][0]),'keluar'); }
+  };
+
+  // Legend
+  var legHtml=entries.map((entry,i)=>{
+    var pct=total>0?((entry[1].total/total)*100).toFixed(0):0;
+    var shortN=entry[0].length>22?entry[0].substring(0,20)+'…':entry[0];
+    return `<div class="r-legend-item" onclick="rptBukaDetail('${encodeURIComponent(entry[0])}','keluar')">
+      <span class="r-legend-dot" style="background:${colors[i]};"></span>
+      <span class="r-legend-name">${rEsc(shortN)}</span>
+      <span class="r-legend-pct">${pct}%</span>
+    </div>`;
+  }).join('');
+  document.getElementById('r-donut-legend').innerHTML=legHtml;
 }
 
-function rptToggleKeluar() {
-  _rptKeluarExpanded = !_rptKeluarExpanded;
-  var entries = Object.entries(_rptKeluar).sort(function(a,b){ return b[1].total-a[1].total; });
-  var max = entries.length ? entries[0][1].total : 1;
-  rptRenderFlowList('list-kas-keluar', entries, max, 'keluar', _rptKeluarExpanded);
-  var btn = document.getElementById('btn-toggle-keluar');
-  btn.innerHTML = '<i class="fa-solid fa-chevron-' + (_rptKeluarExpanded?'up':'down') + '" style="font-size:0.5rem;"></i> '
-                + (_rptKeluarExpanded ? 'Tutup' : 'Lihat semua pengeluaran');
-  btn.onclick = rptToggleKeluar;
-}
+/* ═══════════════════════════════════════════════════════════
+   ASET
+═══════════════════════════════════════════════════════════ */
+function _rptRenderAset(asetData) {
+  var beliMap={}, rekapItem={};
+  var pnlTotal=0, totalModal=0, totalCair=0;
 
-function rptToggleMasuk() {
-  _rptMasukExpanded = !_rptMasukExpanded;
-  var entries = Object.entries(_rptMasuk).sort(function(a,b){ return b[1].total-a[1].total; });
-  var max = entries.length ? entries[0][1].total : 1;
-  rptRenderFlowList('list-kas-masuk', entries, max, 'masuk', _rptMasukExpanded);
-  var btn = document.getElementById('btn-toggle-masuk');
-  btn.innerHTML = '<i class="fa-solid fa-chevron-' + (_rptMasukExpanded?'up':'down') + '" style="font-size:0.5rem;"></i> '
-                + (_rptMasukExpanded ? 'Tutup' : 'Lihat semua pemasukan');
-  btn.onclick = rptToggleMasuk;
-}
-
-/* ─── ASET ────────────────────────────────────────────────── */
-function rptRenderAset(asetData) {
-  var beliMap = {}, rekapItem = {};
-  var pnlTotal = 0;
-
-  asetData.forEach(function(r) {
-    var id = String(r[0]).trim(), tipe = String(r[5]).trim();
-    if (tipe === 'BELI' && id) {
-      beliMap[id] = { harga: parseFloat(r[7])||0, qty: parseFloat(r[6])||0, total: parseFloat(r[8])||0 };
-    }
+  asetData.forEach(r=>{
+    var id=String(r[0]).trim(), tipe=String(r[5]).trim();
+    if(tipe==='BELI'&&id) beliMap[id]={harga:parseFloat(r[7])||0,qty:parseFloat(r[6])||0,total:parseFloat(r[8])||0};
   });
 
-  asetData.forEach(function(r) {
-    var item     = String(r[4]).trim(); if (!item) return;
-    var tipe     = String(r[5]).trim();
-    var kategori = String(r[3]).trim();
-    var platform = String(r[2]).trim();
-    var qty      = parseFloat(r[6]) || 0;
-    var total    = parseFloat(r[8]) || 0;
-    var idRef    = String(r[9]).trim();
-
-    if (!rekapItem[item]) rekapItem[item] = { qtyBeli:0, nilaiBeli:0, qtyJual:0, nilaiJual:0, hargaPokokJual:0, kategori:kategori, platform:platform };
-
-    if (tipe === 'BELI') {
-      rekapItem[item].qtyBeli   += qty;
-      rekapItem[item].nilaiBeli += total;
-    } else if (tipe === 'JUAL') {
-      rekapItem[item].qtyJual   += qty;
-      rekapItem[item].nilaiJual += total;
-      var hBeli  = (idRef && idRef!=='-' && beliMap[idRef]) ? beliMap[idRef].harga : 0;
-      var hPokok = hBeli * qty;
-      rekapItem[item].hargaPokokJual += hPokok;
-      pnlTotal += (total - hPokok);
+  asetData.forEach(r=>{
+    var item=String(r[4]).trim(); if(!item) return;
+    var tipe=String(r[5]).trim(), kat=String(r[3]).trim(), plt=String(r[2]).trim();
+    var qty=parseFloat(r[6])||0, total=parseFloat(r[8])||0, idRef=String(r[9]).trim();
+    if(!rekapItem[item]) rekapItem[item]={qtyBeli:0,nilaiBeli:0,qtyJual:0,nilaiJual:0,hpJual:0,kat,plt};
+    if(tipe==='BELI'){ rekapItem[item].qtyBeli+=qty; rekapItem[item].nilaiBeli+=total; totalModal+=total; }
+    else if(tipe==='JUAL'){
+      rekapItem[item].qtyJual+=qty; rekapItem[item].nilaiJual+=total; totalCair+=total;
+      var hBeli=(idRef&&idRef!=='-'&&beliMap[idRef])?beliMap[idRef].harga:0;
+      var hp=hBeli*qty; rekapItem[item].hpJual+=hp;
+      pnlTotal+=(total-hp);
     }
   });
 
   // PNL banner
-  var banner = document.getElementById('rpt-pnl-banner');
-  var icon   = document.getElementById('pnl-icon-wrap');
-  document.getElementById('pnl-nilai').innerText = rptFmtFull(pnlTotal);
-  if (pnlTotal > 0) {
-    banner.style.background = 'linear-gradient(135deg,#be185d,#db2777)';
-    icon.innerHTML = '📈';
-  } else if (pnlTotal < 0) {
-    banner.style.background = 'linear-gradient(135deg,#b91c1c,#dc2626)';
-    icon.innerHTML = '📉';
+  var banner=document.getElementById('r-pnl-banner'), icon=document.getElementById('r-pnl-icon');
+  document.getElementById('r-pnl-nilai').innerText=rFmtFull(pnlTotal);
+  document.getElementById('r-pnl-modal').innerText=rFmt(totalModal,true);
+  document.getElementById('r-pnl-cair').innerText =rFmt(totalCair,true);
+  if(pnlTotal>0){
+    banner.style.background='linear-gradient(135deg,#9f1239,#e11d48)'; icon.innerHTML='📈';
+    document.getElementById('r-pnl-nilai').style.color='white';
+  } else if(pnlTotal<0){
+    banner.style.background='linear-gradient(135deg,#991b1b,#dc2626)'; icon.innerHTML='📉';
+    document.getElementById('r-pnl-nilai').style.color='#fecaca';
   } else {
-    banner.style.background = 'linear-gradient(135deg,#4338ca,#6366f1)';
-    icon.innerHTML = '📊';
+    banner.style.background='linear-gradient(135deg,#3730a3,#4f46e5)'; icon.innerHTML='📊';
+    document.getElementById('r-pnl-nilai').style.color='white';
   }
-  document.getElementById('pnl-nilai').style.color = pnlTotal >= 0 ? 'white' : '#fecaca';
 
-  rptRenderAsetChart(rekapItem);
-  rptRenderAsetCards(rekapItem);
+  // Aset chart
+  var entries=Object.entries(rekapItem);
+  if(entries.length){
+    var labels=entries.map(e=>e[0].length>12?e[0].substring(0,10)+'…':e[0]);
+    var ctx=document.getElementById('r-chart-aset').getContext('2d');
+    if(_charts.aset) _charts.aset.destroy();
+    _charts.aset=new Chart(ctx,{
+      type:'bar',
+      data:{labels,datasets:[
+        {label:'Modal',     data:entries.map(e=>e[1].nilaiBeli), backgroundColor:'#fbcfe8',borderColor:'#e11d48',borderWidth:1.5,borderRadius:5,borderSkipped:false},
+        {label:'Dicairkan', data:entries.map(e=>e[1].nilaiJual), backgroundColor:'#bbf7d0',borderColor:'#16a34a',borderWidth:1.5,borderRadius:5,borderSkipped:false}
+      ]},
+      options:{
+        responsive:true,maintainAspectRatio:false,animation:{duration:600},
+        plugins:{legend:{position:'bottom',labels:{boxWidth:8,font:{size:8},padding:8}},tooltip:{callbacks:{label:c=>c.dataset.label+': '+rFmtFull(c.raw)}}},
+        scales:{x:{grid:{display:false},ticks:{font:{size:7},maxRotation:20}},y:{display:false}}
+      }
+    });
+  }
+
+  // Aset cards
+  var sorted=entries.sort((a,b)=>b[1].nilaiBeli-a[1].nilaiBeli);
+  var emojiMap={emas:'🪙',gold:'🪙',perak:'🥈',silver:'🥈',reksa:'📊',saham:'📈',crypto:'💎',bitcoin:'💎',deposito:'🏦',obligasi:'📜'};
+  function getEmoji(k){ var l=(k||'').toLowerCase(); for(var key in emojiMap){if(l.includes(key))return emojiMap[key];} return '💰'; }
+
+  if(!sorted.length){
+    document.getElementById('r-aset-cards').innerHTML=`<div class="r-empty"><span class="r-empty-icon">💼</span><p>Belum ada data aset</p><span>Catat pembelian aset di menu Transaksi</span></div>`;
+    return;
+  }
+
+  var html=sorted.map((entry,i)=>{
+    var nama=entry[0], d=entry[1];
+    var sisa=d.nilaiBeli-d.nilaiJual;
+    var pnl=d.nilaiJual-d.hpJual;
+    var jualPct=d.nilaiBeli>0?Math.min(d.nilaiJual/d.nilaiBeli*100,100).toFixed(1):0;
+    var pnlC=pnl>0?'var(--r-green)':pnl<0?'var(--r-red)':'var(--r-n400)';
+    var pnlSign=pnl>=0?'+':'';
+    var hasDijual=d.nilaiJual>0;
+    return `<div class="r-aset-card r-fade-up" data-stagger="${Math.min(i,4)}" style="animation-delay:${i*50}ms;">
+      <div class="r-aset-top">
+        <div class="r-aset-emoji">${getEmoji(d.kat)}</div>
+        <div class="r-aset-info">
+          <div class="r-aset-name">${rEsc(nama)}</div>
+          <div class="r-aset-meta">${rEsc(d.plt||'-')} · ${rEsc(d.kat||'-')}</div>
+          <div class="r-aset-alloc">
+            <div class="r-aset-alloc-fill" style="width:${jualPct}%;background:var(--r-rose);animation-delay:${i*80}ms;"></div>
+          </div>
+        </div>
+        <div class="r-aset-pnl">
+          <span class="r-aset-pnl-val" style="color:${hasDijual?pnlC:'var(--r-n300)'};">${hasDijual?pnlSign+rFmt(pnl,true):'—'}</span>
+          <span class="r-aset-pnl-lbl">${hasDijual?'PNL':'Belum dijual'}</span>
+        </div>
+      </div>
+      <div class="r-aset-stats">
+        <div class="r-aset-stat">
+          <span class="asv" style="color:var(--r-rose);">${rFmt(d.nilaiBeli,true)}</span>
+          <span class="asl">Modal</span>
+        </div>
+        <div class="r-aset-stat">
+          <span class="asv" style="color:var(--r-indigo);">${rFmt(Math.max(sisa,0),true)}</span>
+          <span class="asl">Sisa</span>
+        </div>
+        <div class="r-aset-stat">
+          <span class="asv" style="color:var(--r-green);">${rFmt(d.nilaiJual,true)}</span>
+          <span class="asl">Dicairkan</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('r-aset-cards').innerHTML=html;
 }
 
-function rptRenderAsetChart(rekapItem) {
-  var entries  = Object.entries(rekapItem);
-  if (!entries.length) return;
-  var labels   = entries.map(function(e){ return e[0].length>12?e[0].substring(0,10)+'…':e[0]; });
-  var dataBeli = entries.map(function(e){ return e[1].nilaiBeli; });
-  var dataJual = entries.map(function(e){ return e[1].nilaiJual; });
-  var ctx = document.getElementById('rpt-chart-aset').getContext('2d');
-  if (_chartAset) _chartAset.destroy();
-  _chartAset = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        { label:'Modal',      data:dataBeli, backgroundColor:'#fbcfe8', borderColor:'#db2777', borderWidth:1.5, borderRadius:5 },
-        { label:'Dicairkan',  data:dataJual, backgroundColor:'#bbf7d0', borderColor:'#16a34a', borderWidth:1.5, borderRadius:5 }
-      ]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins: {
-        legend:{ position:'bottom', labels:{ boxWidth:8, font:{size:9}, padding:10 } },
-        tooltip:{ callbacks:{ label:function(c){ return c.dataset.label+': '+rptFmtFull(c.raw); } } }
-      },
-      scales: { x:{ grid:{display:false}, ticks:{ font:{size:8}, maxRotation:20 } }, y:{display:false} }
+/* ═══════════════════════════════════════════════════════════
+   SALDO MASK
+═══════════════════════════════════════════════════════════ */
+function rptToggleSaldo() {
+  _saldoMasked=!_saldoMasked;
+  document.getElementById('r-hero-eye-icon').className='fa-solid fa-eye'+(  _saldoMasked?'-slash':'');
+  _rptApplyMask();
+}
+function _rptApplyMask() {
+  ['r-hero-saldo','r-hero-masuk','r-hero-keluar'].forEach(id=>{
+    var el=document.getElementById(id); if(!el) return;
+    if(_saldoMasked){
+      if(!el._v) el._v=el.innerText;
+      el.innerText='••••••'; el.classList.add('r-mask');
+    } else {
+      if(el._v) el.innerText=el._v; el.classList.remove('r-mask');
     }
   });
 }
 
-function rptRenderAsetCards(rekapItem) {
-  var container = document.getElementById('list-aset-cards');
-  var entries = Object.entries(rekapItem).sort(function(a,b){ return b[1].nilaiBeli-a[1].nilaiBeli; });
-  if (!entries.length) {
-    container.innerHTML = '<div class="rpt-empty"><span class="empty-icon">💼</span><p>Belum ada data aset</p><span>Catat pembelian aset di menu Transaksi</span></div>';
-    return;
-  }
-  var emojiMap = { emas:'🪙', gold:'🪙', perak:'🥈', silver:'🥈', reksa:'📊', reksadana:'📊', saham:'📈', crypto:'💎', bitcoin:'💎', deposito:'🏦', obligasi:'📜' };
-  function getEmoji(kat) {
-    var k = (kat||'').toLowerCase();
-    for (var key in emojiMap) { if (k.includes(key)) return emojiMap[key]; }
-    return '💰';
-  }
-  container.innerHTML = entries.map(function(entry) {
-    var nama = entry[0], d = entry[1];
-    var sisa = d.nilaiBeli - d.nilaiJual;
-    var pnl  = d.nilaiJual - d.hargaPokokJual;
-    var hasDijual  = d.nilaiJual > 0;
-    var pnlColor   = pnl > 0 ? 'var(--green)' : pnl < 0 ? 'var(--red)' : 'var(--slate-4)';
-    var pnlSign    = pnl >= 0 ? '+' : '';
-    var jualPct    = d.nilaiBeli > 0 ? Math.min(d.nilaiJual/d.nilaiBeli*100,100).toFixed(1) : 0;
-    return '<div class="aset-card">'
-      + '<div class="aset-card-header">'
-      + '<div class="aset-icon">' + getEmoji(d.kategori) + '</div>'
-      + '<div class="aset-card-info">'
-      + '<div class="name">' + rptEsc(nama) + '</div>'
-      + '<div class="sub">' + rptEsc(d.platform||'-') + ' · ' + rptEsc(d.kategori||'-') + '</div>'
-      + '<div style="margin-top:0.375rem; background:var(--slate-1); border-radius:999px; height:0.25rem; overflow:hidden; width:100%;">'
-      + '<div style="height:100%; background:var(--pink); border-radius:999px; width:' + jualPct + '%; transition:width .8s;"></div>'
-      + '</div></div>'
-      + '<div class="aset-card-pnl">'
-      + '<div class="val" style="color:' + (hasDijual ? pnlColor : 'var(--slate-3)') + ';">' + (hasDijual ? pnlSign + rptFmt(pnl) : '—') + '</div>'
-      + '<div class="lbl">' + (hasDijual ? 'PNL' : 'Belum dijual') + '</div>'
-      + '</div></div>'
-      + '<div class="aset-card-body">'
-      + '<div class="aset-stat"><span class="val" style="color:var(--pink);">' + rptFmt(d.nilaiBeli) + '</span><span class="lbl">Modal</span></div>'
-      + '<div class="aset-stat"><span class="val" style="color:var(--indigo);">' + rptFmt(Math.max(sisa,0)) + '</span><span class="lbl">Sisa</span></div>'
-      + '<div class="aset-stat"><span class="val" style="color:var(--green);">' + rptFmt(d.nilaiJual) + '</span><span class="lbl">Dicairkan</span></div>'
-      + '</div></div>';
-  }).join('');
-}
-
-/* ─── MODAL DETAIL ───────────────────────────────────────── */
-var _rptModalRows = [];
-
+/* ═══════════════════════════════════════════════════════════
+   MODAL DETAIL
+═══════════════════════════════════════════════════════════ */
 function rptBukaDetail(encodedNama, tipe) {
-  var nama   = decodeURIComponent(encodedNama);
-  var sumber = tipe === 'keluar' ? _rptKeluar[nama] : _rptMasuk[nama];
-  if (!sumber) return;
-  document.getElementById('modal-detail-title').innerText = nama;
-  document.getElementById('rpt-cari-detail').value = '';
-  var rows = sumber.rows.slice().sort(function(a,b){ return String(a[1]).localeCompare(String(b[1])); }).reverse();
-  _rptModalRows = rows;
-  var sumMasuk = 0, sumKeluar = 0;
-  rows.forEach(function(r) { sumMasuk += parseFloat(r[6])||0; sumKeluar += parseFloat(r[7])||0; });
-  document.getElementById('modal-sum-masuk').innerText  = rptFmt(sumMasuk);
-  document.getElementById('modal-sum-keluar').innerText = rptFmt(sumKeluar);
-  document.getElementById('modal-sum-count').innerText  = rows.length;
-  rptRenderModalList(rows);
-  document.getElementById('rpt-modal-detail').classList.remove('hidden');
+  var nama=decodeURIComponent(encodedNama);
+  var src=_kasMap[tipe]&&_kasMap[tipe][nama];
+  if(!src) return;
+
+  document.getElementById('r-modal-title').innerText=nama;
+  document.getElementById('r-modal-cari').value='';
+  document.getElementById('r-modal-sort').value='tgl-desc';
+
+  var rows=src.rows.slice();
+  _modalRowsAll=rows;
+  _rptModalApplySort(rows);
+
+  var sumM=rows.reduce((s,r)=>s+(parseFloat(r[6])||0),0);
+  var sumK=rows.reduce((s,r)=>s+(parseFloat(r[7])||0),0);
+  document.getElementById('r-ms-masuk').innerText  = rFmt(sumM,true);
+  document.getElementById('r-ms-keluar').innerText = rFmt(sumK,true);
+  document.getElementById('r-ms-count').innerText  = rows.length;
+
+  document.getElementById('r-modal-detail').classList.remove('hidden');
+}
+function rptTutupModal() { document.getElementById('r-modal-detail').classList.add('hidden'); }
+
+function _rptModalApplySort(rows) {
+  var sort=document.getElementById('r-modal-sort').value;
+  var sorted=[...rows];
+  if(sort==='tgl-desc') sorted.sort((a,b)=>String(b[1]).localeCompare(String(a[1])));
+  else if(sort==='tgl-asc') sorted.sort((a,b)=>String(a[1]).localeCompare(String(b[1])));
+  else if(sort==='nom-desc') sorted.sort((a,b)=>(parseFloat(b[6]||0)+parseFloat(b[7]||0))-(parseFloat(a[6]||0)+parseFloat(a[7]||0)));
+  else sorted.sort((a,b)=>(parseFloat(a[6]||0)+parseFloat(a[7]||0))-(parseFloat(b[6]||0)+parseFloat(b[7]||0)));
+  _modalRows=sorted;
+  _rptRenderModalList(_modalRows);
+}
+function rptModalSort() { _rptModalApplySort(_modalRowsAll); }
+function rptModalCari() {
+  var q=document.getElementById('r-modal-cari').value.toLowerCase();
+  var filtered=_modalRowsAll.filter(r=>String(r[1]||'').toLowerCase().includes(q)||String(r[5]||'').toLowerCase().includes(q));
+  _modalRows=filtered;
+  _rptRenderModalList(filtered);
 }
 
-function rptRenderModalList(rows) {
-  var container = document.getElementById('rpt-modal-list');
-  if (!rows.length) {
-    container.innerHTML = '<div class="rpt-empty"><span class="empty-icon">📭</span><p>Tidak ada transaksi</p></div>';
+function _rptRenderModalList(rows) {
+  var container=document.getElementById('r-modal-list');
+  if(!rows.length){
+    container.innerHTML=`<div class="r-empty"><span class="r-empty-icon">📭</span><p>Tidak ada transaksi</p></div>`;
     return;
   }
-  container.innerHTML = rows.map(function(r) {
-    var debit  = parseFloat(r[6]) || 0;
-    var kredit = parseFloat(r[7]) || 0;
-    var isIn   = debit > 0;
-    var nom    = isIn ? debit : kredit;
-    var catatan = r[5] || '-';
-    return '<div style="display:flex; align-items:center; gap:0.625rem; padding:0.625rem; background:white; border:1px solid var(--slate-1); border-radius:0.625rem; margin-bottom:0.375rem;">'
-      + '<div style="width:2rem;height:2rem;border-radius:0.625rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:' + (isIn?'var(--green-lt)':'var(--red-lt)') + ';">'
-      + '<i class="fa-solid fa-' + (isIn?'arrow-down':'arrow-up') + '" style="font-size:0.625rem; color:' + (isIn?'var(--green)':'var(--red)') + ';"></i></div>'
-      + '<div style="flex:1;min-width:0;">'
-      + '<p style="font-size:0.6875rem;font-weight:700;color:var(--slate-7);margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + rptEsc(catatan) + '</p>'
-      + '<p style="font-size:0.5625rem;color:var(--slate-4);margin:0.125rem 0 0;">' + (r[1]||'-') + '</p>'
-      + '</div>'
-      + '<span style="font-size:0.75rem;font-weight:800;color:' + (isIn?'var(--green)':'var(--red)') + ';flex-shrink:0;">' + (isIn?'+':'-') + rptFmt(nom) + '</span>'
-      + '</div>';
+  container.innerHTML=rows.map((r,i)=>{
+    var debit=parseFloat(r[6])||0, kredit=parseFloat(r[7])||0;
+    var isIn=debit>0, nom=isIn?debit:kredit;
+    var color=isIn?'var(--r-green)':'var(--r-red)';
+    var bg=isIn?'var(--r-green-xs)':'var(--r-red-xs)';
+    return `<div class="r-modal-row" style="animation:r-fade-up .25s ease both ${Math.min(i,8)*30}ms;">
+      <div class="r-modal-row-icon" style="background:${bg};">
+        <i class="fa-solid fa-${isIn?'arrow-down':'arrow-up'}" style="color:${color};"></i>
+      </div>
+      <div class="r-modal-row-info">
+        <p class="r-modal-row-main">${rEsc(r[5]||'-')}</p>
+        <p class="r-modal-row-sub">${r[1]||'-'} · ${rNormPeriode(r[2])||'-'}</p>
+      </div>
+      <span class="r-modal-row-amount" style="color:${color};">${isIn?'+':'-'}${rFmt(nom,true)}</span>
+    </div>`;
   }).join('');
 }
 
-function rptCariDetail() {
-  var q = document.getElementById('rpt-cari-detail').value.toLowerCase();
-  var filtered = _rptModalRows.filter(function(r) {
-    return String(r[1]||'').toLowerCase().includes(q) || String(r[5]||'').toLowerCase().includes(q);
-  });
-  rptRenderModalList(filtered);
+/* ═══════════════════════════════════════════════════════════
+   EXPORT
+═══════════════════════════════════════════════════════════ */
+function _rptUpdateExportLabel() {
+  var el=document.getElementById('r-export-periode');
+  if(el) el.innerText=_periode==='ALL'?'Semua Periode':_periode;
 }
 
-function rptTutupModal() {
-  document.getElementById('rpt-modal-detail').classList.add('hidden');
+function rptExport(mode) {
+  _exportMode=mode||'lengkap';
+  if(mode==='ringkas') _rptShowPreview();
+  else rptDoExportPDF();
 }
 
-/* ─── EXPORT ─────────────────────────────────────────────── */
-function rptUpdateExportLabel() {
-  var el = document.getElementById('label-export-periode');
-  if (el) el.innerText = _rptPeriode === 'ALL' ? 'Semua Periode' : _rptPeriode;
-}
-
-var _rptExportMode = 'lengkap';
-
-function exportPDF(mode) {
-  _rptExportMode = mode || 'lengkap';
-  if (mode === 'ringkas') { rptTampilPreviewPDF(); }
-  else { rptJalankanExportPDF(); }
-}
-
-function rptTampilPreviewPDF() {
-  var periode = _rptPeriode;
-  var filterFn = function(r) { return periode === 'ALL' || rptNormPeriode(r[2]).toLowerCase() === periode.toLowerCase(); };
-  var kasData = _rptData.kas.filter(filterFn);
+function _rptShowPreview() {
+  var filterFn=r=>_periode==='ALL'||rNormPeriode(r[2]).toLowerCase()===_periode.toLowerCase();
+  var kasData=_D.kas.filter(filterFn);
   var totMasuk=0, totKeluar=0;
-  kasData.forEach(function(r){ totMasuk+=parseFloat(r[6])||0; totKeluar+=parseFloat(r[7])||0; });
-  var saldo = totMasuk - totKeluar;
-  var labelPer = periode === 'ALL' ? 'Semua Periode' : periode;
+  kasData.forEach(r=>{totMasuk+=parseFloat(r[6])||0; totKeluar+=parseFloat(r[7])||0;});
+  var saldo=totMasuk-totKeluar;
+  var labelPer=_periode==='ALL'?'Semua Periode':_periode;
 
-  document.getElementById('rpt-pdf-preview-content').innerHTML =
-    '<div style="background:var(--slate-1);border-radius:var(--radius-sm);padding:0.875rem;">'
-    + '<p style="font-size:0.5625rem;font-weight:800;color:var(--slate-4);text-transform:uppercase;margin:0 0 0.25rem;">Periode</p>'
-    + '<p style="font-size:0.9375rem;font-weight:800;color:var(--slate-9);margin:0;">' + labelPer + '</p>'
-    + '</div>'
-    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">'
-    + '<div style="background:var(--green-xs);border:1px solid var(--green-lt);border-radius:var(--radius-sm);padding:0.75rem;text-align:center;"><p style="font-size:0.5rem;color:var(--slate-4);font-weight:800;text-transform:uppercase;margin:0 0 0.25rem;">Total Masuk</p><p style="font-size:0.875rem;font-weight:800;color:var(--green);margin:0;">' + rptFmtFull(totMasuk) + '</p></div>'
-    + '<div style="background:var(--red-xs);border:1px solid var(--red-lt);border-radius:var(--radius-sm);padding:0.75rem;text-align:center;"><p style="font-size:0.5rem;color:var(--slate-4);font-weight:800;text-transform:uppercase;margin:0 0 0.25rem;">Total Keluar</p><p style="font-size:0.875rem;font-weight:800;color:var(--red);margin:0;">' + rptFmtFull(totKeluar) + '</p></div>'
-    + '</div>'
-    + '<div style="background:linear-gradient(135deg,#9d174d,#db2777);border-radius:var(--radius-sm);padding:1rem;text-align:center;">'
-    + '<p style="font-size:0.5rem;color:rgba(255,255,255,.65);font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin:0 0 0.375rem;">Saldo Bersih</p>'
-    + '<p style="font-size:1.5rem;font-weight:900;color:white;margin:0;">' + rptFmtFull(saldo) + '</p>'
-    + '</div>'
-    + '<div style="background:var(--slate-1);border-radius:var(--radius-sm);padding:0.75rem;text-align:center;">'
-    + '<p style="font-size:0.5rem;color:var(--slate-4);font-weight:800;text-transform:uppercase;margin:0 0 0.25rem;">Jumlah Transaksi</p>'
-    + '<p style="font-size:1.125rem;font-weight:800;color:var(--slate-9);margin:0;">' + kasData.length + ' transaksi</p>'
-    + '</div>';
-
-  document.getElementById('rpt-modal-pdf').classList.remove('hidden');
+  document.getElementById('r-preview-content').innerHTML=`
+    <div style="background:var(--r-n100);border-radius:var(--r-md);padding:.875rem;">
+      <p style="font-size:.5rem;font-weight:900;color:var(--r-n400);text-transform:uppercase;letter-spacing:.08em;margin:0 0 .25rem;">Periode</p>
+      <p style="font-size:.9375rem;font-weight:800;color:var(--r-n900);margin:0;">${labelPer}</p>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
+      <div style="background:var(--r-green-xs);border:1px solid var(--r-green-lt);border-radius:var(--r-md);padding:.75rem;text-align:center;">
+        <p style="font-size:.4375rem;color:var(--r-n400);font-weight:800;text-transform:uppercase;letter-spacing:.07em;margin:0 0 .25rem;">Total Masuk</p>
+        <p style="font-size:.875rem;font-weight:900;color:var(--r-green);margin:0;">${rFmtFull(totMasuk)}</p>
+      </div>
+      <div style="background:var(--r-red-xs);border:1px solid var(--r-red-lt);border-radius:var(--r-md);padding:.75rem;text-align:center;">
+        <p style="font-size:.4375rem;color:var(--r-n400);font-weight:800;text-transform:uppercase;letter-spacing:.07em;margin:0 0 .25rem;">Total Keluar</p>
+        <p style="font-size:.875rem;font-weight:900;color:var(--r-red);margin:0;">${rFmtFull(totKeluar)}</p>
+      </div>
+    </div>
+    <div style="background:linear-gradient(135deg,var(--r-rose-dd),var(--r-rose));border-radius:var(--r-md);padding:1rem;text-align:center;">
+      <p style="font-size:.4375rem;color:rgba(255,255,255,.6);font-weight:900;text-transform:uppercase;letter-spacing:.1em;margin:0 0 .375rem;">Saldo Bersih</p>
+      <p style="font-size:1.5rem;font-weight:900;color:white;margin:0;">${rFmtFull(saldo)}</p>
+    </div>
+    <div style="background:var(--r-n100);border-radius:var(--r-md);padding:.75rem;text-align:center;">
+      <p style="font-size:.4375rem;color:var(--r-n400);font-weight:800;text-transform:uppercase;margin:0 0 .25rem;">Jumlah Transaksi</p>
+      <p style="font-size:1.125rem;font-weight:900;color:var(--r-n900);margin:0;">${kasData.length} transaksi</p>
+    </div>`;
+  document.getElementById('r-modal-preview').classList.remove('hidden');
 }
 
-async function rptJalankanExportPDF() {
-  document.getElementById('rpt-modal-pdf').classList.add('hidden');
-  Swal.fire({ title:'Membuat PDF…', html:'<i class="fa-solid fa-spinner fa-spin" style="font-size:2rem;color:#db2777;"></i>', allowOutsideClick:false, showConfirmButton:false });
+async function rptDoExportPDF() {
+  document.getElementById('r-modal-preview').classList.add('hidden');
+  Swal.fire({title:'Membuat PDF…',html:'<i class="fa-solid fa-spinner fa-spin" style="font-size:2rem;color:#e11d48;"></i>',allowOutsideClick:false,showConfirmButton:false});
 
   try {
-    if (typeof window.jspdf === 'undefined') throw new Error('Library jsPDF belum dimuat. Pastikan CDN jsPDF ada di Index.html');
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-    const W=210, H=297, ML=15, MR=15, CW=W-ML-MR;
-    const PINK=[219,39,119], DPINK=[190,24,93], PINK_LT=[252,231,243];
-    const GREEN=[22,163,74], RED=[220,38,38];
-    const GRAY=[107,114,128], LGRAY=[243,244,246], BLACK=[17,24,39], WHITE=[255,255,255];
+    if(typeof window.jspdf==='undefined') throw new Error('Library jsPDF belum dimuat.');
+    const {jsPDF}=window.jspdf;
+    const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const W=210,H=297,ML=15,MR=15,CW=W-ML-MR;
+    const PINK=[225,29,72],DPINK=[159,18,57],PINK_LT=[254,205,211];
+    const GREEN=[22,163,74],RED=[220,38,38];
+    const GRAY=[107,114,128],LGRAY=[241,245,249],BLACK=[17,24,39],WHITE=[255,255,255];
 
-    const periode   = _rptPeriode;
-    const filterFn  = function(r) { return periode==='ALL' || rptNormPeriode(r[2]).toLowerCase()===periode.toLowerCase(); };
-    const kasData   = _rptData.kas.filter(filterFn);
-    const labelPer  = periode==='ALL' ? 'Semua Periode' : periode;
-    const tglCetak  = new Date().toLocaleDateString('id-ID',{ day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    const periode=_periode;
+    const filterFn=r=>periode==='ALL'||rNormPeriode(r[2]).toLowerCase()===periode.toLowerCase();
+    const kasData=_D.kas.filter(filterFn);
+    const labelPer=periode==='ALL'?'Semua Periode':periode;
+    const tglCetak=new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'});
 
-    let totMasuk=0, totKeluar=0;
-    const akunMap={}, trxPerAkun={};
-    kasData.forEach(function(row) {
-      const item=row[4]||'-', debit=parseFloat(row[6])||0, kredit=parseFloat(row[7])||0;
+    let totMasuk=0,totKeluar=0;
+    const akunMap={},trxPerAkun={};
+    kasData.forEach(row=>{
+      const item=row[4]||'-',debit=parseFloat(row[6])||0,kredit=parseFloat(row[7])||0;
       totMasuk+=debit; totKeluar+=kredit;
-      if (!akunMap[item]) akunMap[item]={debit:0,kredit:0,jml:0};
+      if(!akunMap[item]) akunMap[item]={debit:0,kredit:0,jml:0};
       akunMap[item].debit+=debit; akunMap[item].kredit+=kredit; akunMap[item].jml++;
-      if (!trxPerAkun[item]) trxPerAkun[item]=[];
+      if(!trxPerAkun[item]) trxPerAkun[item]=[];
       trxPerAkun[item].push({tgl:row[1],per:row[2],tipe:row[3],catat:row[5],debit,kredit});
     });
     const saldo=totMasuk-totKeluar;
-    const sortedAkun=Object.entries(akunMap).sort(function(a,b){ return (b[1].kredit+b[1].debit)-(a[1].kredit+a[1].debit); });
-    const fmtRp=function(n){const a=Math.abs(n),s=n<0?'-':'';if(a>=1e9)return s+'Rp '+(a/1e9).toFixed(2)+' M';if(a>=1e6)return s+'Rp '+(a/1e6).toFixed(2)+' jt';return s+'Rp '+a.toLocaleString('id-ID');};
+    const sortedAkun=Object.entries(akunMap).sort((a,b)=>(b[1].kredit+b[1].debit)-(a[1].kredit+a[1].debit));
+    const fmtRp=n=>{const a=Math.abs(n),s=n<0?'-':'';if(a>=1e9)return s+'Rp '+(a/1e9).toFixed(2)+' M';if(a>=1e6)return s+'Rp '+(a/1e6).toFixed(2)+' jt';return s+'Rp '+a.toLocaleString('id-ID');};
 
-    let currentY=ML, pageNum=1;
+    let pageNum=1;
     const addFooter=()=>{doc.setFontSize(6);doc.setTextColor(...GRAY);doc.setFont('helvetica','italic');doc.text('Dicetak: '+tglCetak+' | Laporan Keuangan Pribadi | Konfidensial',W/2,H-6,{align:'center'});};
-    const addHeader=function(label){doc.setFillColor(...LGRAY);doc.rect(0,0,W,10,'F');doc.setFontSize(7);doc.setTextColor(...GRAY);doc.setFont('helvetica','normal');doc.text('LAPORAN KEUANGAN — '+labelPer.toUpperCase(),ML,6.5);doc.text(label,W/2,6.5,{align:'center'});doc.text('Hal. '+pageNum,W-MR,6.5,{align:'right'});doc.setDrawColor(...PINK);doc.setLineWidth(0.4);doc.line(0,10,W,10);return 15;};
-    const newPage=function(label){addFooter();doc.addPage();pageNum++;currentY=addHeader(label);};
-    const checkBreak=function(h,label){if(currentY+h>H-18){newPage(label);return true;}return false;};
+    const addHeader=label=>{doc.setFillColor(...LGRAY);doc.rect(0,0,W,10,'F');doc.setFontSize(7);doc.setTextColor(...GRAY);doc.setFont('helvetica','normal');doc.text('LAPORAN KEUANGAN — '+labelPer.toUpperCase(),ML,6.5);doc.text(label,W/2,6.5,{align:'center'});doc.text('Hal. '+pageNum,W-MR,6.5,{align:'right'});doc.setDrawColor(...PINK);doc.setLineWidth(.4);doc.line(0,10,W,10);return 15;};
+    const newPage=label=>{addFooter();doc.addPage();pageNum++;return addHeader(label);};
 
     // COVER
-    doc.setFillColor(...DPINK); doc.rect(0,0,W,H*0.42,'F');
-    doc.setFillColor(...PINK); doc.circle(W+8,-8,55,'F');
-    doc.setFillColor(157,23,77); doc.circle(-15,H*0.42+15,40,'F');
-    doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(10);
+    doc.setFillColor(...DPINK); doc.rect(0,0,W,H*.42,'F');
+    doc.setFillColor(...PINK);  doc.circle(W+8,-8,55,'F');
+    doc.setFillColor(136,19,55);doc.circle(-15,H*.42+15,40,'F');
+    doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(9);
     doc.text('LAPORAN KEUANGAN PRIBADI',W/2,45,{align:'center'});
     doc.setFontSize(22); doc.text('Ringkasan Finansial',W/2,60,{align:'center'});
     doc.setFont('helvetica','normal'); doc.setFontSize(12);
-    doc.text(labelPer, W/2, 72, {align:'center'});
-    doc.setFillColor(...WHITE); doc.roundedRect(ML, H*0.46, CW, H*0.38, 4, 4, 'F');
-    const iy=H*0.46+10;
+    doc.text(labelPer,W/2,72,{align:'center'});
+    doc.setFillColor(...WHITE); doc.roundedRect(ML,H*.46,CW,H*.38,4,4,'F');
+    const iy=H*.46+10;
     doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...DPINK);
-    doc.text('RINGKASAN EKSEKUTIF', W/2, iy, {align:'center'});
+    doc.text('RINGKASAN EKSEKUTIF',W/2,iy,{align:'center'});
     const items=[
-      {label:'TOTAL MASUK',  value:fmtRp(totMasuk),  color:GREEN},
-      {label:'TOTAL KELUAR', value:fmtRp(totKeluar), color:RED},
-      {label:'SALDO BERSIH', value:fmtRp(saldo),     color:saldo>=0?DPINK:RED},
-      {label:'TRX KAS',      value:kasData.length+' trx', color:DPINK},
+      {label:'TOTAL MASUK', value:fmtRp(totMasuk), color:GREEN},
+      {label:'TOTAL KELUAR',value:fmtRp(totKeluar),color:RED},
+      {label:'SALDO BERSIH',value:fmtRp(saldo),    color:saldo>=0?DPINK:RED},
+      {label:'TRX KAS',     value:kasData.length+' trx',color:DPINK},
     ];
-    const gC=[ML+5,ML+CW/2+5], gR=[iy+12,iy+34];
-    items.forEach(function(item,i){
-      const col=gC[i%2], row=gR[Math.floor(i/2)], bw=CW/2-10;
+    const gC=[ML+5,ML+CW/2+5],gR=[iy+12,iy+34];
+    items.forEach((item,i)=>{
+      const col=gC[i%2],row=gR[Math.floor(i/2)],bw=CW/2-10;
       doc.setFillColor(...LGRAY); doc.roundedRect(col,row-4,bw,18,2,2,'F');
       doc.setFontSize(6); doc.setFont('helvetica','bold'); doc.setTextColor(...GRAY);
-      doc.text(item.label, col+bw/2, row+2, {align:'center'});
+      doc.text(item.label,col+bw/2,row+2,{align:'center'});
       doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(...item.color);
-      doc.text(item.value, col+bw/2, row+10, {align:'center'});
+      doc.text(item.value,col+bw/2,row+10,{align:'center'});
     });
     doc.setFontSize(7); doc.setFont('helvetica','italic'); doc.setTextColor(...GRAY);
-    doc.text('Dicetak: '+tglCetak, W/2, H-12, {align:'center'});
-    doc.text('Dokumen ini bersifat konfidensial', W/2, H-7, {align:'center'});
+    doc.text('Dicetak: '+tglCetak,W/2,H-12,{align:'center'});
+    doc.text('Dokumen ini bersifat konfidensial',W/2,H-7,{align:'center'});
     addFooter();
 
-    // PAGE 2: TRIAL BALANCE
+    // PAGE 2: NERACA
     doc.addPage(); pageNum++;
-    currentY = addHeader('NERACA SALDO');
+    let currentY=addHeader('NERACA SALDO');
     doc.setFillColor(...DPINK); doc.roundedRect(ML,currentY,CW,10,2,2,'F');
     doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(8);
-    doc.text('NERACA SALDO (TRIAL BALANCE) — ' + labelPer.toUpperCase(), ML+5, currentY+7);
-    currentY += 14;
-
-    if (sortedAkun.length > 0) {
+    doc.text('NERACA SALDO (TRIAL BALANCE) — '+labelPer.toUpperCase(),ML+5,currentY+7);
+    currentY+=14;
+    if(sortedAkun.length){
       const tbData=[];
-      sortedAkun.forEach(function([nama,v],i){
+      sortedAkun.forEach(([nama,v],i)=>{
         const net=v.debit-v.kredit;
         tbData.push([(i+1).toString(),nama.length>40?nama.substring(0,38)+'…':nama,v.jml.toString(),v.debit>0?fmtRp(v.debit):'-',v.kredit>0?fmtRp(v.kredit):'-',fmtRp(net)]);
       });
       tbData.push(['','TOTAL',kasData.length.toString(),fmtRp(totMasuk),fmtRp(totKeluar),fmtRp(saldo)]);
       doc.autoTable({
-        startY:currentY, head:[['#','NAMA AKUN','TRX','MASUK','KELUAR','SALDO']], body:tbData,
-        theme:'grid', margin:{left:ML,right:MR},
+        startY:currentY,head:[['#','NAMA AKUN','TRX','MASUK','KELUAR','SALDO']],body:tbData,
+        theme:'grid',margin:{left:ML,right:MR},
         headStyles:{fillColor:DPINK,textColor:WHITE,fontStyle:'bold',fontSize:7,cellPadding:3},
         bodyStyles:{fontSize:6.5,cellPadding:{top:2.5,bottom:2.5,left:2,right:2},textColor:BLACK},
         columnStyles:{0:{cellWidth:8,halign:'center'},1:{cellWidth:65},2:{cellWidth:10,halign:'center'},3:{cellWidth:29,halign:'right'},4:{cellWidth:29,halign:'right'},5:{cellWidth:29,halign:'right'}},
-        alternateRowStyles:{fillColor:[252,231,243,0.3]},
-        didParseCell:function(data){
+        alternateRowStyles:{fillColor:[254,228,234,.3]},
+        didParseCell(data){
           if(data.row.index===tbData.length-1){data.cell.styles.fillColor=PINK_LT;data.cell.styles.fontStyle='bold';}
           if(data.column.index===5&&data.section==='body'&&data.row.index<sortedAkun.length){
             const net=sortedAkun[data.row.index][1].debit-sortedAkun[data.row.index][1].kredit;
             data.cell.styles.textColor=net<0?RED:(net>0?GREEN:BLACK);
           }
         },
-        didDrawPage:function(){addFooter();pageNum++;addHeader('NERACA SALDO');}
+        didDrawPage(){addFooter();pageNum++;addHeader('NERACA SALDO');}
       });
       currentY=doc.lastAutoTable.finalY+8;
     }
 
     // PAGE 3+: DETAIL
-    if (_rptExportMode === 'lengkap') {
-      const sortedBB = [...sortedAkun].sort(function(a,b){
+    if(_exportMode==='lengkap'){
+      const sortedBB=[...sortedAkun].sort((a,b)=>{
         const am=a[1].debit>0&&a[1].kredit===0, bm=b[1].debit>0&&b[1].kredit===0;
         if(am&&!bm)return -1; if(!am&&bm)return 1;
-        return (b[1].kredit+b[1].debit)-(a[1].kredit+a[1].debit);
+        return(b[1].kredit+b[1].debit)-(a[1].kredit+a[1].debit);
       });
-      newPage('DETAIL TRANSAKSI PER AKUN');
+      currentY=newPage('DETAIL TRANSAKSI PER AKUN');
       doc.setFillColor(...DPINK); doc.roundedRect(ML,currentY,CW,10,2,2,'F');
       doc.setTextColor(...WHITE); doc.setFont('helvetica','bold'); doc.setFontSize(8);
-      doc.text('DETAIL TRANSAKSI PER AKUN — '+labelPer.toUpperCase(), ML+5, currentY+7);
+      doc.text('DETAIL TRANSAKSI PER AKUN — '+labelPer.toUpperCase(),ML+5,currentY+7);
       currentY+=14;
-
-      sortedBB.forEach(function([namaAkun, akunData]){
-        const trxList=trxPerAkun[namaAkun]||[];
-        if(!trxList.length) return;
+      sortedBB.forEach(([namaAkun,akunData])=>{
+        const trxList=trxPerAkun[namaAkun]||[]; if(!trxList.length) return;
         const isKeluar=akunData.kredit>0&&akunData.debit===0;
         const akunColor=isKeluar?RED:GREEN, akunBg=isKeluar?[254,226,226]:[220,252,231];
-        checkBreak(28,'DETAIL TRANSAKSI PER AKUN');
+        if(currentY+28>H-18){currentY=newPage('DETAIL TRANSAKSI PER AKUN');}
         doc.setFillColor(...akunBg); doc.roundedRect(ML,currentY,CW,12,2,2,'F');
         doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...akunColor);
-        doc.text(isKeluar?'▲':'▼', ML+4, currentY+8.5);
+        doc.text(isKeluar?'▲':'▼',ML+4,currentY+8.5);
         doc.setTextColor(...BLACK);
-        const shortA=namaAkun.length>50?namaAkun.substring(0,48)+'…':namaAkun;
-        doc.text(shortA, ML+10, currentY+8.5);
+        doc.text((namaAkun.length>50?namaAkun.substring(0,48)+'…':namaAkun),ML+10,currentY+8.5);
         doc.setFontSize(6.5); doc.setFont('helvetica','normal'); doc.setTextColor(...GRAY);
-        doc.text(akunData.jml+' transaksi', ML+CW-60, currentY+4.5, {align:'right'});
+        doc.text(akunData.jml+' transaksi',ML+CW-60,currentY+4.5,{align:'right'});
         doc.setFontSize(7.5); doc.setFont('helvetica','bold'); doc.setTextColor(...akunColor);
-        doc.text(fmtRp(Math.abs(akunData.debit-akunData.kredit)), ML+CW-5, currentY+4.5, {align:'right'});
+        doc.text(fmtRp(Math.abs(akunData.debit-akunData.kredit)),ML+CW-5,currentY+4.5,{align:'right'});
         currentY+=15;
-        const trxTableData=trxList.slice().sort(function(a,b){return String(a.tgl).localeCompare(String(b.tgl));}).map(function(t,i){
-          return [(i+1).toString(),String(t.tgl),(t.catat||'-').length>35?(t.catat||'-').substring(0,33)+'…':(t.catat||'-'),t.debit>0?fmtRp(t.debit):'-',t.kredit>0?fmtRp(t.kredit):'-'];
-        });
+        const trxTableData=trxList.slice().sort((a,b)=>String(a.tgl).localeCompare(String(b.tgl))).map((t,i)=>[
+          (i+1).toString(),String(t.tgl),
+          (t.catat||'-').length>35?(t.catat||'-').substring(0,33)+'…':(t.catat||'-'),
+          t.debit>0?fmtRp(t.debit):'-', t.kredit>0?fmtRp(t.kredit):'-'
+        ]);
         doc.autoTable({
-          startY:currentY, head:[['#','TANGGAL','CATATAN','MASUK','KELUAR']], body:trxTableData,
-          theme:'striped', margin:{left:ML,right:MR},
+          startY:currentY,head:[['#','TANGGAL','CATATAN','MASUK','KELUAR']],body:trxTableData,
+          theme:'striped',margin:{left:ML,right:MR},
           headStyles:{fillColor:isKeluar?RED:GREEN,textColor:WHITE,fontStyle:'bold',fontSize:6.5,cellPadding:2.5},
           bodyStyles:{fontSize:6,cellPadding:{top:2,bottom:2,left:2,right:2},textColor:BLACK},
           columnStyles:{0:{cellWidth:7,halign:'center'},1:{cellWidth:22,halign:'center'},2:{cellWidth:80},3:{cellWidth:28,halign:'right',textColor:GREEN},4:{cellWidth:28,halign:'right',textColor:RED}},
-          didDrawPage:function(){addFooter();pageNum++;addHeader('DETAIL TRANSAKSI PER AKUN');}
+          didDrawPage(){addFooter();pageNum++;addHeader('DETAIL TRANSAKSI PER AKUN');}
         });
         currentY=doc.lastAutoTable.finalY+8;
       });
     }
 
     addFooter();
-    doc.setProperties({ title:'Laporan Keuangan - '+labelPer, subject:'Cash Flow Statement', author:'ERP Finansial Pribadi' });
-    const fn='Laporan_Keuangan_'+labelPer.replace(/\s+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.pdf';
+    doc.setProperties({title:'Laporan Keuangan - '+labelPer,subject:'Cash Flow Statement',author:'Finansial Pribadi'});
+    const fn='Laporan_'+labelPer.replace(/\s+/g,'_')+'_'+new Date().toISOString().split('T')[0]+'.pdf';
     Swal.close();
     doc.save(fn);
-    setTimeout(function(){
-      Swal.fire({ icon:'success', title:'PDF Berhasil!', html:'<p style="font-size:.875rem;color:#64748b;">File <b>'+fn+'</b> sudah didownload.<br>'+pageNum+' halaman · '+kasData.length+' transaksi kas.</p>', confirmButtonColor:'#db2777', timer:4000, timerProgressBar:true });
-    }, 200);
-
+    setTimeout(()=>{
+      Swal.fire({icon:'success',title:'PDF Berhasil!',html:`<p style="font-size:.875rem;color:#64748b;">File <b>${fn}</b> sudah didownload.<br>${pageNum} halaman · ${kasData.length} transaksi.</p>`,confirmButtonColor:'#e11d48',timer:4000,timerProgressBar:true});
+    },200);
   } catch(err) {
     Swal.close();
-    Swal.fire({ icon:'error', title:'Gagal membuat PDF', html:'<p style="font-size:.875rem;">'+err.message+'</p>', confirmButtonColor:'#db2777' });
+    Swal.fire({icon:'error',title:'Gagal membuat PDF',html:`<p style="font-size:.875rem;">${err.message}</p>`,confirmButtonColor:'#e11d48'});
   }
 }
-
-/* ─── Event Listeners ────────────────────────────────────── */
-document.addEventListener('DOMContentLoaded', function() {
-  rptUpdateExportLabel();
-  var modal = document.getElementById('rpt-modal-detail');
-  if (modal) { modal.addEventListener('click', function(e){ if(e.target===this) rptTutupModal(); }); }
-});
 </script>
