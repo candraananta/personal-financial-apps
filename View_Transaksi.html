@@ -1,12 +1,10 @@
 <!-- ================================================================
      KONTEN: View_Transaksi.html
-     REDESIGN: Palette indigo-violet + emerald + warm amber
-     Konsisten dengan View_ArusKas.html
-     UPDATE: Modul Fee Klinik dihapus — hanya Tabungan Aset
+     UPDATE: Tambah modul Piutang / AR
      ================================================================ -->
 
 <style>
-  /* ── Token sistem (sama dengan ArusKas) ── */
+  /* ── Token sistem ── */
   #modul-transaksi {
     --c-indigo:    #4338ca;
     --c-indigo-md: #6366f1;
@@ -21,6 +19,10 @@
     --c-amber-lt:  #fef3c7;
     --c-amber-xs:  #fffbeb;
     --c-amber-dk:  #b45309;
+    --c-teal:      #0f766e;
+    --c-teal-md:   #14b8a6;
+    --c-teal-lt:   #ccfbf1;
+    --c-teal-xs:   #f0fdfa;
     --c-slate-bg:  #f8fafc;
     --c-slate-1:   #f1f5f9;
     --c-slate-2:   #e2e8f0;
@@ -106,16 +108,8 @@
     gap: 0.5rem;
     margin-bottom: 1rem;
   }
-  #modul-transaksi .tipe-toggle label {
-    position: relative;
-    cursor: pointer;
-  }
-  #modul-transaksi .tipe-toggle input[type="radio"] {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
+  #modul-transaksi .tipe-toggle label { position: relative; cursor: pointer; }
+  #modul-transaksi .tipe-toggle input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
   #modul-transaksi .tipe-pill {
     display: flex;
     align-items: center;
@@ -144,16 +138,13 @@
     box-shadow: 0 0 0 3px var(--c-amber-lt);
   }
   #modul-transaksi .tipe-pill .pill-dot {
-    width: 0.5rem;
-    height: 0.5rem;
+    width: 0.5rem; height: 0.5rem;
     border-radius: 50%;
     background: currentColor;
     opacity: 0.4;
     transition: opacity .2s;
   }
-  #modul-transaksi .tipe-toggle input:checked + .tipe-pill .pill-dot {
-    opacity: 1;
-  }
+  #modul-transaksi .tipe-toggle input:checked + .tipe-pill .pill-dot { opacity: 1; }
 
   /* ── COA area ── */
   #modul-transaksi .trx-coa-area {
@@ -171,11 +162,7 @@
     text-transform: uppercase;
     margin-bottom: 0.5rem;
   }
-  #modul-transaksi .trx-coa-hint {
-    font-size: 0.625rem;
-    color: var(--c-slate-5);
-    margin-top: 0.375rem;
-  }
+  #modul-transaksi .trx-coa-hint { font-size: 0.625rem; color: var(--c-slate-5); margin-top: 0.375rem; }
 
   /* ── Input grid 2 col ── */
   #modul-transaksi .trx-grid-2 {
@@ -186,20 +173,19 @@
   }
 
   /* ── Nominal besar ── */
-  #modul-transaksi .trx-nominal-wrap {
-    position: relative;
-    margin-bottom: 1rem;
-  }
+  #modul-transaksi .trx-nominal-wrap { position: relative; margin-bottom: 1rem; }
   #modul-transaksi .trx-nominal-prefix {
     position: absolute;
-    left: 0.875rem;
-    top: 50%;
+    left: 0.875rem; top: 50%;
     transform: translateY(-50%);
     font-size: 0.875rem;
     font-weight: 800;
     color: var(--c-slate-5);
     pointer-events: none;
   }
+  #modul-transaksi .trx-nominal-prefix.mode-teal  { color: var(--c-teal); }
+  #modul-transaksi .trx-nominal-prefix.mode-emerald { color: var(--c-emerald); }
+
   #modul-transaksi .trx-nominal-input {
     width: 100%;
     background: var(--c-indigo-xs);
@@ -220,6 +206,28 @@
     background: var(--c-white);
     box-shadow: 0 0 0 4px var(--c-indigo-lt);
   }
+  #modul-transaksi .trx-nominal-input.mode-teal {
+    background: var(--c-teal-xs);
+    border-color: var(--c-teal-lt);
+    color: var(--c-teal);
+  }
+  #modul-transaksi .trx-nominal-input.mode-teal::placeholder { color: var(--c-teal-lt); }
+  #modul-transaksi .trx-nominal-input.mode-teal:focus {
+    border-color: var(--c-teal);
+    background: var(--c-white);
+    box-shadow: 0 0 0 4px var(--c-teal-lt);
+  }
+  #modul-transaksi .trx-nominal-input.mode-emerald {
+    background: var(--c-emerald-xs);
+    border-color: var(--c-emerald-lt);
+    color: var(--c-emerald);
+  }
+  #modul-transaksi .trx-nominal-input.mode-emerald::placeholder { color: var(--c-emerald-lt); }
+  #modul-transaksi .trx-nominal-input.mode-emerald:focus {
+    border-color: var(--c-emerald);
+    background: var(--c-white);
+    box-shadow: 0 0 0 4px var(--c-emerald-lt);
+  }
 
   /* ── Preview harga satuan ── */
   #modul-transaksi .trx-preview-box {
@@ -231,18 +239,13 @@
     margin-bottom: 1.25rem;
   }
   #modul-transaksi .trx-preview-label {
-    font-size: 0.5625rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    color: var(--c-slate-5);
-    text-transform: uppercase;
-    margin-bottom: 0.25rem;
+    font-size: 0.5625rem; font-weight: 800;
+    letter-spacing: 0.08em; color: var(--c-slate-5);
+    text-transform: uppercase; margin-bottom: 0.25rem;
   }
   #modul-transaksi .trx-preview-value {
-    font-size: 1.375rem;
-    font-weight: 800;
-    color: var(--c-slate-7);
-    font-variant-numeric: tabular-nums;
+    font-size: 1.375rem; font-weight: 800;
+    color: var(--c-slate-7); font-variant-numeric: tabular-nums;
   }
 
   /* ── Divider ── */
@@ -254,233 +257,316 @@
 
   /* ── Submit btn ── */
   #modul-transaksi .trx-btn {
-    width: 100%;
-    border: none;
+    width: 100%; border: none;
     border-radius: var(--radius-input);
-    padding: 1rem;
-    font-size: 0.875rem;
-    font-weight: 800;
-    letter-spacing: 0.02em;
+    padding: 1rem; font-size: 0.875rem;
+    font-weight: 800; letter-spacing: 0.02em;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    background: linear-gradient(135deg, var(--c-indigo), var(--c-violet));
+    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
     color: var(--c-white);
     box-shadow: var(--shadow-btn);
     transition: all .2s cubic-bezier(.4,0,.2,1);
-    position: relative;
-    overflow: hidden;
+    position: relative; overflow: hidden;
   }
   #modul-transaksi .trx-btn::after {
     content: '';
-    position: absolute;
-    inset: 0;
+    position: absolute; inset: 0;
     background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,.15) 50%, transparent 70%);
     transform: translateX(-100%);
     transition: transform .5s ease;
   }
   #modul-transaksi .trx-btn:hover::after { transform: translateX(100%); }
-  #modul-transaksi .trx-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgb(67 56 202 / .38); }
+  #modul-transaksi .trx-btn:hover { transform: translateY(-1px); }
   #modul-transaksi .trx-btn:active { transform: translateY(0); }
   #modul-transaksi .trx-btn:disabled { opacity: .6; cursor: not-allowed; transform: none; }
 
-  /* ── Banner lot terpilih ── */
+  #modul-transaksi .trx-btn-indigo {
+    background: linear-gradient(135deg, var(--c-indigo), var(--c-violet));
+    box-shadow: var(--shadow-btn);
+  }
+  #modul-transaksi .trx-btn-indigo:hover { box-shadow: 0 6px 20px rgb(67 56 202 / .38); }
+  #modul-transaksi .trx-btn-teal {
+    background: linear-gradient(135deg, var(--c-teal), var(--c-teal-md));
+    box-shadow: 0 4px 14px 0 rgb(15 118 110 / .3);
+  }
+  #modul-transaksi .trx-btn-teal:hover { box-shadow: 0 6px 20px 0 rgb(15 118 110 / .4); }
+  #modul-transaksi .trx-btn-emerald {
+    background: linear-gradient(135deg, var(--c-emerald), #10b981);
+    box-shadow: 0 4px 14px 0 rgb(5 150 105 / .3);
+  }
+  #modul-transaksi .trx-btn-emerald:hover { box-shadow: 0 6px 20px 0 rgb(5 150 105 / .4); }
+
+  /* ── Banner lot terpilih (aset) ── */
   #modul-transaksi #banner-lot-dipilih {
     background: var(--c-emerald-xs);
     border: 1.5px solid #6ee7b7;
     border-radius: var(--radius-input);
     padding: 0.875rem;
-    display: flex;
-    align-items: flex-start;
-    gap: 0.625rem;
+    display: flex; align-items: flex-start; gap: 0.625rem;
     margin-bottom: 1rem;
   }
   #modul-transaksi .banner-check {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 1.5rem; height: 1.5rem;
     background: var(--c-emerald);
     border-radius: 0.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    margin-top: 0.125rem;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 0.125rem;
   }
   #modul-transaksi .banner-ganti {
-    font-size: 0.6875rem;
-    font-weight: 700;
-    color: var(--c-emerald);
-    background: var(--c-emerald-lt);
-    border: none;
-    border-radius: 0.5rem;
+    font-size: 0.6875rem; font-weight: 700;
+    color: var(--c-emerald); background: var(--c-emerald-lt);
+    border: none; border-radius: 0.5rem;
     padding: 0.25rem 0.625rem;
-    cursor: pointer;
-    flex-shrink: 0;
-    transition: background .15s;
+    cursor: pointer; flex-shrink: 0; transition: background .15s;
   }
   #modul-transaksi .banner-ganti:hover { background: #a7f3d0; }
 
-  /* ════════════════════════════════
-     MODAL GRID JUAL
-  ════════════════════════════════ */
+  /* ── Piutang mode chip ── */
+  #modul-transaksi .piutang-chip {
+    display: flex;
+    background: var(--c-slate-1);
+    border-radius: 0.875rem;
+    padding: 0.25rem; gap: 0.25rem;
+    margin-bottom: 1rem;
+  }
+  #modul-transaksi .piutang-chip button {
+    flex: 1;
+    padding: 0.625rem 0.5rem;
+    border-radius: 0.625rem;
+    font-size: 0.75rem; font-weight: 700;
+    border: none; cursor: pointer;
+    transition: all 0.2s cubic-bezier(.4,0,.2,1);
+    color: var(--c-slate-5); background: transparent;
+  }
+  #modul-transaksi .piutang-chip button.active-timbul {
+    background: var(--c-teal); color: var(--c-white);
+    box-shadow: 0 4px 14px 0 rgb(15 118 110 / .3);
+  }
+  #modul-transaksi .piutang-chip button.active-lunas {
+    background: var(--c-emerald); color: var(--c-white);
+    box-shadow: 0 4px 14px 0 rgb(5 150 105 / .3);
+  }
+
+  /* ── Piutang sisa box ── */
+  #modul-transaksi .piutang-sisa-box {
+    background: var(--c-teal-xs);
+    border: 1.5px solid var(--c-teal-lt);
+    border-radius: var(--radius-input);
+    padding: 0.875rem; margin-bottom: 1rem;
+    display: flex; align-items: center;
+    justify-content: space-between; gap: 0.5rem;
+  }
+  #modul-transaksi .piutang-sisa-label {
+    font-size: 0.5625rem; font-weight: 800;
+    letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--c-teal); margin-bottom: 0.2rem;
+  }
+  #modul-transaksi .piutang-sisa-value {
+    font-size: 1.25rem; font-weight: 900;
+    color: var(--c-teal); line-height: 1;
+  }
+  #modul-transaksi .piutang-sisa-debitur {
+    font-size: 0.625rem; color: var(--c-slate-5); margin-top: 0.2rem;
+  }
+  #modul-transaksi .piutang-ganti-btn {
+    font-size: 0.6875rem; font-weight: 700;
+    color: var(--c-teal); background: var(--c-teal-lt);
+    border: none; border-radius: 0.5rem;
+    padding: 0.375rem 0.75rem; cursor: pointer;
+    white-space: nowrap; flex-shrink: 0; transition: background .15s;
+  }
+  #modul-transaksi .piutang-ganti-btn:hover { background: #99f6e4; }
+  #modul-transaksi .piutang-progress-wrap {
+    height: 5px; background: var(--c-slate-2);
+    border-radius: 999px; overflow: hidden; margin-top: 0.375rem;
+  }
+  #modul-transaksi .piutang-progress-bar {
+    height: 100%; border-radius: 999px; background: var(--c-teal);
+    transition: width 0.5s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* ════════════════════════════════════════════
+     MODAL GRID JUAL (Aset)
+  ════════════════════════════════════════════ */
   #modal-grid-jual .modal-sheet {
     background: var(--c-white);
     border-radius: 1.5rem 1.5rem 0 0;
-    width: 100%;
-    max-width: 32rem;
-    display: flex;
-    flex-direction: column;
-    max-height: 85dvh;
-    max-height: 85vh;
+    width: 100%; max-width: 32rem;
+    display: flex; flex-direction: column;
+    max-height: 85dvh; max-height: 85vh;
     overflow: hidden;
     box-shadow: 0 -8px 32px rgb(0 0 0 / .12);
   }
   #modal-grid-jual .modal-header {
     padding: 1rem 1rem 0.75rem;
-    border-bottom: 1px solid var(--c-slate-1);
-    flex-shrink: 0;
+    border-bottom: 1px solid var(--c-slate-1); flex-shrink: 0;
   }
-  #modal-grid-jual .modal-title {
-    font-size: 0.875rem;
-    font-weight: 800;
-    color: var(--c-slate-9);
-  }
-  #modal-grid-jual .modal-badge {
-    font-size: 0.5625rem;
-    font-weight: 700;
-    padding: 0.2rem 0.625rem;
-    border-radius: 999px;
-  }
-  #modal-grid-jual .badge-fisik  { background: var(--c-amber-lt); color: var(--c-amber-dk); }
-  #modal-grid-jual .badge-nominal{ background: var(--c-indigo-lt); color: var(--c-indigo); }
+  #modal-grid-jual .modal-title { font-size: 0.875rem; font-weight: 800; color: var(--c-slate-9); }
+  #modal-grid-jual .modal-badge { font-size: 0.5625rem; font-weight: 700; padding: 0.2rem 0.625rem; border-radius: 999px; }
+  #modal-grid-jual .badge-fisik   { background: var(--c-amber-lt); color: var(--c-amber-dk); }
+  #modal-grid-jual .badge-nominal { background: var(--c-indigo-lt); color: var(--c-indigo); }
   #modal-grid-jual .badge-semua  { background: var(--c-violet-lt); color: var(--c-violet); }
-
-  /* Chips filter kategori */
   #modal-grid-jual .chip-filter {
-    display: flex;
-    gap: 0.5rem;
-    overflow-x: auto;
+    display: flex; gap: 0.5rem; overflow-x: auto;
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--c-slate-1);
-    flex-shrink: 0;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    border-bottom: 1px solid var(--c-slate-1); flex-shrink: 0;
+    -webkit-overflow-scrolling: touch; scrollbar-width: none;
   }
   #modal-grid-jual .chip-filter::-webkit-scrollbar { display: none; }
   #modal-grid-jual .chip-item {
-    flex-shrink: 0;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    padding: 0.375rem 0.75rem;
-    border-radius: 999px;
+    flex-shrink: 0; font-size: 0.6875rem; font-weight: 700;
+    padding: 0.375rem 0.75rem; border-radius: 999px;
     border: 1.5px solid var(--c-slate-2);
-    background: var(--c-white);
-    color: var(--c-slate-5);
-    cursor: pointer;
-    transition: all .15s;
-    white-space: nowrap;
+    background: var(--c-white); color: var(--c-slate-5);
+    cursor: pointer; transition: all .15s; white-space: nowrap;
   }
-  #modal-grid-jual .chip-item.active {
-    background: var(--c-indigo);
-    border-color: var(--c-indigo);
-    color: var(--c-white);
-  }
-
-  /* Tabel grid jual */
-  #modal-grid-jual .grid-table {
-    flex: 1;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--c-slate-3) transparent;
-  }
+  #modal-grid-jual .chip-item.active { background: var(--c-indigo); border-color: var(--c-indigo); color: var(--c-white); }
+  #modal-grid-jual .grid-table { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--c-slate-3) transparent; }
   #modal-grid-jual .grid-table::-webkit-scrollbar { width: 3px; }
   #modal-grid-jual .grid-table::-webkit-scrollbar-thumb { background: var(--c-slate-3); border-radius: 3px; }
-
   #modal-grid-jual table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
   #modal-grid-jual thead { position: sticky; top: 0; z-index: 1; }
   #modal-grid-jual thead tr { background: var(--c-slate-1); }
   #modal-grid-jual thead th {
-    padding: 0.625rem 0.75rem;
-    font-size: 0.5625rem;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--c-slate-5);
-    text-align: left;
-    white-space: nowrap;
+    padding: 0.625rem 0.75rem; font-size: 0.5625rem; font-weight: 800;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--c-slate-5); text-align: left; white-space: nowrap;
   }
   #modal-grid-jual tbody tr { border-bottom: 1px solid var(--c-slate-1); transition: background .1s; }
   #modal-grid-jual tbody tr:hover { background: var(--c-slate-1); }
   #modal-grid-jual tbody td { padding: 0.75rem; vertical-align: middle; }
-
-  /* Section header di tabel */
   #modal-grid-jual .section-fisik td {
-    background: var(--c-amber-xs);
-    font-size: 0.5625rem;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--c-amber-dk);
-    padding: 0.375rem 0.75rem;
+    background: var(--c-amber-xs); font-size: 0.5625rem; font-weight: 800;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--c-amber-dk); padding: 0.375rem 0.75rem;
   }
   #modal-grid-jual .section-nominal td {
-    background: var(--c-indigo-xs);
-    font-size: 0.5625rem;
-    font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--c-indigo);
-    padding: 0.375rem 0.75rem;
+    background: var(--c-indigo-xs); font-size: 0.5625rem; font-weight: 800;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--c-indigo); padding: 0.375rem 0.75rem;
   }
-
-  /* Tombol pilih di modal */
   #modal-grid-jual .btn-pilih-fisik {
-    font-size: 0.625rem;
-    font-weight: 700;
-    padding: 0.375rem 0.75rem;
-    border-radius: 0.5rem;
-    border: none;
-    cursor: pointer;
-    background: var(--c-amber-lt);
-    color: var(--c-amber-dk);
-    transition: background .15s;
-    white-space: nowrap;
+    font-size: 0.625rem; font-weight: 700;
+    padding: 0.375rem 0.75rem; border-radius: 0.5rem; border: none; cursor: pointer;
+    background: var(--c-amber-lt); color: var(--c-amber-dk); transition: background .15s; white-space: nowrap;
   }
   #modal-grid-jual .btn-pilih-fisik:hover { background: #fde68a; }
   #modal-grid-jual .btn-pilih-nominal {
-    font-size: 0.625rem;
-    font-weight: 700;
-    padding: 0.375rem 0.75rem;
-    border-radius: 0.5rem;
-    border: none;
-    cursor: pointer;
-    background: var(--c-indigo-lt);
-    color: var(--c-indigo);
-    transition: background .15s;
-    white-space: nowrap;
+    font-size: 0.625rem; font-weight: 700;
+    padding: 0.375rem 0.75rem; border-radius: 0.5rem; border: none; cursor: pointer;
+    background: var(--c-indigo-lt); color: var(--c-indigo); transition: background .15s; white-space: nowrap;
   }
   #modal-grid-jual .btn-pilih-nominal:hover { background: #c7d2fe; }
-
-  #modal-grid-jual .modal-footer {
-    padding: 0.875rem;
-    border-top: 1px solid var(--c-slate-1);
-    flex-shrink: 0;
-  }
+  #modal-grid-jual .modal-footer { padding: 0.875rem; border-top: 1px solid var(--c-slate-1); flex-shrink: 0; }
   #modal-grid-jual .btn-batal {
-    width: 100%;
-    background: var(--c-slate-1);
-    border: 1.5px solid var(--c-slate-2);
-    border-radius: var(--radius-input);
-    padding: 0.875rem;
-    font-size: 0.875rem;
-    font-weight: 700;
-    color: var(--c-slate-7);
-    cursor: pointer;
-    transition: background .15s;
+    width: 100%; background: var(--c-slate-1);
+    border: 1.5px solid var(--c-slate-2); border-radius: var(--radius-input);
+    padding: 0.875rem; font-size: 0.875rem; font-weight: 700;
+    color: var(--c-slate-7); cursor: pointer; transition: background .15s;
   }
   #modal-grid-jual .btn-batal:hover { background: var(--c-slate-2); }
+
+  /* ════════════════════════════════════════════
+     MODAL PILIH PIUTANG AKTIF
+  ════════════════════════════════════════════ */
+  #modal-pilih-piutang {
+    position: fixed; inset: 0; z-index: 70;
+    display: flex; align-items: flex-end; justify-content: center;
+    background: rgba(15,23,42,.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+  #modal-pilih-piutang.hidden { display: none !important; }
+  #modal-pilih-piutang .pp-sheet {
+    background: var(--c-white);
+    border-radius: 1.5rem 1.5rem 0 0;
+    width: 100%; max-width: 32rem;
+    display: flex; flex-direction: column;
+    max-height: 78dvh; max-height: 78vh;
+    overflow: hidden;
+    box-shadow: 0 -8px 32px rgb(0 0 0 / .12);
+  }
+  #modal-pilih-piutang .pp-header {
+    padding: 1rem 1rem 0.75rem;
+    border-bottom: 1px solid var(--c-slate-1); flex-shrink: 0;
+  }
+  #modal-pilih-piutang .pp-title {
+    font-size: 0.875rem; font-weight: 800;
+    color: var(--c-slate-9); margin-bottom: 0.75rem;
+  }
+  #modal-pilih-piutang .pp-search {
+    width: 100%; background: var(--c-slate-1);
+    border: 1.5px solid var(--c-slate-2);
+    border-radius: 0.75rem;
+    padding: 0.625rem 0.875rem;
+    font-size: 16px !important; color: var(--c-slate-7);
+    outline: none; box-sizing: border-box;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  #modal-pilih-piutang .pp-search:focus {
+    border-color: var(--c-teal-md);
+    box-shadow: 0 0 0 3px var(--c-teal-lt);
+  }
+  #modal-pilih-piutang .pp-list {
+    flex: 1; overflow-y: auto; padding: 0.75rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin; scrollbar-color: var(--c-teal-lt) transparent;
+  }
+  #modal-pilih-piutang .pp-list::-webkit-scrollbar { width: 3px; }
+  #modal-pilih-piutang .pp-list::-webkit-scrollbar-thumb { background: var(--c-teal-lt); border-radius: 3px; }
+  #modal-pilih-piutang .pp-item {
+    display: flex; align-items: center; gap: 0.75rem;
+    background: var(--c-white);
+    border: 1.5px solid var(--c-slate-2);
+    border-radius: 0.875rem; padding: 0.875rem;
+    margin-bottom: 0.5rem; cursor: pointer;
+    transition: border-color .15s, background .15s, transform .1s;
+  }
+  #modal-pilih-piutang .pp-item:last-child { margin-bottom: 0; }
+  #modal-pilih-piutang .pp-item:hover { border-color: var(--c-teal-md); background: var(--c-teal-xs); transform: translateX(2px); }
+  #modal-pilih-piutang .pp-item:active { transform: scale(0.98); }
+  #modal-pilih-piutang .pp-avatar {
+    width: 2.5rem; height: 2.5rem; border-radius: 0.75rem;
+    background: var(--c-teal-lt);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 1rem; font-weight: 800; color: var(--c-teal);
+  }
+  #modal-pilih-piutang .pp-info { flex: 1; min-width: 0; }
+  #modal-pilih-piutang .pp-nama {
+    font-size: 0.8125rem; font-weight: 800; color: var(--c-slate-9);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 0.2rem;
+  }
+  #modal-pilih-piutang .pp-meta { font-size: 0.5625rem; color: var(--c-slate-5); margin-bottom: 0.375rem; }
+  #modal-pilih-piutang .pp-bar-track { height: 3px; background: var(--c-slate-2); border-radius: 999px; overflow: hidden; }
+  #modal-pilih-piutang .pp-bar-fill  { height: 100%; border-radius: 999px; background: var(--c-teal); }
+  #modal-pilih-piutang .pp-sisa { text-align: right; flex-shrink: 0; }
+  #modal-pilih-piutang .pp-sisa-val {
+    font-size: 0.9375rem; font-weight: 900; color: var(--c-teal);
+    display: block; line-height: 1.1;
+  }
+  #modal-pilih-piutang .pp-sisa-lbl {
+    font-size: 0.4375rem; color: var(--c-slate-5);
+    text-transform: uppercase; letter-spacing: .05em;
+    font-weight: 700; margin-top: .125rem; display: block;
+  }
+  #modal-pilih-piutang .pp-jt-chip {
+    font-size: 0.5rem; font-weight: 700;
+    padding: 0.125rem 0.375rem; border-radius: 999px; white-space: nowrap;
+  }
+  #modal-pilih-piutang .pp-jt-lewat { background: #fee2e2; color: #dc2626; }
+  #modal-pilih-piutang .pp-jt-soon  { background: #fef3c7; color: #d97706; }
+  #modal-pilih-piutang .pp-jt-ok    { background: var(--c-teal-lt); color: var(--c-teal); }
+  #modal-pilih-piutang .pp-empty { text-align: center; padding: 2.5rem 1rem; }
+  #modal-pilih-piutang .pp-empty i { font-size: 2rem; color: var(--c-slate-3); display: block; margin-bottom: 0.5rem; }
+  #modal-pilih-piutang .pp-empty p { font-size: 0.75rem; font-weight: 700; color: var(--c-slate-5); }
+  #modal-pilih-piutang .pp-footer { padding: 0.875rem; border-top: 1px solid var(--c-slate-1); flex-shrink: 0; }
+  #modal-pilih-piutang .pp-btn-batal {
+    width: 100%; background: var(--c-slate-1);
+    border: 1.5px solid var(--c-slate-2); border-radius: var(--radius-input);
+    padding: 0.875rem; font-size: 0.875rem; font-weight: 700;
+    color: var(--c-slate-7); cursor: pointer; transition: background .15s;
+  }
+  #modal-pilih-piutang .pp-btn-batal:hover { background: var(--c-slate-2); }
 </style>
 
 <section id="modul-transaksi" class="block relative w-full" style="background:#f8fafc; min-height:100%;">
@@ -488,14 +574,17 @@
   <!-- ================================================================ -->
   <!-- FORM: TRANSAKSI TABUNGAN ASET                                     -->
   <!-- ================================================================ -->
-  <div class="trx-card mb-20">
+  <div class="trx-card">
     <form id="formAset" onsubmit="submitTrxAset(event)">
 
       <input type="hidden" id="val-id-referensi" value="">
 
       <!-- Header -->
       <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem;">
-        <div style="width:2.25rem; height:2.25rem; border-radius:0.75rem; background:linear-gradient(135deg,var(--c-indigo),var(--c-emerald)); display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 3px 8px rgb(67 56 202/.22);">
+        <div style="width:2.25rem; height:2.25rem; border-radius:0.75rem;
+                    background:linear-gradient(135deg,var(--c-indigo),var(--c-emerald));
+                    display:flex; align-items:center; justify-content:center;
+                    flex-shrink:0; box-shadow:0 3px 8px rgb(67 56 202/.22);">
           <i class="fa-solid fa-chart-line text-white" style="font-size:0.875rem;"></i>
         </div>
         <div>
@@ -516,17 +605,11 @@
         <div class="tipe-toggle">
           <label>
             <input type="radio" name="aset-tipe" value="BELI" onchange="resetFormBeli()" checked>
-            <div class="tipe-pill pill-beli">
-              <span class="pill-dot"></span>
-              💰 Beli / Masuk
-            </div>
+            <div class="tipe-pill pill-beli"><span class="pill-dot"></span>💰 Beli / Masuk</div>
           </label>
           <label>
             <input type="radio" name="aset-tipe" value="JUAL" onchange="bukaGridJual()">
-            <div class="tipe-pill pill-jual">
-              <span class="pill-dot"></span>
-              📤 Jual / Keluar
-            </div>
+            <div class="tipe-pill pill-jual"><span class="pill-dot"></span>📤 Jual / Keluar</div>
           </label>
         </div>
       </div>
@@ -572,11 +655,11 @@
         <div>
           <label class="trx-label">Total Bayar (Rp) <span class="req">*</span></label>
           <div style="position:relative;">
-            <span style="position:absolute; left:.75rem; top:50%; transform:translateY(-50%); font-size:.75rem; font-weight:800; color:var(--c-slate-5); pointer-events:none;">Rp</span>
+            <span style="position:absolute; left:.75rem; top:50%; transform:translateY(-50%);
+                         font-size:.75rem; font-weight:800; color:var(--c-slate-5); pointer-events:none;">Rp</span>
             <input type="text" id="aset-total-visual"
                    oninput="formatVisualAngka(this, 'aset-total-raw'); kalkulasiAset()"
-                   class="trx-input" style="padding-left:2.25rem;"
-                   placeholder="0">
+                   class="trx-input" style="padding-left:2.25rem;" placeholder="0">
             <input type="hidden" id="aset-total-raw" value="0">
           </div>
         </div>
@@ -589,8 +672,7 @@
           <span class="trx-nominal-prefix">Rp</span>
           <input type="text" id="aset-nominal-visual"
                  oninput="formatVisualAngka(this, 'aset-total-raw'); kalkulasiAset()"
-                 class="trx-nominal-input"
-                 placeholder="0">
+                 class="trx-nominal-input" placeholder="0">
         </div>
         <p style="font-size:0.625rem; color:var(--c-slate-5); margin-top:.25rem;">Qty otomatis = 1 (nominal, bukan unit fisik)</p>
       </div>
@@ -602,7 +684,7 @@
         <input type="hidden" id="val-harga-satuan" value="0">
       </div>
 
-      <button type="submit" id="btn-submit-aset" class="trx-btn">
+      <button type="submit" id="btn-submit-aset" class="trx-btn trx-btn-indigo">
         <i class="fa-solid fa-floppy-disk"></i> Simpan Transaksi Aset
       </button>
     </form>
@@ -610,16 +692,186 @@
 
 
   <!-- ================================================================ -->
-  <!-- MODAL: PILIH LOT / ITEM UNTUK DIJUAL                              -->
+  <!-- FORM: PIUTANG / ACCOUNTS RECEIVABLE                              -->
+  <!-- ================================================================ -->
+  <div class="trx-card mb-20">
+    <form id="formPiutang" onsubmit="submitTrxPiutang(event)">
+
+      <!-- Header -->
+      <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem;">
+        <div style="width:2.25rem; height:2.25rem; border-radius:0.75rem;
+                    background:linear-gradient(135deg,var(--c-teal),var(--c-teal-md));
+                    display:flex; align-items:center; justify-content:center;
+                    flex-shrink:0; box-shadow:0 3px 8px rgb(15 118 110/.22);">
+          <i class="fa-solid fa-hand-holding-dollar text-white" style="font-size:0.875rem;"></i>
+        </div>
+        <div>
+          <p style="font-size:0.9375rem; font-weight:800; color:var(--c-slate-9); line-height:1.2;">Piutang / AR</p>
+          <p style="font-size:0.6875rem; color:var(--c-slate-5);">Dana yang dipinjamkan, belum kembali</p>
+        </div>
+      </div>
+      <div class="trx-divider"></div>
+
+      <!-- Mode Toggle -->
+      <div class="piutang-chip">
+        <button type="button" id="btn-piutang-timbul"
+                onclick="gantiModePiutang('TIMBUL')" class="active-timbul">
+          <i class="fa-solid fa-arrow-right-from-bracket" style="margin-right:.375rem;"></i>Timbul Piutang
+        </button>
+        <button type="button" id="btn-piutang-lunas"
+                onclick="gantiModePiutang('PELUNASAN')">
+          <i class="fa-solid fa-arrow-right-to-bracket" style="margin-right:.375rem;"></i>Catat Pelunasan
+        </button>
+      </div>
+
+      <!-- Tanggal -->
+      <div style="margin-bottom:1rem;">
+        <label class="trx-label">Tanggal <span class="req">*</span></label>
+        <input type="date" id="piutang-tgl" class="trx-input" required>
+      </div>
+
+      <!-- ══ AREA TIMBUL ══ -->
+      <div id="piutang-area-timbul">
+
+        <!-- Debitur + tombol tambah -->
+        <div style="margin-bottom:1rem;">
+          <label class="trx-label">Nama Debitur <span class="req">*</span></label>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <select id="piutang-debitur" class="trx-select" style="flex:1;" required>
+              <option value="" disabled selected>⏳ Memuat daftar debitur...</option>
+            </select>
+            <button type="button" onclick="bukaFormTambahDebitur()"
+                    title="Tambah debitur baru"
+                    style="flex-shrink:0; width:2.625rem; height:2.625rem;
+                           border-radius:0.75rem; background:var(--c-teal-lt);
+                           border:1.5px solid var(--c-teal-lt); color:var(--c-teal);
+                           cursor:pointer; display:flex; align-items:center;
+                           justify-content:center; transition:background .15s;"
+                    onmouseover="this.style.background='#99f6e4'"
+                    onmouseout="this.style.background='var(--c-teal-lt)'">
+              <i class="fa-solid fa-plus" style="font-size:0.75rem;"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Nominal -->
+        <div style="margin-bottom:1rem;">
+          <label class="trx-label">Nominal Piutang <span class="req">*</span></label>
+          <div class="trx-nominal-wrap">
+            <span class="trx-nominal-prefix mode-teal">Rp</span>
+            <input type="text" id="piutang-nominal-visual"
+                   oninput="formatVisualAngka(this,'piutang-nominal-raw')"
+                   class="trx-nominal-input mode-teal"
+                   placeholder="0" inputmode="numeric">
+            <input type="hidden" id="piutang-nominal-raw" value="0">
+          </div>
+        </div>
+
+        <!-- Jatuh Tempo -->
+        <div style="margin-bottom:1rem;">
+          <label class="trx-label">
+            Jatuh Tempo
+            <span style="font-weight:400; font-size:0.5625rem; color:var(--c-slate-5);
+                          letter-spacing:0; text-transform:none;">— opsional</span>
+          </label>
+          <input type="date" id="piutang-jatuh-tempo" class="trx-input">
+        </div>
+
+        <!-- Keterangan -->
+        <div style="margin-bottom:1.5rem;">
+          <label class="trx-label">Keterangan</label>
+          <input type="text" id="piutang-ket-timbul" class="trx-input"
+                 placeholder="Misal: Pinjaman modal usaha, hutang arisan, dll.">
+        </div>
+      </div>
+
+      <!-- ══ AREA PELUNASAN ══ -->
+      <div id="piutang-area-pelunasan" class="hidden">
+
+        <!-- Banner piutang terpilih -->
+        <div id="piutang-banner-terpilih" class="hidden">
+          <div class="piutang-sisa-box">
+            <div style="flex:1; min-width:0;">
+              <p class="piutang-sisa-label">Sisa Piutang</p>
+              <p class="piutang-sisa-value" id="piutang-sisa-display">Rp 0</p>
+              <p class="piutang-sisa-debitur" id="piutang-debitur-display">—</p>
+              <div class="piutang-progress-wrap">
+                <div class="piutang-progress-bar" id="piutang-progress-bar" style="width:100%;"></div>
+              </div>
+            </div>
+            <button type="button" class="piutang-ganti-btn" onclick="bukaPilihPiutang()">Ganti</button>
+          </div>
+        </div>
+
+        <!-- Tombol pilih piutang -->
+        <div id="piutang-btn-pilih-wrap">
+          <button type="button" onclick="bukaPilihPiutang()"
+                  style="width:100%; background:var(--c-teal-xs);
+                         border:2px dashed var(--c-teal-md);
+                         border-radius:var(--radius-input); padding:1rem;
+                         font-size:0.8125rem; font-weight:700;
+                         color:var(--c-teal); cursor:pointer;
+                         display:flex; align-items:center; justify-content:center;
+                         gap:0.5rem; transition:background .15s; margin-bottom:1rem;"
+                  onmouseover="this.style.background='var(--c-teal-lt)'"
+                  onmouseout="this.style.background='var(--c-teal-xs)'">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            Pilih Piutang yang Akan Dilunasi
+          </button>
+        </div>
+
+        <!-- Nominal Bayar -->
+        <div style="margin-bottom:0.375rem;">
+          <label class="trx-label">Nominal Pelunasan <span class="req">*</span></label>
+          <div class="trx-nominal-wrap" style="margin-bottom:0;">
+            <span class="trx-nominal-prefix mode-emerald">Rp</span>
+            <input type="text" id="piutang-bayar-visual"
+                   oninput="onNominalBayarInput()"
+                   class="trx-nominal-input mode-emerald"
+                   placeholder="0" inputmode="numeric">
+            <input type="hidden" id="piutang-bayar-raw" value="0">
+          </div>
+        </div>
+
+        <!-- Hint sisa -->
+        <div id="piutang-hint-sisa"
+             style="font-size:0.625rem; color:var(--c-slate-5);
+                    margin-bottom:1rem; padding-left:0.25rem; min-height:1rem;">
+          Sisa setelah pelunasan: <strong id="piutang-hint-sisa-val">—</strong>
+        </div>
+
+        <!-- Keterangan -->
+        <div style="margin-bottom:1.5rem;">
+          <label class="trx-label">Keterangan</label>
+          <input type="text" id="piutang-ket-lunas" class="trx-input"
+                 placeholder="Misal: Bayar via transfer BCA, tunai, dll.">
+        </div>
+      </div>
+
+      <!-- Hidden fields -->
+      <input type="hidden" id="piutang-id-induk" value="">
+      <input type="hidden" id="piutang-sisa-lama" value="0">
+      <input type="hidden" id="piutang-nominal-awal" value="0">
+      <input type="hidden" id="piutang-nama-debitur-lunas" value="">
+
+      <!-- Submit -->
+      <button type="submit" id="btn-submit-piutang" class="trx-btn trx-btn-teal">
+        <i class="fa-solid fa-floppy-disk"></i>
+        <span id="piutang-btn-text">Simpan Piutang</span>
+      </button>
+
+    </form>
+  </div>
+
+
+  <!-- ================================================================ -->
+  <!-- MODAL: PILIH LOT / ITEM UNTUK DIJUAL (Aset)                      -->
   <!-- ================================================================ -->
   <div id="modal-grid-jual"
        class="hidden fixed inset-0 z-[60] flex items-end justify-center"
-       style="background: rgba(15,23,42,.55); backdrop-filter: blur(4px);"
+       style="background:rgba(15,23,42,.55); backdrop-filter:blur(4px);"
        onclick="if(event.target===this) tutupGridJual()">
-
     <div class="modal-sheet">
-
-      <!-- Header -->
       <div class="modal-header">
         <div style="display:flex; align-items:center; justify-content:space-between;">
           <div style="display:flex; align-items:center; gap:.625rem;">
@@ -627,40 +879,71 @@
             <span id="badge-mode-jual" class="modal-badge badge-semua">Fisik + Nominal</span>
           </div>
           <button onclick="tutupGridJual()"
-                  style="width:2rem; height:2rem; border-radius:.625rem; background:var(--c-slate-1); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--c-slate-5); transition:background .15s;"
+                  style="width:2rem;height:2rem;border-radius:.625rem;background:var(--c-slate-1);
+                         border:none;cursor:pointer;display:flex;align-items:center;
+                         justify-content:center;color:var(--c-slate-5);transition:background .15s;"
                   onmouseover="this.style.background='var(--c-slate-2)'"
                   onmouseout="this.style.background='var(--c-slate-1)'">
             <i class="fa-solid fa-xmark" style="font-size:.875rem;"></i>
           </button>
         </div>
       </div>
-
-      <!-- Chips -->
       <div class="chip-filter">
         <button onclick="filterGridJual('semua')" id="jual-chip-semua" class="chip-item active">Semua</button>
-        <div id="jual-chips-kategori" style="display:flex; gap:.5rem; flex-shrink:0;"></div>
+        <div id="jual-chips-kategori" style="display:flex;gap:.5rem;flex-shrink:0;"></div>
       </div>
-
-      <!-- Tabel -->
       <div class="grid-table">
         <table>
           <thead id="thead-grid-jual">
             <tr>
-              <th>Tgl Beli</th>
-              <th>Item</th>
+              <th>Tgl Beli</th><th>Item</th>
               <th style="text-align:center;" id="th-sisa">Sisa</th>
               <th style="text-align:center;">Aksi</th>
             </tr>
           </thead>
           <tbody id="tbody-grid-jual">
-            <tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--c-slate-5);">Belum ada data</td></tr>
+            <tr><td colspan="4" style="text-align:center;padding:2rem;color:var(--c-slate-5);">Belum ada data</td></tr>
           </tbody>
         </table>
       </div>
-
-      <!-- Footer -->
       <div class="modal-footer">
         <button type="button" onclick="tutupGridJual()" class="btn-batal">Batalkan</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ================================================================ -->
+  <!-- MODAL: PILIH PIUTANG AKTIF UNTUK DILUNASI                        -->
+  <!-- ================================================================ -->
+  <div id="modal-pilih-piutang" class="hidden"
+       onclick="if(event.target===this) tutupPilihPiutang()">
+    <div class="pp-sheet">
+      <div class="pp-header">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+          <p class="pp-title">Pilih Piutang yang Dilunasi</p>
+          <button type="button" onclick="tutupPilihPiutang()"
+                  style="width:2rem;height:2rem;border-radius:.625rem;
+                         background:var(--c-slate-1);border:none;cursor:pointer;
+                         display:flex;align-items:center;justify-content:center;
+                         color:var(--c-slate-5);font-size:.875rem;transition:background .15s;"
+                  onmouseover="this.style.background='var(--c-slate-2)'"
+                  onmouseout="this.style.background='var(--c-slate-1)'">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <input type="text" id="pp-search" class="pp-search"
+               placeholder="Cari nama debitur..."
+               oninput="filterPiutangModal()">
+      </div>
+      <div class="pp-list" id="pp-list-body">
+        <div class="pp-empty">
+          <i class="fa-solid fa-spinner fa-spin"></i>
+          <p>Memuat data piutang...</p>
+        </div>
+      </div>
+      <div class="pp-footer">
+        <button type="button" onclick="tutupPilihPiutang()" class="pp-btn-batal">Batalkan</button>
       </div>
     </div>
   </div>
@@ -670,14 +953,14 @@
 
 <script>
   // ============================================================
-  // STATE
+  // STATE ASET
   // ============================================================
-  let dataMasterCache  = { lokasi: [], kategori: [], platform: [], item: [] };
-  let cacheRiwayatJual = [];
-  let cacheAgregatJual = [];
-  let filterKategoriJual = 'semua';
+  var dataMasterCache  = { lokasi:[], kategori:[], platform:[], item:[] };
+  var cacheRiwayatJual = [];
+  var cacheAgregatJual = [];
+  var filterKategoriJual = 'semua';
 
-  const KATA_KUNCI_UNIT_FISIK = ['emas', 'perak', 'logam', 'gold', 'silver', 'antam', 'fisik', 'koin'];
+  const KATA_KUNCI_UNIT_FISIK = ['emas','perak','logam','gold','silver','antam','fisik','koin'];
   function isKategoriFisik(n) {
     if (!n) return false;
     const l = n.toLowerCase();
@@ -685,22 +968,33 @@
   }
 
   // ============================================================
-  // INIT
+  // STATE PIUTANG
+  // ============================================================
+  var modePiutang       = 'TIMBUL';
+  var cachePiutangAktif = [];
+  var cacheDebitur      = [];
+  var piutangTerpilih   = null;
+
+  // ============================================================
+  // INIT MODUL TRANSAKSI
   // ============================================================
   function initModulTransaksi() {
     const localDate = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
                         .toISOString().split('T')[0];
-    document.getElementById('aset-tgl').value = localDate;
+    document.getElementById('aset-tgl').value    = localDate;
+    document.getElementById('piutang-tgl').value = localDate;
 
+    // Load master aset
     google.script.run
       .withSuccessHandler(data => { dataMasterCache = data; populateDropdowns(); })
       .withFailureHandler(err  => Swal.fire('❌ Gagal Muat Data', err.message, 'error'))
       .getReferensiTransaksi();
 
+    // Load COA
     google.script.run
       .withSuccessHandler(data => {
         let opsi = '<option value="" disabled selected>-- Pilih Akun Pengeluaran --</option>';
-        if (data.length === 0) {
+        if (!data.length) {
           opsi = '<option value="" disabled selected>⚠ Tambah data di Master Pengeluaran Rutin</option>';
         } else {
           data.sort((a,b) => String(a[1]).localeCompare(String(b[1]),'id'));
@@ -713,18 +1007,22 @@
       })
       .withFailureHandler(err => console.warn('COA gagal:', err.message))
       .getReferensiArusKas();
+
+    // Load debitur untuk piutang
+    muatDebitur();
+
+    // Reset form piutang ke state awal
+    gantiModePiutang('TIMBUL');
   }
 
   // ============================================================
-  // POPULATE DROPDOWNS
+  // POPULATE DROPDOWNS ASET
   // ============================================================
   function populateDropdowns() {
     const sorted = (arr) => arr.slice().sort((a,b) => String(a[1]).localeCompare(String(b[1]),'id'));
-
     let cbP = '<option value="" disabled selected>-- Pilih Platform --</option>';
     sorted(dataMasterCache.platform).forEach(p => { cbP += `<option value="${p[1]}">${p[1]}</option>`; });
     document.getElementById('aset-platform').innerHTML = cbP;
-
     let cbKat = '<option value="" disabled selected>-- Pilih Kategori --</option>';
     sorted(dataMasterCache.kategori).forEach(k => { cbKat += `<option value="${k[1]}">${k[1]}</option>`; });
     document.getElementById('aset-kategori').innerHTML = cbKat;
@@ -743,9 +1041,14 @@
   function formatRp(n) {
     return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',minimumFractionDigits:0}).format(n);
   }
+  function escAttr(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/"/g,'&quot;')
+      .replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
 
   // ============================================================
-  // ASET — MODE INPUT (UNIT vs NOMINAL)
+  // ASET — MODE INPUT
   // ============================================================
   function onKategoriChange() { filterItemBerdasarkanKategori(); applyModeInput(document.getElementById('aset-kategori').value); }
 
@@ -755,8 +1058,6 @@
     document.getElementById('area-input-nominal').classList.toggle('hidden', fisik);
     document.getElementById('area-harga-satuan').classList.toggle('hidden', !fisik);
     document.getElementById('aset-kuantitas').required = fisik;
-    if (!fisik) document.getElementById('aset-kuantitas').value = '1';
-    // Reset nilai
     document.getElementById('aset-kuantitas').value = fisik ? '' : '1';
     document.getElementById('aset-total-visual').value = '';
     document.getElementById('aset-nominal-visual').value = '';
@@ -766,10 +1067,9 @@
   }
 
   function filterItemBerdasarkanKategori() {
-    const kat = document.getElementById('aset-kategori').value;
-    const items = dataMasterCache.item
-      .filter(i => i[1]===kat)
-      .sort((a,b) => String(a[2]).localeCompare(String(b[2]),'id'));
+    const kat   = document.getElementById('aset-kategori').value;
+    const items = dataMasterCache.item.filter(i => i[1]===kat)
+                    .sort((a,b) => String(a[2]).localeCompare(String(b[2]),'id'));
     document.getElementById('aset-item').innerHTML = items.length === 0
       ? '<option value="" disabled selected>⚠ Belum ada item</option>'
       : '<option value="" disabled selected>-- Pilih Item --</option>' +
@@ -852,7 +1152,6 @@
   function renderGridJual(rawData, filterKat) {
     const tbody = document.getElementById('tbody-grid-jual');
     const badge = document.getElementById('badge-mode-jual');
-
     const fisikData = rawData.filter(d => {
       if (filterKat !== 'semua' && d.kategori !== filterKat) return false;
       return isKategoriFisik(d.kategori);
@@ -860,25 +1159,16 @@
     const nominalData = filterKat === 'semua'
       ? cacheAgregatJual
       : cacheAgregatJual.filter(d => d.kategori === filterKat);
-
-    if (filterKat === 'semua') {
-      badge.className = 'modal-badge badge-semua'; badge.innerText = 'Fisik + Nominal';
-    } else if (isKategoriFisik(filterKat)) {
-      badge.className = 'modal-badge badge-fisik'; badge.innerText = 'Per Lot Fisik';
-    } else {
-      badge.className = 'modal-badge badge-nominal'; badge.innerText = 'Nominal Bebas';
-    }
-
+    if (filterKat === 'semua') { badge.className='modal-badge badge-semua'; badge.innerText='Fisik + Nominal'; }
+    else if (isKategoriFisik(filterKat)) { badge.className='modal-badge badge-fisik'; badge.innerText='Per Lot Fisik'; }
+    else { badge.className='modal-badge badge-nominal'; badge.innerText='Nominal Bebas'; }
     if (!fisikData.length && !nominalData.length) {
       tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:2.5rem;color:var(--c-slate-5);">
         <i class="fa-solid fa-inbox" style="font-size:1.5rem;display:block;margin-bottom:.5rem;color:var(--c-slate-3);"></i>
-        Tidak ada aset yang bisa dijual.
-      </td></tr>`;
+        Tidak ada aset yang bisa dijual.</td></tr>`;
       return;
     }
-
     let html = '';
-
     if (fisikData.length) {
       html += `<tr class="section-fisik"><td colspan="4">🪙 Aset Fisik — Qty dikunci per lot</td></tr>`;
       fisikData.forEach(d => {
@@ -892,13 +1182,10 @@
             ${hargaStr}
           </td>
           <td style="text-align:center;font-size:.75rem;font-weight:800;color:var(--c-slate-9);">${d.sisaQty}</td>
-          <td style="text-align:center;">
-            <button type="button" data-id="${d.id}" data-mode="fisik" onclick="pilihLotJual(this)" class="btn-pilih-fisik">Pilih</button>
-          </td>
+          <td style="text-align:center;"><button type="button" data-id="${d.id}" data-mode="fisik" onclick="pilihLotJual(this)" class="btn-pilih-fisik">Pilih</button></td>
         </tr>`;
       });
     }
-
     if (nominalData.length) {
       html += `<tr class="section-nominal"><td colspan="4">📊 Aset Nominal — Jual sebagian bebas</td></tr>`;
       nominalData.forEach(d => {
@@ -911,37 +1198,28 @@
             <span style="font-size:.5625rem;color:var(--c-slate-5);">Sisa Rp${Math.round(d.sisaNominal).toLocaleString('id-ID')}</span>
           </td>
           <td style="text-align:center;font-size:.625rem;font-weight:700;color:var(--c-indigo);">Bebas</td>
-          <td style="text-align:center;">
-            <button type="button"
-              data-key="${escAttr(d.key)}" data-mode="nominal"
-              data-sisa="${d.sisaNominal}"
-              data-item="${escAttr(d.item)}" data-platform="${escAttr(d.platform)}" data-kategori="${escAttr(d.kategori)}"
-              onclick="pilihLotJual(this)" class="btn-pilih-nominal">Pilih</button>
-          </td>
+          <td style="text-align:center;"><button type="button"
+            data-key="${escAttr(d.key)}" data-mode="nominal"
+            data-sisa="${d.sisaNominal}"
+            data-item="${escAttr(d.item)}" data-platform="${escAttr(d.platform)}" data-kategori="${escAttr(d.kategori)}"
+            onclick="pilihLotJual(this)" class="btn-pilih-nominal">Pilih</button></td>
         </tr>`;
       });
     }
-
     tbody.innerHTML = html;
   }
 
-  // ============================================================
-  // PILIH LOT
-  // ============================================================
-  function pilihLotJual(btn) {
-    btn.getAttribute('data-mode') === 'fisik' ? pilihLotFisik(btn) : pilihItemNominal(btn);
-  }
+  function pilihLotJual(btn) { btn.getAttribute('data-mode')==='fisik' ? pilihLotFisik(btn) : pilihItemNominal(btn); }
 
   function pilihLotFisik(btn) {
-    const d = cacheRiwayatJual.find(i => String(i.id) === String(btn.getAttribute('data-id')));
+    const d = cacheRiwayatJual.find(i => String(i.id)===String(btn.getAttribute('data-id')));
     if (!d) { Swal.fire('Error','Data aset tidak ditemukan','error'); return; }
     document.getElementById('val-id-referensi').value = d.id;
     document.getElementById('modal-grid-jual').classList.add('hidden');
     lockDropdowns(d.platform, d.kategori, d.item);
     applyModeInput(d.kategori);
     const elQty = document.getElementById('aset-kuantitas');
-    elQty.value = d.sisaQty; elQty.readOnly = true;
-    elQty.classList.add('locked'); elQty.max = d.sisaQty;
+    elQty.value = d.sisaQty; elQty.readOnly = true; elQty.classList.add('locked'); elQty.max = d.sisaQty;
     document.getElementById('aset-total-visual').value = '';
     document.getElementById('aset-total-raw').value = '0';
     document.getElementById('txt-harga-satuan').innerText = 'Rp 0';
@@ -949,41 +1227,37 @@
   }
 
   function pilihItemNominal(btn) {
-    const key      = btn.getAttribute('data-key');
-    const sisa     = parseFloat(btn.getAttribute('data-sisa')) || 0;
-    const item     = btn.getAttribute('data-item');
-    const platform = btn.getAttribute('data-platform');
-    const kategori = btn.getAttribute('data-kategori');
-    const agregat  = cacheAgregatJual.find(a => a.key === key);
-    const idRef    = agregat ? (agregat.lotIds[0] || '-') : '-';
-    document.getElementById('val-id-referensi').value = idRef || '-';
+    const key=btn.getAttribute('data-key'), sisa=parseFloat(btn.getAttribute('data-sisa'))||0;
+    const item=btn.getAttribute('data-item'), platform=btn.getAttribute('data-platform'), kategori=btn.getAttribute('data-kategori');
+    const agregat=cacheAgregatJual.find(a=>a.key===key);
+    const idRef=agregat?(agregat.lotIds[0]||'-'):'-';
+    document.getElementById('val-id-referensi').value=idRef||'-';
     document.getElementById('modal-grid-jual').classList.add('hidden');
-    lockDropdowns(platform, kategori, item);
+    lockDropdowns(platform,kategori,item);
     applyModeInput(kategori);
-    document.getElementById('aset-nominal-visual').value = '';
-    document.getElementById('aset-total-raw').value = '0';
-    tampilkanBannerLot({ item, platform, kategori, sisaQty: sisa, hargaBeli: sisa }, 'nominal');
+    document.getElementById('aset-nominal-visual').value='';
+    document.getElementById('aset-total-raw').value='0';
+    tampilkanBannerLot({item,platform,kategori,sisaQty:sisa,hargaBeli:sisa},'nominal');
   }
 
-  function lockDropdowns(platform, kategori, item) {
-    [['aset-platform', platform], ['aset-kategori', kategori], ['aset-item', item]].forEach(([id, val]) => {
-      const el = document.getElementById(id);
-      el.innerHTML = `<option value="${escAttr(val)}" selected>${val}</option>`;
-      el.removeAttribute('required');
-      el.classList.add('locked');
+  function lockDropdowns(platform,kategori,item) {
+    [['aset-platform',platform],['aset-kategori',kategori],['aset-item',item]].forEach(([id,val])=>{
+      const el=document.getElementById(id);
+      el.innerHTML=`<option value="${escAttr(val)}" selected>${val}</option>`;
+      el.removeAttribute('required'); el.classList.add('locked');
     });
   }
 
   function tampilkanBannerLot(d, mode) {
     const existing = document.getElementById('banner-lot-dipilih');
     if (existing) existing.remove();
-    const isFisik = (mode === 'fisik');
+    const isFisik = (mode==='fisik');
     const sub = isFisik
       ? `Qty terkunci: <b>${d.sisaQty} unit</b>${d.hargaBeli>0?' · Beli <b>Rp'+parseInt(d.hargaBeli).toLocaleString('id-ID')+'/unit</b>':''}`
       : `Sisa: <b>Rp${Math.round(d.hargaBeli).toLocaleString('id-ID')}</b> · Isi nominal yang ingin dijual`;
     const banner = document.createElement('div');
-    banner.id = 'banner-lot-dipilih';
-    banner.innerHTML = `
+    banner.id='banner-lot-dipilih';
+    banner.innerHTML=`
       <div class="banner-check"><i class="fa-solid fa-check text-white" style="font-size:.625rem;"></i></div>
       <div style="flex:1;min-width:0;">
         <p style="font-size:.625rem;font-weight:800;color:var(--c-emerald);">${isFisik?'🪙 Aset Fisik Terpilih':'📊 Reksadana / Saham Terpilih'}</p>
@@ -991,102 +1265,449 @@
         <p style="font-size:.625rem;color:var(--c-emerald);">${sub}</p>
       </div>
       <button type="button" onclick="gantiLotJual()" class="banner-ganti">Ganti</button>`;
-    const ref = document.getElementById('area-input-unit').parentElement;
-    ref.parentElement.insertBefore(banner, ref);
+    const ref=document.getElementById('area-input-unit').parentElement;
+    ref.parentElement.insertBefore(banner,ref);
   }
 
   function gantiLotJual() {
-    const b = document.getElementById('banner-lot-dipilih');
-    if (b) b.remove();
-    document.getElementById('val-id-referensi').value = '';
+    const b=document.getElementById('banner-lot-dipilih'); if(b)b.remove();
+    document.getElementById('val-id-referensi').value='';
     document.getElementById('modal-grid-jual').classList.remove('hidden');
-    renderGridJual(cacheRiwayatJual, filterKategoriJual);
+    renderGridJual(cacheRiwayatJual,filterKategoriJual);
   }
 
   function tutupGridJual() {
     document.getElementById('modal-grid-jual').classList.add('hidden');
-    const idRef = document.getElementById('val-id-referensi').value;
-    if (!idRef || idRef.trim() === '') {
-      document.querySelector('input[name="aset-tipe"][value="BELI"]').checked = true;
-      resetFormBeli();
-    }
+    const idRef=document.getElementById('val-id-referensi').value;
+    if(!idRef||idRef.trim()==='') { document.querySelector('input[name="aset-tipe"][value="BELI"]').checked=true; resetFormBeli(); }
   }
 
-  // ============================================================
-  // RESET FORM BELI
-  // ============================================================
   function resetFormBeli() {
     document.getElementById('area-coa-aset').classList.remove('hidden');
-    ['aset-platform','aset-kategori','aset-item'].forEach(id => {
-      const el = document.getElementById(id);
-      el.setAttribute('required','true');
-      el.classList.remove('locked');
+    ['aset-platform','aset-kategori','aset-item'].forEach(id=>{
+      const el=document.getElementById(id);
+      el.setAttribute('required','true'); el.classList.remove('locked');
     });
-    const b = document.getElementById('banner-lot-dipilih');
-    if (b) b.remove();
-    const elQty = document.getElementById('aset-kuantitas');
-    elQty.readOnly = false; elQty.removeAttribute('max'); elQty.classList.remove('locked'); elQty.value = '';
-    document.getElementById('aset-nominal-visual').value = '';
-    document.getElementById('aset-total-visual').value = '';
-    document.getElementById('aset-total-raw').value = '0';
-    document.getElementById('val-id-referensi').value = '';
-    document.getElementById('txt-harga-satuan').innerText = 'Rp 0';
-    document.getElementById('val-harga-satuan').value = '0';
+    const b=document.getElementById('banner-lot-dipilih'); if(b)b.remove();
+    const elQty=document.getElementById('aset-kuantitas');
+    elQty.readOnly=false; elQty.removeAttribute('max'); elQty.classList.remove('locked'); elQty.value='';
+    document.getElementById('aset-nominal-visual').value='';
+    document.getElementById('aset-total-visual').value='';
+    document.getElementById('aset-total-raw').value='0';
+    document.getElementById('val-id-referensi').value='';
+    document.getElementById('txt-harga-satuan').innerText='Rp 0';
+    document.getElementById('val-harga-satuan').value='0';
     document.getElementById('area-input-unit').classList.remove('hidden');
     document.getElementById('area-input-nominal').classList.add('hidden');
     document.getElementById('area-harga-satuan').classList.remove('hidden');
     populateDropdowns();
   }
 
-  // ============================================================
-  // SUBMIT ASET
-  // ============================================================
   function submitTrxAset(e) {
     e.preventDefault();
-    const tipe  = document.querySelector('input[name="aset-tipe"]:checked').value;
-    const coa   = document.getElementById('aset-coa').value;
-    const kat   = document.getElementById('aset-kategori').value;
-    const fisik = isKategoriFisik(kat);
-    if (tipe === 'BELI' && !coa)
-      return Swal.fire('Oops!','Pilih Akun Biaya (COA) untuk transaksi beli.','warning');
-    const idRef = document.getElementById('val-id-referensi').value;
-    if (tipe === 'JUAL' && (!idRef || idRef === ''))
-      return Swal.fire('Oops!','Pilih aset yang akan dijual terlebih dahulu.','warning');
-    const total = parseFloat(document.getElementById('aset-total-raw').value) || 0;
-    if (total <= 0)
-      return Swal.fire('Oops!','Masukkan nominal/total yang valid.','warning');
-    const qty   = parseFloat(document.getElementById('aset-kuantitas').value) || 1;
-    const harga = qty > 0 ? total/qty : total;
-    const btn   = document.getElementById('btn-submit-aset');
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...'; btn.disabled = true;
-    const payload = {
-      tanggal:    document.getElementById('aset-tgl').value,
-      tipe, platform: document.getElementById('aset-platform').value,
-      kategori: kat, item: document.getElementById('aset-item').value,
-      kuantitas: qty, total, harga,
-      idReferensi: idRef || '-', coaKas: coa || '', isFisik: fisik
+    const tipe=document.querySelector('input[name="aset-tipe"]:checked').value;
+    const coa=document.getElementById('aset-coa').value;
+    const kat=document.getElementById('aset-kategori').value;
+    const fisik=isKategoriFisik(kat);
+    if(tipe==='BELI'&&!coa) return Swal.fire('Oops!','Pilih Akun Biaya (COA) untuk transaksi beli.','warning');
+    const idRef=document.getElementById('val-id-referensi').value;
+    if(tipe==='JUAL'&&(!idRef||idRef==='')) return Swal.fire('Oops!','Pilih aset yang akan dijual terlebih dahulu.','warning');
+    const total=parseFloat(document.getElementById('aset-total-raw').value)||0;
+    if(total<=0) return Swal.fire('Oops!','Masukkan nominal/total yang valid.','warning');
+    const qty=parseFloat(document.getElementById('aset-kuantitas').value)||1;
+    const harga=qty>0?total/qty:total;
+    const btn=document.getElementById('btn-submit-aset');
+    btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...'; btn.disabled=true;
+    const payload={
+      tanggal:document.getElementById('aset-tgl').value,
+      tipe,platform:document.getElementById('aset-platform').value,
+      kategori:kat,item:document.getElementById('aset-item').value,
+      kuantitas:qty,total,harga,
+      idReferensi:idRef||'-',coaKas:coa||'',isFisik:fisik
     };
     google.script.run
-      .withSuccessHandler(res => {
-        Swal.fire({ title:'✅ Tersimpan!', text:res, icon:'success', confirmButtonColor:'#4338ca' });
-        const b = document.getElementById('banner-lot-dipilih'); if (b) b.remove();
+      .withSuccessHandler(res=>{
+        Swal.fire({title:'✅ Tersimpan!',text:res,icon:'success',confirmButtonColor:'#4338ca'});
+        const b=document.getElementById('banner-lot-dipilih'); if(b)b.remove();
         document.getElementById('formAset').reset();
-        document.getElementById('aset-tgl').value   = payload.tanggal;
-        document.getElementById('aset-total-raw').value = '0';
-        document.getElementById('txt-harga-satuan').innerText = 'Rp 0';
-        document.querySelector('input[name="aset-tipe"][value="BELI"]').checked = true;
+        document.getElementById('aset-tgl').value=payload.tanggal;
+        document.getElementById('aset-total-raw').value='0';
+        document.getElementById('txt-harga-satuan').innerText='Rp 0';
+        document.querySelector('input[name="aset-tipe"][value="BELI"]').checked=true;
         resetFormBeli();
-        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Simpan Transaksi Aset'; btn.disabled = false;
+        btn.innerHTML='<i class="fa-solid fa-floppy-disk"></i> Simpan Transaksi Aset'; btn.disabled=false;
       })
-      .withFailureHandler(err => {
-        Swal.fire({ title:'❌ Gagal!', text:err.message, icon:'error', confirmButtonColor:'#4338ca' });
-        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Simpan Transaksi Aset'; btn.disabled = false;
+      .withFailureHandler(err=>{
+        Swal.fire({title:'❌ Gagal!',text:err.message,icon:'error',confirmButtonColor:'#4338ca'});
+        btn.innerHTML='<i class="fa-solid fa-floppy-disk"></i> Simpan Transaksi Aset'; btn.disabled=false;
       })
       .simpanTrxAset(payload);
   }
 
-  // ── HELPER ──
-  function escAttr(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // ============================================================
+  // PIUTANG — DEBITUR
+  // ============================================================
+  function muatDebitur() {
+    google.script.run
+      .withSuccessHandler(function(data) {
+        cacheDebitur = data || [];
+        renderSelectDebitur(data);
+      })
+      .withFailureHandler(function(err) {
+        document.getElementById('piutang-debitur').innerHTML =
+          '<option value="" disabled selected>⚠ Gagal muat — coba refresh</option>';
+        console.warn('Gagal muat debitur:', err.message);
+      })
+      .getReferensiDebitur();
   }
+
+  function renderSelectDebitur(data) {
+    var el = document.getElementById('piutang-debitur');
+    if (!data || data.length === 0) {
+      el.innerHTML = '<option value="" disabled selected>⚠ Belum ada debitur — tekan + untuk tambah</option>';
+      return;
+    }
+    var html = '<option value="" disabled selected>— Pilih Debitur —</option>';
+    data.slice()
+      .sort(function(a,b) { return String(a[1]).localeCompare(String(b[1]),'id'); })
+      .forEach(function(d) {
+        var kontak = d[2] ? ' · ' + d[2] : '';
+        html += '<option value="' + escAttr(String(d[1])) + '">' +
+                escAttr(String(d[1]) + kontak) + '</option>';
+      });
+    el.innerHTML = html;
+  }
+
+  function bukaFormTambahDebitur() {
+    Swal.fire({
+      title: 'Tambah Debitur Baru',
+      html: '<input id="sw-deb-nama" class="swal2-input" placeholder="Nama Debitur *" style="font-size:16px!important;">' +
+            '<input id="sw-deb-kontak" class="swal2-input" placeholder="Kontak HP / Email — opsional" style="font-size:16px!important;">' +
+            '<input id="sw-deb-catatan" class="swal2-input" placeholder="Catatan tambahan — opsional" style="font-size:16px!important;">',
+      showCancelButton: true,
+      confirmButtonColor: '#0f766e',
+      confirmButtonText: 'Simpan Debitur',
+      cancelButtonText: 'Batal',
+      preConfirm: function() {
+        var nama = document.getElementById('sw-deb-nama').value.trim();
+        if (!nama) { Swal.showValidationMessage('Nama debitur wajib diisi!'); return false; }
+        return {
+          nama:    nama,
+          kontak:  document.getElementById('sw-deb-kontak').value.trim(),
+          catatan: document.getElementById('sw-deb-catatan').value.trim()
+        };
+      }
+    }).then(function(res) {
+      if (!res.isConfirmed) return;
+      Swal.fire({ title:'Menyimpan...', allowOutsideClick:false, didOpen:function(){ Swal.showLoading(); } });
+      google.script.run
+        .withSuccessHandler(function(msg) {
+          Swal.fire({ icon:'success', title:'Tersimpan!', text:msg,
+                      confirmButtonColor:'#0f766e', timer:1800, showConfirmButton:false });
+          muatDebitur();
+        })
+        .withFailureHandler(function(err) {
+          Swal.fire({ icon:'error', title:'Gagal', text:err.message, confirmButtonColor:'#0f766e' });
+        })
+        .simpanMasterDebitur(res.value.nama, res.value.kontak, res.value.catatan);
+    });
+  }
+
+  // ============================================================
+  // PIUTANG — GANTI MODE
+  // ============================================================
+  function gantiModePiutang(mode) {
+    modePiutang = mode;
+    var isTimbul = mode === 'TIMBUL';
+
+    document.getElementById('btn-piutang-timbul').className = isTimbul ? 'active-timbul' : '';
+    document.getElementById('btn-piutang-lunas').className  = isTimbul ? '' : 'active-lunas';
+
+    document.getElementById('piutang-area-timbul').classList.toggle('hidden', !isTimbul);
+    document.getElementById('piutang-area-pelunasan').classList.toggle('hidden', isTimbul);
+
+    // FIX: toggle required pada field di area yang tersembunyi
+    // Browser memblokir submit diam-diam jika ada required field yang hidden
+    var elDebitur = document.getElementById('piutang-debitur');
+    if (isTimbul) {
+      elDebitur.setAttribute('required', 'true');
+    } else {
+      elDebitur.removeAttribute('required');
+    }
+
+    var btn     = document.getElementById('btn-submit-piutang');
+    var btnText = document.getElementById('piutang-btn-text');
+    if (isTimbul) {
+      btn.className   = 'trx-btn trx-btn-teal';
+      btnText.textContent = 'Simpan Piutang';
+    } else {
+      btn.className   = 'trx-btn trx-btn-emerald';
+      btnText.textContent = 'Simpan Pelunasan';
+    }
+
+    // Reset field tanpa memanggil gantiMode lagi
+    document.getElementById('piutang-nominal-visual').value = '';
+    document.getElementById('piutang-nominal-raw').value    = '0';
+    document.getElementById('piutang-jatuh-tempo').value    = '';
+    document.getElementById('piutang-ket-timbul').value     = '';
+    document.getElementById('piutang-bayar-visual').value   = '';
+    document.getElementById('piutang-bayar-raw').value      = '0';
+    document.getElementById('piutang-ket-lunas').value      = '';
+    document.getElementById('piutang-hint-sisa-val').textContent = '—';
+    document.getElementById('piutang-hint-sisa').style.color = 'var(--c-slate-5)';
+    document.getElementById('piutang-id-induk').value          = '';
+    document.getElementById('piutang-sisa-lama').value         = '0';
+    document.getElementById('piutang-nominal-awal').value      = '0';
+    document.getElementById('piutang-nama-debitur-lunas').value = '';
+
+    piutangTerpilih = null;
+    document.getElementById('piutang-banner-terpilih').classList.add('hidden');
+    document.getElementById('piutang-btn-pilih-wrap').classList.remove('hidden');
+    document.getElementById('piutang-progress-bar').style.width = '100%';
+  }
+
+  // ============================================================
+  // PIUTANG — MODAL PILIH PIUTANG AKTIF
+  // ============================================================
+  function bukaPilihPiutang() {
+    document.getElementById('modal-pilih-piutang').classList.remove('hidden');
+    document.getElementById('pp-search').value = '';
+    document.getElementById('pp-list-body').innerHTML =
+      '<div class="pp-empty"><i class="fa-solid fa-spinner fa-spin"></i><p>Memuat piutang aktif...</p></div>';
+
+    google.script.run
+      .withSuccessHandler(function(data) {
+        cachePiutangAktif = data || [];
+        renderPiutangModal(data);
+      })
+      .withFailureHandler(function(err) {
+        document.getElementById('pp-list-body').innerHTML =
+          '<div class="pp-empty">' +
+          '<i class="fa-solid fa-triangle-exclamation" style="color:#dc2626;"></i>' +
+          '<p>Gagal: ' + escAttr(err.message) + '</p></div>';
+      })
+      .getPiutangAktif();
+  }
+
+  function tutupPilihPiutang() {
+    document.getElementById('modal-pilih-piutang').classList.add('hidden');
+    if (!piutangTerpilih) {
+      gantiModePiutang('TIMBUL');
+    }
+  }
+
+  function filterPiutangModal() {
+    var q = document.getElementById('pp-search').value.toLowerCase().trim();
+    var filtered = !q
+      ? cachePiutangAktif
+      : cachePiutangAktif.filter(function(d) {
+          return d.namaDebitur.toLowerCase().includes(q) ||
+                 (d.keterangan||'').toLowerCase().includes(q);
+        });
+    renderPiutangModal(filtered);
+  }
+
+  function renderPiutangModal(data) {
+    var container = document.getElementById('pp-list-body');
+    if (!data || data.length === 0) {
+      container.innerHTML =
+        '<div class="pp-empty">' +
+        '<i class="fa-solid fa-inbox"></i>' +
+        '<p>Tidak ada piutang aktif</p>' +
+        '<span style="font-size:.625rem;color:var(--c-slate-3);">Catat piutang baru di tab Timbul Piutang</span>' +
+        '</div>';
+      return;
+    }
+
+    var today = new Date(); today.setHours(0,0,0,0);
+
+    var html = data.map(function(d, idx) {
+      var pct = d.nominalAwal > 0
+        ? ((d.sisaPiutang / d.nominalAwal) * 100).toFixed(0) : 100;
+
+      var jtChip = '';
+      if (d.jatuhTempo) {
+        var parts = d.jatuhTempo.split('/');
+        if (parts.length === 3) {
+          var jtDate = new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]));
+          jtDate.setHours(0,0,0,0);
+          var diff = Math.round((jtDate - today) / (1000*60*60*24));
+          if (diff < 0)       jtChip = '<span class="pp-jt-chip pp-jt-lewat">⚠ Lewat '+Math.abs(diff)+' hari</span>';
+          else if (diff <= 7) jtChip = '<span class="pp-jt-chip pp-jt-soon">⏰ '+diff+' hari lagi</span>';
+          else                jtChip = '<span class="pp-jt-chip pp-jt-ok">JT: '+escAttr(d.jatuhTempo)+'</span>';
+        }
+      }
+
+      var initial = (d.namaDebitur || '?').charAt(0).toUpperCase();
+
+      return '<div class="pp-item" onclick="pilihPiutangDariModal(' + idx + ')">' +
+        '<div class="pp-avatar">' + escAttr(initial) + '</div>' +
+        '<div class="pp-info">' +
+          '<div class="pp-nama">' + escAttr(d.namaDebitur) + '</div>' +
+          '<div class="pp-meta">Mulai: ' + escAttr(d.tanggal) +
+            (d.keterangan && d.keterangan !== '-' ? ' · ' + escAttr(d.keterangan) : '') +
+            (jtChip ? '&nbsp;&nbsp;' + jtChip : '') +
+          '</div>' +
+          '<div class="pp-bar-track">' +
+            '<div class="pp-bar-fill" style="width:' + pct + '%;"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="pp-sisa">' +
+          '<span class="pp-sisa-val">Rp' + Math.round(d.sisaPiutang).toLocaleString('id-ID') + '</span>' +
+          '<span class="pp-sisa-lbl">Sisa</span>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    container.innerHTML = html;
+  }
+
+  function pilihPiutangDariModal(idx) {
+    var d = cachePiutangAktif[idx];
+    if (!d) return;
+
+    piutangTerpilih = d;
+
+    document.getElementById('piutang-id-induk').value           = d.id;
+    document.getElementById('piutang-sisa-lama').value          = d.sisaPiutang;
+    document.getElementById('piutang-nominal-awal').value       = d.nominalAwal || d.sisaPiutang;
+    document.getElementById('piutang-nama-debitur-lunas').value = d.namaDebitur;
+
+    document.getElementById('piutang-sisa-display').textContent =
+      'Rp' + Math.round(d.sisaPiutang).toLocaleString('id-ID');
+    document.getElementById('piutang-debitur-display').textContent =
+      d.namaDebitur + (d.jatuhTempo ? ' · JT: ' + d.jatuhTempo : '');
+
+    var pct = d.nominalAwal > 0
+      ? ((d.sisaPiutang / d.nominalAwal) * 100).toFixed(1) : 100;
+    document.getElementById('piutang-progress-bar').style.width = pct + '%';
+
+    document.getElementById('piutang-banner-terpilih').classList.remove('hidden');
+    document.getElementById('piutang-btn-pilih-wrap').classList.add('hidden');
+
+    document.getElementById('piutang-bayar-visual').value = '';
+    document.getElementById('piutang-bayar-raw').value    = '0';
+    document.getElementById('piutang-hint-sisa-val').textContent = '—';
+
+    document.getElementById('modal-pilih-piutang').classList.add('hidden');
+  }
+
+  // ============================================================
+  // PIUTANG — KALKULASI SISA REAL-TIME
+  // ============================================================
+  function onNominalBayarInput() {
+    var elVisual = document.getElementById('piutang-bayar-visual');
+    formatVisualAngka(elVisual, 'piutang-bayar-raw');
+
+    var bayar    = parseInt(document.getElementById('piutang-bayar-raw').value) || 0;
+    var sisa     = parseFloat(document.getElementById('piutang-sisa-lama').value) || 0;
+    var hintEl   = document.getElementById('piutang-hint-sisa-val');
+    var hintWrap = document.getElementById('piutang-hint-sisa');
+
+    if (!piutangTerpilih || bayar <= 0) {
+      hintEl.textContent = '—';
+      hintWrap.style.color = 'var(--c-slate-5)';
+      return;
+    }
+
+    var sisaSetelah = sisa - bayar;
+    if (bayar > sisa) {
+      hintEl.textContent   = '⚠ Melebihi sisa piutang!';
+      hintWrap.style.color = '#dc2626';
+    } else if (sisaSetelah === 0) {
+      hintEl.textContent   = '🎉 Lunas!';
+      hintWrap.style.color = 'var(--c-emerald)';
+    } else {
+      hintEl.textContent   = 'Rp' + Math.round(sisaSetelah).toLocaleString('id-ID');
+      hintWrap.style.color = 'var(--c-teal)';
+    }
+  }
+
+  // ============================================================
+  // PIUTANG — SUBMIT
+  // ============================================================
+  function submitTrxPiutang(e) {
+    e.preventDefault();
+
+    var btn      = document.getElementById('btn-submit-piutang');
+    var btnText  = document.getElementById('piutang-btn-text');
+    var origText = btnText.textContent;
+    var payload;
+
+    if (modePiutang === 'TIMBUL') {
+      var debitur = document.getElementById('piutang-debitur').value;
+      if (!debitur) {
+        Swal.fire({ icon:'warning', title:'Debitur Kosong',
+                    text:'Pilih atau tambah debitur terlebih dahulu.',
+                    confirmButtonColor:'#0f766e' });
+        return;
+      }
+      var nominal = parseInt(document.getElementById('piutang-nominal-raw').value) || 0;
+      if (nominal <= 0) {
+        Swal.fire({ icon:'warning', title:'Nominal Kosong',
+                    text:'Masukkan nominal piutang yang valid.',
+                    confirmButtonColor:'#0f766e' });
+        return;
+      }
+      payload = {
+        tipe:        'TIMBUL',
+        tanggal:     document.getElementById('piutang-tgl').value,
+        namaDebitur: debitur,
+        nominal:     nominal,
+        jatuhTempo:  document.getElementById('piutang-jatuh-tempo').value || '',
+        keterangan:  document.getElementById('piutang-ket-timbul').value  || ''
+      };
+
+    } else {
+      if (!piutangTerpilih) {
+        Swal.fire({ icon:'warning', title:'Piutang Belum Dipilih',
+                    text:'Pilih piutang yang akan dilunasi terlebih dahulu.',
+                    confirmButtonColor:'#0f766e' });
+        return;
+      }
+      var nomBayar = parseInt(document.getElementById('piutang-bayar-raw').value) || 0;
+      if (nomBayar <= 0) {
+        Swal.fire({ icon:'warning', title:'Nominal Kosong',
+                    text:'Masukkan nominal pelunasan yang valid.',
+                    confirmButtonColor:'#0f766e' });
+        return;
+      }
+      var sisaSkrg = parseFloat(document.getElementById('piutang-sisa-lama').value) || 0;
+      if (nomBayar > sisaSkrg) {
+        Swal.fire({ icon:'error', title:'Nominal Melebihi Sisa',
+                    text:'Pelunasan (Rp' + nomBayar.toLocaleString('id-ID') +
+                         ') tidak boleh melebihi sisa piutang (Rp' +
+                         Math.round(sisaSkrg).toLocaleString('id-ID') + ').',
+                    confirmButtonColor:'#0f766e' });
+        return;
+      }
+      payload = {
+        tipe:         'PELUNASAN',
+        tanggal:      document.getElementById('piutang-tgl').value,
+        idInduk:      document.getElementById('piutang-id-induk').value,
+        namaDebitur:  document.getElementById('piutang-nama-debitur-lunas').value,
+        nominalBayar: nomBayar,
+        sisaSekarang: sisaSkrg,
+        keterangan:   document.getElementById('piutang-ket-lunas').value || ''
+      };
+    }
+
+    btnText.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right:.375rem;"></i>Menyimpan...';
+    btn.disabled = true;
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        Swal.fire({ icon:'success', title:'Berhasil!', text:res, confirmButtonColor:'#0f766e' });
+        gantiModePiutang('TIMBUL');
+        btnText.textContent = origText;
+        btn.disabled = false;
+      })
+      .withFailureHandler(function(err) {
+        Swal.fire({ icon:'error', title:'Gagal Menyimpan', text:err.message, confirmButtonColor:'#0f766e' });
+        btnText.textContent = origText;
+        btn.disabled = false;
+      })
+      .simpanTrxPiutang(payload);
+  }
+
 </script>

@@ -131,6 +131,63 @@ function setupDatabase() {
     sheetTrxKas.setColumnWidth(3, 120);
   }
 
+  /**
+ * TAMBAHKAN ke dalam fungsi setupDatabase() di Code_Main.gs
+ * Letakkan SEBELUM baris Logger.log() di bagian akhir fungsi.
+ *
+ * Tambahkan juga '• Master Debitur\n' dan '• Trx Piutang\n'
+ * ke dalam string Logger.log() yang sudah ada.
+ */
+
+  // ── PIUTANG / AR ───────────────────────────────────────────
+
+  // 8. Master Debitur
+  var sheetDebitur = ss.getSheetByName("Master Debitur");
+  if (!sheetDebitur) {
+    sheetDebitur = ss.insertSheet("Master Debitur");
+    sheetDebitur.appendRow(["ID_Debitur", "Nama_Debitur", "Kontak", "Catatan"]);
+    sheetDebitur.getRange("A1:D1")
+      .setFontWeight("bold")
+      .setBackground("#0f766e")   // teal-700
+      .setFontColor("white");
+    sheetDebitur.setColumnWidth(1, 250);
+    sheetDebitur.setColumnWidth(2, 200);
+    sheetDebitur.setColumnWidth(3, 160);
+    sheetDebitur.setColumnWidth(4, 200);
+  }
+
+  // 9. Trx Piutang
+  var sheetPiutang = ss.getSheetByName("Trx Piutang");
+  if (!sheetPiutang) {
+    sheetPiutang = ss.insertSheet("Trx Piutang");
+    sheetPiutang.appendRow([
+      "ID_Trx",
+      "Tanggal",
+      "ID_Induk",
+      "Nama_Debitur",
+      "Tipe",            // TIMBUL | PELUNASAN
+      "Nominal",
+      "Sisa_Piutang",
+      "Jatuh_Tempo",
+      "Keterangan",
+      "Status"           // AKTIF | LUNAS
+    ]);
+    sheetPiutang.getRange("A1:J1")
+      .setFontWeight("bold")
+      .setBackground("#0f766e")   // teal-700
+      .setFontColor("white");
+    sheetPiutang.setColumnWidth(1, 250);   // ID_Trx
+    sheetPiutang.setColumnWidth(2, 120);   // Tanggal
+    sheetPiutang.setColumnWidth(3, 250);   // ID_Induk
+    sheetPiutang.setColumnWidth(4, 180);   // Nama_Debitur
+    sheetPiutang.setColumnWidth(5, 100);   // Tipe
+    sheetPiutang.setColumnWidth(6, 130);   // Nominal
+    sheetPiutang.setColumnWidth(7, 130);   // Sisa_Piutang
+    sheetPiutang.setColumnWidth(8, 120);   // Jatuh_Tempo
+    sheetPiutang.setColumnWidth(9, 220);   // Keterangan
+    sheetPiutang.setColumnWidth(10, 80);   // Status
+  }
+
   // Tampilkan konfirmasi
   Logger.log(
     '✅ Setup Database Selesai!\n\n' +
