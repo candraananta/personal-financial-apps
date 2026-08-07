@@ -306,3 +306,178 @@ function _updateSisaInduk(sheet, idInduk, sisaBaru, isLunas) {
   // Tidak ditemukan — tidak throw, biarkan tetap jalan
   Logger.log('WARNING: ID Induk tidak ditemukan: ' + idInduk);
 }
+
+
+/**
+ * ==================================================================
+ * FILE: Code_Piutang_Report.gs  (tambahkan ke Code_Piutang.gs yang ada)
+ * FUNGSI: Ambil data piutang lengkap untuk modul laporan
+ *
+ * Kembalikan:
+ * {
+ *   summary: { totalAktif, totalLunas, jumlahDebiturAktif, totalPelunasan },
+ *   debitur: [
+ *     {
+ *       id, nama, kontak,
+ *       nominalAwal, sisaPiutang, nominalAwal,
+ *       jatuhTempo, tglTimbul, status,
+ *       pelunasan: [{ id, tanggal, nominal, sisaSetelah, keterangan, status }]
+ *     }
+ *   ]
+ * }
+ * ==================================================================
+ */
+function getPiutangReport() {
+  try {
+    var ss         = SpreadsheetApp.getActiveSpreadsheet();
+    var sheetTrx   = ss.getSheetByName('Trx Piutang');
+    var sheetDebtr = ss.getSheetByName('Master Debitur');
+
+    if (!sheetTrx || sheetTrx.getLastRow() <= 1) {
+      return { summary: _emptyPiutangSummary_(), debitur: [] };
+    }
+
+    /* ── Baca Master Debitur ── */
+    var masterDebitur = {};
+    if (sheetDebtr && sheetDebtr.getLastRow() > 1) {
+      sheetDebtr.getRange(2, 1, sheetDebtr.getLastRow() - 1, 4).getValues()
+        .forEach(function(r) {
+          masterDebitur[String(r[1]).trim()] = {
+            kontak:  String(r[2] || '').trim(),
+            catatan: String(r[3] || '').trim()
+          };
+        });
+    }
+
+    /* ── Baca semua baris transaksi piutang ── */
+    var rows = sheetTrx.getRange(2, 1, sheetTrx.getLastRow() - 1, 10).getValues();
+
+    /*
+     * STRUKTUR BARIS Trx Piutang:
+     * [0] ID_Trx  [1] Tanggal  [2] ID_Induk  [3] Nama_Debitur
+     * [4] Tipe    [5] Nominal  [6] Sisa_Piutang
+     * [7] Jatuh_Tempo  [8] Keterangan  [9] Status
+     */
+    var timbulMap   = {};   /* idInduk → data timbul */
+    var pelunasanArr = [];  /* semua baris PELUNASAN */
+
+    rows.forEach(function(r) {
+      var id       = String(r[0]).trim();
+      var tgl      = _fmtTglPiutang_(r[1]);
+      var idInduk  = String(r[2]).trim();
+      var nama     = String(r[3]).trim();
+      var tipe     = String(r[4]).trim();
+      var nominal  = parseFloat(r[5]) || 0;
+      var sisa     = parseFloat(r[6]) || 0;
+      var jt       = _fmtTglPiutang_(r[7]);
+      var ket      = String(r[8] || '-').trim();
+      var status   = String(r[9] || '').trim();
+
+      if (!id) return;
+
+      if (tipe === 'TIMBUL') {
+        timbulMap[id] = {
+          id:           id,
+          nama:         nama,
+          tglTimbul:    tgl,
+          nominalAwal:  nominal,
+          sisaPiutang:  sisa,
+          jatuhTempo:   jt,
+          keterangan:   ket,
+          status:       status,          /* AKTIF | LUNAS */
+          kontak:       (masterDebitur[nama] || {}).kontak  || '',
+          catatan:      (masterDebitur[nama] || {}).catatan || '',
+          pelunasan:    []
+        };
+      } else if (tipe === 'PELUNASAN') {
+        pelunasanArr.push({
+          id:          id,
+          idInduk:     idInduk,
+          tanggal:     tgl,
+          nominal:     nominal,
+          sisaSetelah: sisa,
+          keterangan:  ket,
+          status:      status
+        });
+      }
+    });
+
+    /* ── Pasangkan pelunasan ke timbul induknya ── */
+    pelunasanArr.forEach(function(p) {
+      if (timbulMap[p.idInduk]) {
+        timbulMap[p.idInduk].pelunasan.push(p);
+      }
+    });
+
+    /* ── Urutkan pelunasan per piutang: terbaru dulu ── */
+    Object.keys(timbulMap).forEach(function(id) {
+      timbulMap[id].pelunasan.sort(function(a, b) {
+        return String(b.tanggal).localeCompare(String(a.tanggal));
+      });
+    });
+
+    /* ── Sortir piutang: AKTIF dulu, lalu terbesar ── */
+    var debiturList = Object.values(timbulMap).sort(function(a, b) {
+      if (a.status !== b.status) return a.status === 'AKTIF' ? -1 : 1;
+      return b.sisaPiutang - a.sisaPiutang;
+    });
+
+    /* ── Hitung summary ── */
+    var totalAktif          = 0;
+    var totalSudahDilunasi  = 0;
+    var jumlahDebiturAktif  = 0;
+    var totalPelunasanAll   = 0;
+    var jumlahLunas         = 0;
+
+    debiturList.forEach(function(d) {
+      if (d.status === 'AKTIF') {
+        totalAktif         += d.sisaPiutang;
+        jumlahDebiturAktif++;
+      } else {
+        jumlahLunas++;
+      }
+      totalSudahDilunasi += (d.nominalAwal - d.sisaPiutang);
+      d.pelunasan.forEach(function(p) { totalPelunasanAll += p.nominal; });
+    });
+
+    return {
+      summary: {
+        totalAktif:         totalAktif,
+        totalPelunasan:     totalPelunasanAll,
+        jumlahDebiturAktif: jumlahDebiturAktif,
+        jumlahLunas:        jumlahLunas,
+        jumlahTotal:        debiturList.length
+      },
+      debitur: debiturList
+    };
+
+  } catch (e) {
+    throw new Error('Gagal memuat laporan piutang: ' + e.message);
+  }
+}
+
+/* ── Helper: Format tanggal → DD/MM/YYYY atau '' ── */
+function _fmtTglPiutang_(val) {
+  if (!val || val === '' || val === null) return '';
+  if (val instanceof Date) {
+    var d  = String(val.getDate()).padStart(2, '0');
+    var m  = String(val.getMonth() + 1).padStart(2, '0');
+    var y  = val.getFullYear();
+    return d + '/' + m + '/' + y;
+  }
+  var s = String(val).trim();
+  if (!s) return '';
+  /* YYYY-MM-DD → DD/MM/YYYY */
+  var parts = s.split('-');
+  if (parts.length === 3 && parts[0].length === 4) {
+    return parts[2] + '/' + parts[1] + '/' + parts[0];
+  }
+  return s;
+}
+
+function _emptyPiutangSummary_() {
+  return {
+    totalAktif: 0, totalPelunasan: 0,
+    jumlahDebiturAktif: 0, jumlahLunas: 0, jumlahTotal: 0
+  };
+}
